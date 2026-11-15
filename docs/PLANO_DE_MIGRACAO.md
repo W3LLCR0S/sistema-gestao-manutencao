@@ -7,27 +7,45 @@ está implementado, e cada fase só começa após plano aprovado e termina com m
 
 Base do plano: [`AUDITORIA_ARQUITETURAL.md`](AUDITORIA_ARQUITETURAL.md),
 [`MATRIZ_RASTREABILIDADE.md`](MATRIZ_RASTREABILIDADE.md), [`adr/`](adr/README.md),
-[`PRINCIPIOS_SOLID_E_PADROES.md`](PRINCIPIOS_SOLID_E_PADROES.md) e [`DIAGRAMAS.md`](DIAGRAMAS.md). Não há datas: o
-cronograma depende do prazo de entrega, que não consta nesta documentação.
+[`PRINCIPIOS_SOLID_E_PADROES.md`](PRINCIPIOS_SOLID_E_PADROES.md), [`DIAGRAMAS.md`](DIAGRAMAS.md) e
+[`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Não há datas: o cronograma depende do prazo de entrega, que não
+consta nesta documentação. Os prazos das decisões são expressos como **fase antes da qual** cada uma deve estar
+resolvida (seção 5).
 
 ## 1. Princípios da migração
 
 1. **Preservar antes de mudar.** Testes de caracterização do comportamento da Entrega 1 vêm antes de qualquer
    refatoração (ADR-0006).
-2. **Uma camada por vez, sempre executável.** A CLI continua funcionando durante a Fase 02; seu descarte é decisão
-   posterior (D-10).
+2. **Uma camada por vez, sempre executável.** A CLI legada continua intacta e executável durante a Fase 02; seu
+   descarte é decisão posterior (D-10). O código novo nasce em `backend/src/manutencao/` (D-14) sem alterar o legado.
 3. **Regra em um só lugar.** Cada regra que hoje está na UI ou no repositório (AUD-09, AUD-10) é movida para domínio
    ou aplicação, com teste, antes de ser exposta na API.
 4. **Sem dados reais em testes ou migração automática.** Importação de dados reais exige plano idempotente, *backup*,
    simulação e autorização específica (OPC-07).
 5. **Intocáveis nesta documentação:** a tag `entrega-1`, o diretório `app/` e o formato de `dados/dados.json` local.
+6. **Mudança funcional separada de refatoração.** Cada decisão aprovada (D-02 a D-06, validações, desativação) é
+   aplicada em passo próprio, depois de a refatoração preservar o comportamento caracterizado.
+7. **Datas:** novas implementações usam datas com fuso em UTC (D-11, já aprovada); a conversão de dados legados é
+   futura e só ocorre antes da migração de dados, com autorização específica.
+
+### Destino futuro dos módulos legados
+
+| Módulo | Situação durante a migração | Destino proposto | Condição |
+|--------|-----------------------------|------------------|----------|
+| `main.py`, `ui/` | Preservados e executáveis | Remover ou manter como referência | D-10 e autorização específica |
+| `models/` | Preservado como referência de comportamento | Substituído por `domain/` | Paridade comprovada por caracterização |
+| `persistencia/` | Preservado | Não vira implementação final | D-10 |
+| `app/` | Preservada, não utilizada | Avaliar aproveitamento (OPC-06); remoção só com autorização | D-10 |
+| `dados/` | Local, ignorado pelo Git | Nunca versionado nem usado em testes | — |
+
+Detalhes e justificativa em [ADR-0008](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md).
 
 ## 2. Visão geral
 
 | Fase | Branch | Entrega principal | Depende de |
 |------|--------|-------------------|------------|
 | 01 | `docs/auditoria` | Auditoria, matriz, ADRs, diagramas e este plano (documentação) | Fase 00 |
-| 02 | `refactor/arquitetura` | Testes de caracterização; portas; serviços; domínio sem acoplamentos; SOLID | 01 aprovada |
+| 02 | `refactor/arquitetura` | `pytest`, `ruff` e `mypy`; testes de caracterização; novo pacote `manutencao`; portas; serviços; domínio sem acoplamentos; SOLID; decisões D-02 a D-06 | 01 aprovada |
 | 03 | `feat/persistencia` | PostgreSQL, SQLAlchemy, Alembic, repositórios concretos, plano de importação | 02 |
 | 04 | `feat/api-autenticacao` | API FastAPI `/api/v1`, autenticação com hash, autorização no servidor | 02, 03 |
 | 05 | `feat/frontend-base` | SPA React, login, estrutura, componentes, responsividade e acessibilidade base | 04 |
@@ -45,30 +63,39 @@ dados simulados como se fossem de produção) e é validada de ponta a ponta na 
 
 ### Fase 02 — Testes de caracterização e domínio (`refactor/arquitetura`)
 
-**Objetivo:** estruturar o domínio e a aplicação conforme ADR-0002, 0003, 0004 e 0005 sem alterar o comportamento exigido
-pela Entrega 1.
+**Objetivo:** estruturar o domínio e a aplicação conforme ADR-0002, 0003, 0004 e 0005, em `backend/src/manutencao/`
+(D-14), preservando o comportamento exigido pela Entrega 1 e aplicando, **depois e em separado**, as mudanças aprovadas.
 
-**Atividades:**
-1. **Testes de caracterização primeiro** (`pytest`), cobrindo: cada transição de status válida e inválida, permissões por
+**Atividades (nesta ordem):**
+1. **Ferramentas (D-13):** introduzir `pytest`, `ruff` e `mypy` e um manifesto mínimo de dependências. Nenhuma ferramenta é
+   instalada antes da Fase 02.
+2. **Caracterizar** o comportamento atual (ADR-0006, seção 3): cada transição de status válida e inválida, permissões por
    cargo, posse da OS pelo técnico, histórico sequencial, regras de inativação e exclusão de equipamento e usuário,
-   disponibilidade, aprovação, reprovação e cancelamento. Converter o script de verificação da auditoria em testes.
-   Incluir um teste de fumaça da CLI (E1-RNF-02).
-2. Registrar como **comportamento atual** (marcado e explícito) as divergências AUD-09, AUD-11, AUD-12, AUD-13 e AUD-21,
-   até que as decisões D-03 a D-06 sejam tomadas.
-3. Extrair serialização do domínio; introduzir permissões tipadas, tabela de transições, hierarquia de erros e porta de
-   relógio; comparar entidades por ID.
-4. Definir portas de repositório (`Protocol`) por agregado e implementar a versão em memória e um adaptador JSON de
-   transição para manter a CLI.
-5. Criar serviços de aplicação com autorização central; reduzir a CLI a um adaptador dos serviços.
-6. Teste de arquitetura de importações e suíte de contrato dos repositórios.
+   disponibilidade, aprovação, reprovação e cancelamento. Converter o script de verificação da auditoria em testes. Usar
+   uma **fachada estável** para que os mesmos testes valham para o legado e para o novo domínio. Marcar explicitamente
+   como **comportamento atual** as divergências AUD-09, AUD-11, AUD-12, AUD-13 e AUD-21. Incluir um teste de fumaça da CLI
+   (E1-RNF-02).
+3. **Refatorar preservando comportamento:** novo domínio sem serialização; permissões tipadas, tabela de transições,
+   hierarquia de erros e datas com fuso (D-11); porta `Relogio` na aplicação, com o instante entregue ao domínio;
+   comparação de entidades por ID.
+4. **Portas de repositório** (`Protocol`) por agregado e implementação **em memória**. O adaptador JSON de transição é
+   **condicional** a D-10 (ver seção 5): só será criado se a CLI passar a usar os novos serviços.
+5. **Serviços de aplicação** com autorização central e **raiz de composição** separada (ADR-0005).
+6. **Aplicar as mudanças aprovadas, uma por vez**, cada uma com seu teste substituindo o de caracterização e registrada
+   como delta: D-02 (papéis), D-03 (técnico ausente), D-04 (observações e apontamentos), D-05 (disponibilidade),
+   D-06 (diagnóstico), validação de entradas (AUD-12, **mudança de comportamento aprovada**) e campo `ativo` do usuário.
+7. **Teste de arquitetura** de importações e **suíte de contrato** dos repositórios.
 
-**Critérios de aceitação:** testes de caracterização passam no baseline **antes** da refatoração e depois dela; CLI
-funcional; `domain` e `application` sem importar *frameworks* nem persistência concreta; evidência de SRP, ISP, DIP e do
-padrão Repository conforme `PRINCIPIOS_SOLID_E_PADROES.md`.
+**Critérios de aceitação:** testes de caracterização passam no baseline **antes** da refatoração e depois dela; cada
+mudança aprovada tem teste próprio e delta registrado; `ruff` e `mypy` sem erros nos pacotes novos; o legado continua
+executável; `domain` e `application` sem importar *frameworks* nem persistência concreta e `domain` sem importar
+`application`; evidência de SRP, ISP, DIP e do padrão Repository conforme `PRINCIPIOS_SOLID_E_PADROES.md`.
 
-**Riscos:** regressão silenciosa de regra (mitigação: caracterização prévia); refatoração excessiva (mitigação: só
-abstrair com problema concreto); decisões de regra pendentes bloqueando testes (mitigação: registrar comportamento atual
-e corrigir só após decisão).
+**Riscos:** regressão silenciosa de regra (mitigação: caracterização prévia e mudanças separadas); refatoração excessiva
+(mitigação: só abstrair com problema concreto); testes acoplados ao legado perderem validade (mitigação: fachada estável,
+ADR-0006); escopo ampliado se a CLI for adaptada (mitigação: decisão D-10 antes de iniciar).
+
+**Decisões que condicionam esta fase:** D-10 (CLI e adaptador JSON). As demais pendências não a bloqueiam.
 
 ### Fase 03 — Persistência (`feat/persistencia`)
 
@@ -84,9 +111,15 @@ valores); *seeds* de demonstração isolados; **plano** de importação idempote
 SQLAlchemy; teste de duas escritas concorrentes sem perda de dados; *rollback* de migração documentado.
 
 **Riscos:** perda de dados reais (mitigação: importação só com autorização, *backup* confirmado e simulação); diferenças
-entre ambiente local e produção (mitigação: testar contra PostgreSQL, não outro banco); datas legadas sem fuso (D-11).
+entre ambiente local e produção (mitigação: testar contra PostgreSQL, não outro banco); datas legadas sem fuso.
 
-**Dependências:** definir como provisionar o PostgreSQL de desenvolvimento e de teste (D-12).
+**Datas:** o tipo de data já está decidido (D-11: instantes em UTC, exibição em America/Sao_Paulo) e o esquema nasce com
+`timestamp with time zone`. A **conversão dos dados legados** (`dd/mm/aaaa hh:mm`, sem fuso) permanece futura: antes de
+qualquer importação é preciso definir o fuso presumido das datas existentes e o tratamento de horários ambíguos; **nenhuma
+conversão é executada** sem a autorização específica de migração de dados.
+
+**Dependências:** decidir D-07 (campos extras de equipamento), D-08 (importação dos dados) e D-12 (provisionamento do
+PostgreSQL de desenvolvimento e de teste) antes do início da fase.
 
 ### Fase 04 — API e autenticação (`feat/api-autenticacao`)
 
@@ -103,7 +136,9 @@ principais; nenhuma rota administrativa sem autenticação.
 **Riscos:** falhas de segurança de autenticação (mitigação: revisão na Fase 09, sem implementar criptografia própria);
 política de contas iniciais indefinida (D-01).
 
-**Aprovação específica necessária:** política de contas iniciais, redefinição de senha e formato da sessão (D-01).
+**Aprovação específica necessária antes da fase:** política de contas iniciais, redefinição de senha e formato da sessão
+(D-01). Usuários inativos não autenticam (desativação aprovada). Autenticação e controle de integridade são necessários
+para a solução web proposta; não são exigências literais do enunciado.
 
 ### Fase 05 — Frontend base (`feat/frontend-base`)
 
@@ -128,7 +163,12 @@ exclusão e bloqueio de remoção de registros referenciados.
 **Critérios de aceitação:** fluxos completos com testes de permissão (técnico acessando rotas de gestor recebe 403) e
 layout responsivo; histórico íntegro após inativações.
 
-**Riscos:** conflito entre "técnico = permissão" e papel fixo (D-02); campos extras de equipamento (D-07).
+**Atividades adicionais aprovadas:** desativar e reativar usuários sem excluir o histórico (campo `ativo`); decidir a
+política para OS ainda atribuídas a usuário desativado, **sem reatribuição automática inventada** (pendência registrada em
+`DECISOES_APROVADAS.md`, seção 5.2).
+
+**Riscos:** persistência do papel definido em D-02 (aprovada) e sua migração; campos extras de equipamento (D-07, decidir
+antes da Fase 03); OS atribuídas a usuário desativado.
 
 ### Fase 07 — Ordens de serviço (`feat/ordens-servico`)
 
@@ -141,7 +181,9 @@ transacional.
 tabela de estados; reparo sem atribuição válida, finalização sem intervenção, conclusão sem diagnóstico e avanço após
 teste reprovado impedidos; conflito de versão devolve 409 sem perda de dados.
 
-**Riscos:** decisões pendentes D-03 a D-06 alterando regras já testadas (mitigação: tomar essas decisões antes da Fase 07).
+**Riscos:** regressão das regras D-03 a D-06, já **aprovadas** e previstas para a Fase 02, ao expô-las na API
+(mitigação: testes de API que repetem os cenários de `DECISOES_APROVADAS.md`, inclusive chamadas sem a confirmação de
+técnico ausente e observações em OS encerrada).
 
 ### Fase 08 — Dashboard e histórico (`feat/dashboard-historico`)
 
@@ -151,20 +193,23 @@ testadas com dados conhecidos; tratamento de base vazia; gráficos e tabelas leg
 
 **Critérios de aceitação:** indicadores coerentes com os dados persistidos; histórico íntegro; painel responsivo e testado.
 
-**Riscos:** definição de "atrasada" sem regra existente (decisão a tomar na fase; não há prazo/SLA no modelo atual);
-datas como texto (resolvido na Fase 02/03).
+**Riscos:** definição de "atrasada" sem regra existente (D-15, pendente: decidir antes da fase; não há prazo/SLA no modelo
+atual e nenhum será introduzido sem decisão); datas como texto (tipos com fuso definidos pela D-11 e implementados a partir
+da Fase 02).
 
 ### Fase 09 — Testes e qualidade (`test/qualidade`)
 
-**Atividades:** testes unitários, de integração e ponta a ponta dos fluxos Gestor e Técnico; análise estática,
-formatação e verificação de tipos; integração contínua com jobs separados para API e frontend; auditoria de segredos,
-dependências, CORS, *logs*, validação de entrada, sessões e migrações; verificação de responsividade, teclado e contraste.
+**Atividades:** testes de integração e ponta a ponta dos fluxos Gestor e Técnico (os testes unitários, de aplicação,
+`ruff` e `mypy` já existem desde a Fase 02); integração contínua com jobs separados para API e frontend; auditoria de
+segredos, dependências, CORS, *logs*, validação de entrada, sessões e migrações; verificação de responsividade e de
+acessibilidade (teclado, foco, contraste, rótulos e verificação automatizada complementar, meta WCAG 2.1 AA da equipe).
 
 **Critérios de aceitação:** CI verde; testes reproduzíveis; checklist de qualidade e segurança com evidências e
 limitações reais.
 
-**Riscos:** ferramentas E2E, de análise e metas de cobertura ainda indefinidas (D-13); correção de defeitos descobertos
-sem ampliar escopo.
+**Riscos:** ferramenta E2E, ferramentas de frontend além de Vitest, verificação automatizada de acessibilidade e metas de
+cobertura ainda indefinidas (parte de D-13, a decidir nas fases correspondentes); correção de defeitos descobertos sem
+ampliar escopo.
 
 ### Fase 10 — Publicação (`deploy/producao`) — opcional
 
@@ -200,33 +245,52 @@ verificada.
 | R-04 | Abstração excessiva ("padrões para aumentar quantidade") | Média | Médio | Só adotar padrão com problema concreto (seção 2.2 de `PRINCIPIOS_SOLID_E_PADROES.md`) |
 | R-05 | Falha de segurança na autenticação | Média | Alto | Bibliotecas consolidadas, sem criptografia própria; testes 401/403; revisão na Fase 09 |
 | R-06 | Concorrência e integridade na API | Média | Alto | Versão otimista e transações; teste de escritas concorrentes |
-| R-07 | Decisões de regra pendentes retardando testes | Média | Médio | Registrar comportamento atual e decidir antes da Fase 07 |
-| R-08 | Ambiente PostgreSQL inconsistente entre máquinas e CI | Média | Médio | Definir provisionamento em D-12 antes da Fase 03 |
-| R-09 | Duas implementações (`main.py` e `app/`) confundirem manutenção | Média | Médio | Manter `app/` intocada até decisão; não criar um terceiro conjunto paralelo |
+| R-07 | Decisões pendentes (D-10, D-07, D-08, D-12, D-01, D-15) retardando fases | Média | Médio | Cada decisão tem fase-limite na seção 5.2; D-10 precisa ser resolvida antes da Fase 02 |
+| R-08 | Ambiente PostgreSQL inconsistente entre máquinas e CI | Média | Médio | Decidir D-12 antes da Fase 03 |
+| R-09 | Legado (`main.py`, `models/`, `app/`) e novo pacote confundirem a manutenção | Média | Médio | Manter o legado intocado até decisão (D-10); todo código novo vai para `backend/src/manutencao/` (ADR-0008) |
 | R-10 | Documentação diverge do código | Média | Médio | Marcar tudo como planejado ou implementado; validar comandos na Fase 11 |
 | R-11 | Custos e limites de hospedagem | Média | Médio | Decisão e aprovação prévia (Fase 10 é opcional) |
 
-## 5. Decisões pendentes
+## 5. Decisões: aprovadas e pendentes
 
-Nenhuma é tomada por esta documentação. Cada uma precisa de decisão explícita antes da fase indicada.
+Fonte detalhada: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Aprovar uma decisão **não** é implementá-la: as
+aprovadas orientam as fases indicadas. Cada decisão pendente tem uma fase **antes da qual** deve estar resolvida; a coluna
+considera a fase em que o primeiro artefato dependente nasce, e não a fase em que a decisão é usada por último.
 
-| ID | Decisão | Origem | Necessária antes de |
-|----|---------|--------|---------------------|
-| D-01 | Mecanismo de sessão ou token, política de senha inicial, contas iniciais e recuperação de acesso | AUD-01 | Fase 04 |
-| D-02 | "Técnico" é definido por cargo/papel ou por permissão editável? | AUD-20 | Fase 02 (modelo) |
-| D-03 | Atribuir a técnico **Ausente**: bloquear, avisar ou permitir? Onde a regra reside | AUD-09 | Fase 02 |
-| D-04 | Permitir apontamento em OS **encerrada** e por quem (hoje qualquer usuário com permissão) | AUD-11 | Fase 02 |
-| D-05 | "Aguardando Peça" conta como "Em atendimento"? (hoje só "Em Execução") | AUD-13 | Fase 02 |
-| D-06 | Diagnóstico obrigatório para finalizar o reparo, ou aceito em "Reparo Finalizado"? | AUD-21 | Fase 02 |
-| D-07 | Incluir campos extras de equipamento (fabricante, nº de série, setor, data de aquisição)? | OPC-06 | Fase 03 |
-| D-08 | Importar os dados JSON existentes? Destino do `dados/dados.json` local (formato incompatível com `app/`) | OPC-07, AUD-06 | Fase 03 |
-| D-09 | Hospedagem da API e do PostgreSQL, plano e custos | ADR-0001 | Fase 10 |
-| D-10 | Quando descontinuar a CLI e o que fazer com `app/` (remoção exige autorização) | AUD-18 | Após Fase 04 |
-| D-11 | Fuso e conversão das datas legadas (`dd/mm/aaaa hh:mm`, sem fuso) | AUD-07 | Fase 03 |
-| D-12 | Como provisionar o PostgreSQL de desenvolvimento, teste e CI | ADR-0006 | Fase 03 |
-| D-13 | Ferramentas E2E, de análise estática e de tipos, e metas de cobertura | ADR-0006 | Fase 09 |
-| D-14 | Nome do pacote do backend e estrutura de diretórios definitiva (sem conflitar com `app/`) | ADR-0002 | Fase 02 |
-| D-15 | Definição de OS "atrasada" e regras de prazo, inexistentes no modelo atual | Dashboard (E2-FRT-03) | Fase 08 |
+### 5.1 Aprovadas
+
+| ID | Decisão | Implementação |
+|----|---------|---------------|
+| D-02 | Gestor e Técnico são papéis explícitos; permissões continuam configuráveis | Fase 02 |
+| D-03 | Atribuição a Técnico Ausente recusada por padrão; confirmação explícita validada na aplicação | Fase 02 (regra), 04 (API) |
+| D-04 | Bloquear apontamentos em OS Concluída ou Cancelada; observações pelo autor da abertura; operações distintas | Fase 02 |
+| D-05 | Disponibilidade calculada a partir das OS Em Execução; ausência manual separada e prevalecente | Fase 02 |
+| D-06 | Diagnóstico obrigatório antes de Reparo Finalizado | Fase 02 |
+| D-11 | Datas com fuso, UTC no armazenamento, America/Sao_Paulo na exibição; conversão de dados legados futura | Fase 02 (tipos); conversão antes da migração de dados |
+| D-13 | `pytest`, `ruff` e `mypy` a partir da Fase 02; frontend e E2E nas fases correspondentes | Fase 02 |
+| D-14 | Pacote `backend/src/manutencao/`; legado preservado; migração gradual | Fase 02 |
+| — | Validação de entradas no servidor (mudança de comportamento aprovada, AUD-12) | Fases 02 e 04 |
+| — | Campo `ativo` e desativação de usuários, sem política automática de reatribuição | Fases 02, 03 e 06 |
+
+### 5.2 Pendentes
+
+Nenhuma é considerada aprovada. As recomendações são propostas da equipe.
+
+| ID | Decisão | Origem | Necessária antes de | Observação |
+|----|---------|--------|---------------------|------------|
+| D-10 | CLI sobre os novos serviços e adaptador JSON de transição? Futuro de `app/` | AUD-18 | **Fase 02** (parte CLI); após a Fase 04 (remoções) | **Dependência imediata** da Fase 02. Recomendação: legado intacto, sem adaptador JSON nem CLI nova |
+| D-07 | Incluir campos extras de equipamento (fabricante, nº de série, setor, data de aquisição) | OPC-06 | Fase 03 (esquema do banco) | Evolução aditiva; não bloqueia a Fase 02 |
+| D-08 | Importar os dados JSON existentes? Destino do `dados/dados.json` local | OPC-07, AUD-06 | Fase 03 | Exige autorização específica e a conversão de datas |
+| D-12 | Provisionamento do PostgreSQL de desenvolvimento, teste e CI | ADR-0006 | Fase 03 | Fase 02 usa só repositórios em memória |
+| D-01 | Sessão ou token, política de senha inicial, contas iniciais, recuperação | AUD-01 | Fase 04 | Aprovação específica |
+| D-15 | Definição de OS "atrasada" e prazos | Dashboard (E2-FRT-03) | Fase 08 | Sem prazo no modelo atual |
+| D-09 | Hospedagem da API e do PostgreSQL, plano e custos | ADR-0001 | Fase 10 | Fase opcional |
+
+Decisões ainda abertas **dentro** de D-13: ferramenta E2E, ferramentas de frontend além de Vitest, verificação
+automatizada de acessibilidade e metas de cobertura (Fases 05 e 09).
+
+Pontos sem identificador, também **não decididos**: separação das permissões de aprovar e cancelar
+(`DECISOES_APROVADAS.md`, seção 6.1) e política para OS atribuídas a usuários desativados (seção 5.2 do mesmo documento).
 
 ## 6. Rastreio de fases e requisitos
 
