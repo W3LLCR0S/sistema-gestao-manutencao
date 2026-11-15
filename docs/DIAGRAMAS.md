@@ -35,8 +35,9 @@ flowchart LR
 
 ## 2. Componentes do sistema-alvo
 
-Direção aprovada para documentação (ADR-0001 e ADR-0002). Nomes de pacotes e de rotas serão definidos nas fases de
-implementação.
+Direção aprovada para documentação (ADR-0001, ADR-0002 e ADR-0008). O pacote do backend será
+`backend/src/manutencao/` (D-14). Nomes de rotas serão definidos nas fases de implementação. A CLI sobre os novos
+serviços é **condicional** à decisão D-10 (pendente); na recomendação atual, a CLI legada permanece intacta.
 
 ```mermaid
 flowchart TB
@@ -44,11 +45,12 @@ flowchart TB
         spa["SPA React + TypeScript<br/>Vite + Tailwind CSS"]
     end
 
-    subgraph backend["Backend Python"]
+    subgraph backend["Backend Python - manutencao"]
         subgraph apic["api (FastAPI)"]
             rotas["rotas /api/v1<br/>esquemas Pydantic"]
             auth["autenticacao por requisicao"]
             erros["traducao de erros"]
+            provedores["provedores Depends<br/>obtem servico pronto"]
         end
         subgraph appc["application"]
             servicos["servicos de caso de uso<br/>Service Layer"]
@@ -60,22 +62,28 @@ flowchart TB
         subgraph infc["infrastructure"]
             reposql["repositorios SQLAlchemy 2"]
             repomem["repositorios em memoria<br/>testes"]
+            relsis["relogio do sistema UTC"]
             migr["migracoes Alembic"]
         end
-        cli["CLI de transicao<br/>adaptador, Fase 02"]
+        comp["composicao<br/>raiz de composicao"]
+        cli["CLI sobre os servicos<br/>condicional a D-10"]
     end
 
     pg[("PostgreSQL")]
 
     spa -->|"HTTP + JSON, contrato OpenAPI"| rotas
-    rotas --> servicos
-    cli --> servicos
+    rotas --> provedores
+    provedores --> servicos
+    cli -.-> servicos
     servicos --> entidades
     servicos --> portas
     reposql -.->|"implementa"| portas
     repomem -.->|"implementa"| portas
+    relsis -.->|"implementa"| portas
     reposql --> pg
     migr --> pg
+    comp -.->|"cria e liga implementacoes"| reposql
+    comp -.->|"monta servicos e app"| servicos
 ```
 
 ## 3. Dependências entre camadas
@@ -89,11 +97,26 @@ flowchart LR
     application --> domain["domain"]
     infrastructure["infrastructure"] --> application
     infrastructure --> domain
-    api -.->|"composicao: Depends monta<br/>implementacoes concretas"| infrastructure
+    composicao["composicao<br/>raiz de composicao"] --> api
+    composicao --> application
+    composicao --> infrastructure
+    composicao --> domain
 ```
 
-Proibido (defeito se ocorrer): `domain` importar `application`, `infrastructure` ou `api`; `application` importar
-`infrastructure` ou `api`; `domain` e `application` importarem FastAPI, SQLAlchemy ou Pydantic.
+Dependências permitidas por camada:
+
+| Camada | Pode importar |
+|--------|---------------|
+| `domain` | Somente a biblioteca padrão |
+| `application` | `domain` |
+| `infrastructure` | `application` (portas) e `domain` |
+| `api` | `application` e `domain` (tipos) |
+| `composicao` | Todas as camadas (é a única que conhece as implementações concretas) |
+
+Proibido (defeito se ocorrer): `domain` importar `application`, `infrastructure`, `api` ou `composicao`; `application`
+importar `infrastructure`, `api` ou `composicao`; `api` importar `infrastructure`; qualquer camada importar `composicao`;
+`domain` e `application` importarem FastAPI, SQLAlchemy ou Pydantic. O relógio é uma porta de `application`; o instante é
+entregue ao domínio como argumento (ADR-0007).
 
 ## 4. Entidades do domínio (baseline)
 
@@ -111,6 +134,12 @@ classDiagram
         +pode(acesso) bool
         +exigir(acesso)
         +e_tecnico bool
+    }
+    class Disponibilidade {
+        <<enumeration>>
+        Disponivel
+        EmAtendimento
+        Ausente
     }
     class Cargo {
         +int id
@@ -171,6 +200,7 @@ classDiagram
         +float quantidade
     }
     Usuario "*" --> "1" Cargo : cargo
+    Usuario "*" --> "1" Disponibilidade : disponibilidade gravada
     Cargo "1" --> "1" Permissoes : permissoes
     OrdemServico "*" --> "1" Equipamento : equipamento
     OrdemServico "*" --> "0..1" Usuario : tecnico_atribuido
@@ -181,9 +211,20 @@ classDiagram
     Servico "1" *-- "*" PecaMaterial : pecas
 ```
 
-**Mudanças previstas (não implementadas):** credencial protegida por hash em `Usuario`; datas como tipo data/hora com
-fuso; versão para controle otimista em `OrdemServico`; permissões como enumeração tipada; remoção de `to_dict`/`from_dict`
-das entidades. Campos extras de `Equipamento` dependem de decisão (OPC-06 na [matriz](MATRIZ_RASTREABILIDADE.md)).
+**Disponibilidade no baseline:** é um **atributo gravado** em `Usuario`, atualizado pelo `Repositorio` quando a interface
+chama `atualizar_disponibilidades()` (`persistencia/repositorio.py:112-119`); `Ausente` é definido manualmente. `e_tecnico`
+é derivado da permissão `apontar_reparo`, não do cargo (AUD-20).
+
+**Mudanças previstas (não implementadas):**
+- papel (Gestor ou Técnico) explícito no domínio, independente das permissões (D-02);
+- ausência manual registrada **separadamente** e disponibilidade operacional **calculada** a partir das OS Em Execução,
+  com a ausência prevalecendo (D-05); deixa de ser atributo gravado;
+- campo `ativo` em `Usuario` (desativação sem exclusão);
+- datas como `datetime` com fuso, armazenadas em UTC (D-11);
+- credencial protegida por hash em `Usuario`; versão para controle otimista em `OrdemServico`; permissões como
+  enumeração tipada; remoção de `to_dict`/`from_dict` das entidades.
+
+Campos extras de `Equipamento` dependem de decisão (D-07/OPC-06 na [matriz](MATRIZ_RASTREABILIDADE.md)).
 
 ## 5. Máquina de estados da OS (baseline)
 
@@ -209,7 +250,6 @@ stateDiagram-v2
     PECA --> EXEC : alterar status
     EXEC --> FIM : alterar status, exige intervencao ✓
     PECA --> FIM : alterar status, exige intervencao
-    ATRIBUIDA --> FIM : exige intervencao (recusa sem ela confirmada ✓)
     FIM --> EXEC : alterar status (Tecnico) ✓
     FIM --> PECA : alterar status
     FIM --> FIM : teste funcional reprovado ✓ (permanece)
@@ -227,6 +267,12 @@ stateDiagram-v2
 ```
 
 Observações verificadas:
+- **Não há transição direta Atribuída → Reparo Finalizado.** O código permite tentar (`alterar_status` aceita a
+  origem Atribuída), mas exige ao menos uma intervenção, e a primeira intervenção (`apontar_reparo`) já move a OS para
+  Em Execução (`ordem_servico.py:118-119,133-134`). Por isso a aresta não existe no diagrama (a recusa sem intervenção foi
+  confirmada por execução).
+- **Alvo (D-06, não implementado):** a transição para Reparo Finalizado passa a exigir também o diagnóstico registrado;
+  as demais arestas acima são preservadas.
 - Reatribuir é recusado em "Aguardando Aprovação" ✓ e permitido em "Em Execução" mantendo o status ✓; pelo código, também é
   permitido nos demais status não finais (não executado). A atribuição a partir de "Aberta" muda o status para "Atribuída" ✓.
 - O diagnóstico só é aceito em Atribuída, Em Execução e Aguardando Peça (ver AUD-21 na auditoria).
@@ -234,7 +280,8 @@ Observações verificadas:
 
 ## 6. Fluxo principal das ordens de serviço
 
-Comportamento da Entrega 1 que deve ser **preservado** na aplicação web. Os nomes das rotas serão definidos na Fase 04.
+Comportamento da Entrega 1 que deve ser **preservado** na aplicação web, com as mudanças aprovadas assinaladas (D-03 a
+D-06, **não implementadas**). Os nomes das rotas serão definidos na Fase 04.
 
 ```mermaid
 sequenceDiagram
@@ -247,6 +294,7 @@ sequenceDiagram
     U->>S: abrir chamado (equipamento ativo, falha, criticidade)
     S-->>U: OS Aberta, historico #1 Abertura
     G->>S: atribuir a um tecnico
+    Note over G,S: alvo D-03: tecnico Ausente exige confirmacao explicita enviada ao servidor
     S-->>G: OS Atribuida, historico registra a atribuicao
     opt reatribuicao antes da aprovacao
         G->>S: reatribuir a outro tecnico
@@ -260,6 +308,7 @@ sequenceDiagram
         S-->>T: status atualizado, historico registra a mudanca
     end
     T->>S: alterar status para Reparo Finalizado (exige intervencao)
+    Note over T,S: alvo D-06: exige tambem o diagnostico registrado
     T->>S: conclusao tecnica com teste funcional
     alt teste aprovado
         S-->>T: OS Aguardando Aprovacao
@@ -273,6 +322,10 @@ sequenceDiagram
     else teste reprovado
         S-->>T: OS permanece em Reparo Finalizado
     end
+    opt observacao em OS ativa (alvo D-04)
+        U->>S: registrar observacao (gestor, tecnico responsavel ou autor da abertura)
+        S-->>U: historico registra autor, data e tipo; status inalterado
+    end
     opt cancelamento antes do encerramento
         G->>S: cancelar com motivo
         S-->>G: OS Cancelada, data registrada
@@ -281,7 +334,9 @@ sequenceDiagram
 
 ## 7. Anatomia de uma operação na API (alvo)
 
-Exemplo: **apontar reparo**. Mostra onde cada responsabilidade reside (ADR-0003) e como os erros são traduzidos.
+Exemplo: **apontar reparo**. Mostra onde cada responsabilidade reside (ADR-0003), como o relógio é obtido pela aplicação
+e entregue ao domínio (ADR-0007) e como os erros são traduzidos. Serviço e repositório chegam à rota já montados pela raiz
+de composição (ADR-0005), que não aparece na sequência por atuar na inicialização.
 
 ```mermaid
 sequenceDiagram
@@ -291,6 +346,7 @@ sequenceDiagram
     participant AUT as autenticacao
     participant SVC as application (servico)
     participant REP as porta OrdemServicoRepository
+    participant REL as porta Relogio
     participant DOM as domain (OrdemServico)
     participant DB as PostgreSQL
 
@@ -304,7 +360,9 @@ sequenceDiagram
     DB-->>REP: registros e versao
     REP-->>SVC: entidade OrdemServico
     SVC->>SVC: autoriza (permissao e OS do tecnico; senao 403)
-    SVC->>DOM: apontar_reparo(horas, intervencao, pecas)
+    SVC->>REL: agora()
+    REL-->>SVC: instante com fuso (UTC)
+    SVC->>DOM: apontar_reparo(horas, intervencao, pecas, instante)
     DOM-->>SVC: estado e historico atualizados (senao 409 ou 422)
     SVC->>REP: salvar OS
     REP->>DB: UPDATE condicionado a versao
