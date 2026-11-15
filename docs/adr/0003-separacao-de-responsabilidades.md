@@ -30,8 +30,8 @@ Numa API, isso significaria repetir ou esquecer regras em cada rota.
 | Orquestração, transação e leitura/gravação via portas | `application` | O caso de uso define a fronteira da transação (ADR-0004) |
 | Autenticação (quem é o usuário da requisição), sessão, CORS | `api` | Entrega o usuário autenticado ao caso de uso |
 | Persistência e mapeamento entidade ↔ tabela | `infrastructure` | Repositórios não contêm regra de negócio |
-| Disponibilidade do técnico | `domain`/`application` (derivada de OS ativas e do estado "Ausente" manual) | Calculada na leitura ou na mesma transação, nunca dependente da UI |
-| Datas e horas | `domain` recebe um relógio (porta) | Tipo data/hora com fuso, não texto |
+| Disponibilidade do técnico | `domain`/`application` (derivada das OS **Em Execução**; a ausência manual é registrada à parte e tem precedência) | Calculada na leitura ou na mesma transação, nunca dependente da UI (D-05, [ADR-0009](0009-papeis-autorizacao-e-regras-da-os.md)) |
+| Datas e horas | `application` obtém o instante pelo relógio (porta) e o **entrega ao `domain`** | Tipo data/hora com fuso, armazenado em UTC, exibido em America/Sao_Paulo ([ADR-0007](0007-datas-fuso-horario-e-relogio.md)); o domínio não importa o relógio |
 | Tradução de erros em respostas | `api` | Ver hierarquia abaixo |
 
 **Hierarquia de erros de domínio** (substitui a exceção única, AUD-14), traduzida na borda:
@@ -55,7 +55,10 @@ A CLI de transição mostra a mensagem do mesmo erro, sem código HTTP.
 ## Consequências
 
 - Os testes de caracterização (ADR-0006) devem registrar o comportamento atual antes de mover cada regra.
-- Os pontos em que o baseline diverge entre UI e domínio (AUD-09, AUD-11) exigem **decisões de regra**, listadas em
-  [`PLANO_DE_MIGRACAO.md`](../PLANO_DE_MIGRACAO.md), e **não** são alterados por esta ADR.
+- Os pontos em que o baseline diverge entre UI e domínio (AUD-09, AUD-11) foram resolvidos pelas decisões D-02 a D-06
+  ([`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md), [ADR-0009](0009-papeis-autorizacao-e-regras-da-os.md)); esta ADR
+  define só **onde** cada regra reside. As regras aprovadas são **futuras**, não comportamento atual.
+- Regras que hoje existem **apenas na interface** (a confirmação de técnico ausente, a proteção contra o gestor remover o
+  próprio acesso, `ui/tela_usuarios.py:58,104`) passam para `application`; a interface só coleta a confirmação.
 - Autenticação (formato da sessão ou do token, política de senha inicial, recuperação de acesso) **ainda não está
   especificada**; será proposta na Fase 04 com aprovação específica. Esta ADR define só onde cada parte reside.

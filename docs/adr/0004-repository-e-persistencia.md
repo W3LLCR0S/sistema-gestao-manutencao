@@ -31,13 +31,15 @@ trata a incompatibilidade com a implementação paralela em `app/` (AUD-06).
    filtros, listar OS ativas de um técnico), sem regra de negócio.
 2. **Implementações** (adaptadores em `infrastructure`):
    - **em memória**, para testes de unidade e de aplicação;
-   - **JSON de transição**, apenas se necessário para manter a CLI funcionando durante a Fase 02;
+   - **JSON de transição**, **condicional**: só será criado se a decisão D-10 mantiver a CLI como adaptador dos novos
+     serviços. Na recomendação atual (CLI legada intacta e executável, conforme D-14), **não** é criado;
    - **SQLAlchemy 2 / PostgreSQL**, na Fase 03.
 3. **Fronteira de transação** no caso de uso: o serviço de aplicação abre a unidade de trabalho e confirma ao final
    (*proposta*: usar a sessão do SQLAlchemy como unidade de trabalho, exposta por uma porta simples). A UI deixa de
    chamar `salvar()`.
 4. **Mapeamento**: modelos de persistência separados das entidades de domínio, com mapeadores explícitos
    (*proposta*, para manter o domínio livre de ORM; alternativa de mapeamento imperativo a avaliar na Fase 03).
+   Datas persistidas como instantes em UTC com fuso (D-11, [ADR-0007](0007-datas-fuso-horario-e-relogio.md)).
 5. **Concorrência**: controle otimista por coluna de versão na `OrdemServico`; escrita sobre versão desatualizada falha com
    erro de conflito (HTTP 409), sem sobrescrever (*proposta*, a confirmar na Fase 03).
 6. **Identificadores**: sequências do banco; na eventual importação, os IDs existentes são preservados (ver decisões
@@ -61,4 +63,6 @@ trata a incompatibilidade com a implementação paralela em `app/` (AUD-06).
 - Consultas de leitura para o *dashboard* podem justificar uma porta de leitura separada (Fase 08), sem alterar os
   repositórios de escrita.
 - O repositório JSON atual não é reaproveitado como implementação final; o `Repositorio` e `app/` são preservados até
-  decisão posterior.
+  decisão posterior ([ADR-0008](0008-estrutura-do-backend-e-convivencia-com-o-legado.md)).
+- Usuários passam a ter o campo `ativo` (desativação sem exclusão, `DECISOES_APROVADAS.md`, seção 5.2); as chaves
+  estrangeiras para usuários desativados são mantidas para preservar o histórico.

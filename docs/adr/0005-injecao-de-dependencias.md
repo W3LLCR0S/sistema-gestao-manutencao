@@ -1,6 +1,6 @@
 # ADR-0005 — Injeção de dependências
 
-- **Status:** Aceita para documentação (Fase 01).
+- **Status:** Aceita para documentação (Fase 01); revisada para esclarecer a raiz de composição.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0004; AUD-16; E2-SOL-05, E2-PAD-01
 
@@ -24,13 +24,20 @@ precisam receber repositórios, relógio e serviço de hash sem conhecer as impl
 
 - **Injeção por construtor** nos serviços de aplicação: cada serviço declara, como parâmetros, as portas de que precisa
   (`Protocol`), e não importa implementações concretas.
-- **Raiz de composição** na camada `api`: funções `Depends` constroem repositórios SQLAlchemy, o relógio, o hash de senha
-  e os serviços a cada requisição, com a sessão do banco como dependência de escopo de requisição.
-- **Isolamento do *framework***: `Depends` e demais tipos do FastAPI aparecem **somente** em `api`. Os serviços não os
-  importam.
+- **Raiz de composição** em módulo próprio (`composicao`, ver [ADR-0002](0002-arquitetura-em-camadas.md)), a camada mais
+  externa: cria repositórios SQLAlchemy, o relógio e o hash de senha, monta os serviços (com a sessão do banco em escopo
+  de requisição) e os disponibiliza à aplicação FastAPI. É o **único** lugar que importa as implementações concretas.
+- **A `api` não importa `infrastructure`.** Suas funções `Depends` apenas **obtêm o serviço pronto** do contêiner
+  registrado pela raiz de composição. A API depende de `application`; a raiz de composição depende de todas as camadas.
+- **Casos de uso dependem de abstrações** (`Protocol` definidos em `application`), nunca de classes concretas.
+- **Isolamento do *framework***: `Depends` e demais tipos do FastAPI aparecem **somente** em `api` e `composicao`. Os
+  serviços de aplicação e o domínio não os importam.
 - **Testes** substituem dependências por implementações em memória (diretamente no construtor, ou com
   `dependency_overrides` nos testes de API).
-- **CLI de transição** (Fase 02) tem sua própria raiz de composição, montando os mesmos serviços.
+- Se, pela decisão D-10, houver uma CLI sobre os novos serviços, ela terá sua própria raiz de composição, montando os
+  mesmos serviços. Na recomendação atual, a CLI legada permanece como está e não usa a injeção.
+- O relógio é uma porta de `application` e seu instante é entregue ao domínio como argumento
+  ([ADR-0007](0007-datas-fuso-horario-e-relogio.md)); o domínio não recebe dependências injetadas.
 - Nenhum contêiner de DI de terceiros.
 
 ## Justificativa
