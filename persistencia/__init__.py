@@ -1,0 +1,1 @@
+from persistencia.repositorio import Repositorio

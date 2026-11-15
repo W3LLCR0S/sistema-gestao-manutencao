@@ -1,0 +1,46 @@
+# --- Planejamento (nunca versionar) ---
+/planejamento/
+planejamento/
+00_CONTROLE_GERAL.md
+COMO_USAR.md
+FASE_[0-9][0-9].md
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Ambientes virtuais ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Segredos / configuracao local ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Dados locais (preservar apenas .gitkeep) ---
+dados/*
+!dados/.gitkeep
+*.tmp
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Logs, IDE e sistema operacional ---
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
