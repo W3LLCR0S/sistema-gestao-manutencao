@@ -63,6 +63,7 @@ Esses comportamentos são o contrato funcional a ser protegido por testes de car
 | AUD-18 | Implementação paralela em `app/` sem ponto de entrada | Média | Executado (busca) + estático |
 | AUD-19 | Documentação da Entrega 1 afirma mais do que o código sustenta | Baixa | Estático |
 | AUD-20 | Ambiguidade: "técnico" definido por permissão editável | Baixa | Estático |
+| AUD-21 | Reparo pode ser finalizado sem diagnóstico, que depois só é aceito voltando o status | Média | Executado |
 
 ## 4. Autenticação e autorização
 
@@ -165,6 +166,15 @@ dados e grava o arquivo** quando ele não existe (`:27-31`), efeito colateral in
 um técnico que **não** é dono da OS incluiu um apontamento em OS **Concluída** (histórico passou de 11 para 12 registros,
 status inalterado). Isso contradiz a ideia de histórico encerrado. **Decisão pendente:** permitir ou não apontamento em OS
 encerrada e por quem (ver plano de migração).
+
+### AUD-21 — Sequência diagnóstico × finalização inconsistente (Média) [Executado]
+`alterar_status` só exige intervenção para finalizar o reparo (`ordem_servico.py:133-134`); `concluir_tecnicamente` exige
+diagnóstico (`:142-143`); mas `registrar_diagnostico` só aceita OS em Atribuída, Em Execução ou Aguardando Peça
+(`:106`). Verificado (Apêndice A, F): com a OS em "Reparo Finalizado" **sem diagnóstico**, a conclusão é recusada
+("Registre o diagnóstico antes de concluir.") **e** o diagnóstico também é recusado ("Operação não permitida com a OS em
+'Reparo Finalizado'."). O técnico só avança voltando o status para "Em Execução" (permitido), registrando o diagnóstico e
+finalizando de novo. Não há bloqueio definitivo, mas o caminho é indireto e gera transições e registros de histórico
+extras. **Decisão pendente:** exigir diagnóstico para finalizar, ou aceitar diagnóstico em "Reparo Finalizado".
 
 ### AUD-12 — Validações só na UI (Média) [Executado]
 `ler_float(..., minimo)` (`ui/entrada.py:36-45`) e `ler(..., obrigatorio=True)` validam na tela. No domínio,
@@ -308,6 +318,16 @@ Repositorio(arq("d.json"))                     # AttributeError: 'list' object h
 ap.ARQUIVO_DADOS, ap.PASTA_DADOS = arq("c.json"), tmp
 ctx = Contexto(); ctx.prox_id("os")             # KeyError: 'seq'
 ctx.pode("aprovar_os", ctx.db["usuarios"][1])   # True para o técnico (chaves do dict existem)
+```
+
+**F — finalizar sem diagnóstico (AUD-21)**
+```python
+r = Repositorio(arq("f.json")); ana, bruno, carla = r.usuarios
+o = OrdemServico.abrir(1, r.equipamentos[0], "x", Criticidade.BAIXA, carla); o.atribuir(bruno, ana)
+o.apontar_reparo(bruno, 1, "troca", []); o.alterar_status(bruno, StatusOS.REPARO_FINALIZADO)
+o.concluir_tecnicamente(bruno, "t", True)      # RegraNegocioError: Registre o diagnóstico antes de concluir.
+o.registrar_diagnostico(bruno, "p", "c")       # RegraNegocioError: Operação não permitida com a OS em 'Reparo Finalizado'.
+o.alterar_status(bruno, StatusOS.EM_EXECUCAO)  # permitido; só então o diagnóstico é aceito
 ```
 
 **E — disponibilidade (AUD-13)**

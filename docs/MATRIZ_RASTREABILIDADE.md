@@ -60,7 +60,7 @@ refatorada na Fase 02, entregue na interface web na Fase 06.
 | E1-TEC-01 | Obrigatório | E1, Funções Exclusivas do Técnico | Registrar diagnóstico (parecer inicial e causa-raiz) | Atendido | `models/ordem_servico.py:103-109`; `ui/tela_tecnico.py:15-23`; exige permissão, OS do técnico e status válido | — | 02 → 07 | Só o técnico atribuído registra; status inválido ou OS de outro técnico recusados; entrada no histórico |
 | E1-TEC-02 | Obrigatório | E1, Funções Exclusivas do Técnico | Apontar horas, intervenções e peças/materiais | Atendido com ressalva | `ordem_servico.py:111-123`; `models/peca_material.py` valida quantidade > 0 | Domínio aceita 0 h e intervenção vazia (AUD-12, executado) | 02 → 07 | Horas > 0 e descrição obrigatória; totais da OS somam os apontamentos; histórico registra horas e peças |
 | E1-TEC-03 | Obrigatório | E1, Funções Exclusivas do Técnico | Atualizar status para Em Execução, Aguardando Peça ou Reparo Finalizado | Atendido | `ordem_servico.py:125-135`; recusa finalizar sem intervenção | — | 02 → 07 | Tabela de transições testada, positivos e negativos; bloqueio de "Reparo Finalizado" sem intervenção |
-| E1-TEC-04 | Obrigatório | E1, Funções Exclusivas do Técnico | Conclusão técnica após testes funcionais, submetendo a OS ao encerramento | Atendido | `ordem_servico.py:137-150`; exige diagnóstico; teste reprovado não avança | — | 02 → 07 | Conclusão exige diagnóstico e resultado de teste; reprovação mantém "Reparo Finalizado"; aprovação leva a "Aguardando Aprovação" |
+| E1-TEC-04 | Obrigatório | E1, Funções Exclusivas do Técnico | Conclusão técnica após testes funcionais, submetendo a OS ao encerramento | Atendido com ressalva | `ordem_servico.py:137-150`; exige diagnóstico; teste reprovado não avança (executado) | Finalizar sem diagnóstico bloqueia diagnóstico e conclusão até voltar o status (AUD-21, executado) | 02 → 07 | Conclusão exige diagnóstico e resultado de teste; reprovação mantém "Reparo Finalizado"; aprovação leva a "Aguardando Aprovação" |
 
 ### 2.4 Funções exclusivas do Gestor
 
@@ -134,10 +134,10 @@ técnica para a aplicação web (por exemplo, não é possível expor a API sem 
 
 | Grupo | Total | Atendido | Atendido com ressalva | Parcial | Não atendido | Não verificado |
 |-------|-------|----------|-----------------------|---------|--------------|----------------|
-| Entrega 1 (obrigatórios) | 26 | 11 | 14 | 0 | 0 | 1 |
+| Entrega 1 (obrigatórios) | 26 | 10 | 15 | 0 | 0 | 1 |
 | Entrega 2 (obrigatórios) | 20 | 0 | 0 | 8 | 12 | 0 |
 | Opcionais | 8 | — | — | — | 8 | — |
 
-Leitura: a Entrega 1 está funcionalmente presente na CLI, com 14 requisitos que exigem correção durante a migração
+Leitura: a Entrega 1 está funcionalmente presente na CLI, com 15 requisitos que exigem correção durante a migração
 (`ressalva`) e um sem verificação de execução da CLI; a Entrega 2 está essencialmente por fazer, como esperado no início
 da Fase 01. Esta tabela descreve o **estado do baseline**, não o resultado das fases futuras.
