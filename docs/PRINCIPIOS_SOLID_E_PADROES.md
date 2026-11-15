@@ -37,7 +37,7 @@ ficam nos métodos da entidade (ponto positivo). Porém:
 | Estados, transições e invariantes da OS; histórico sequencial | Entidade `OrdemServico` em `domain` |
 | Autorização e orquestração do caso de uso | Serviços de `application` |
 | Conversão entidade ↔ JSON/tabela | Mapeadores em `infrastructure` |
-| Hora atual | Porta de relógio injetada |
+| Hora atual | Porta `Relogio` em `application`; o caso de uso obtém o instante e o **entrega ao domínio** como argumento (ADR-0007) |
 | Persistência e consulta | Repositórios em `infrastructure`, sem regra de negócio |
 | Entrada/saída | `api` (e CLI de transição), sem regra de negócio |
 
@@ -72,9 +72,10 @@ duas implementações: em memória e SQLAlchemy (e, só se necessário, um JSON 
 outra, o comportamento observável deve ser o mesmo: tipo de retorno, ausência (resultado vazio ou erro de não encontrado,
 um só critério), ordenação das listas, tratamento de duplicidade e erro de conflito de versão.
 
-**Como será demonstrado ou testado:** **suíte de contrato** parametrizada, executada contra todas as implementações da
-mesma porta; e verificação de tipos estática das implementações contra o `Protocol`. LSP só será declarado demonstrado
-quando a suíte passar para as duas implementações.
+**Como será demonstrado ou testado (nada disso existe hoje):** **suíte de contrato** parametrizada, executada
+contra todas as implementações da mesma porta, e verificação de tipos com **`mypy`** (introduzido na Fase 02, D-13)
+confirmando que cada implementação satisfaz o `Protocol`. LSP só será declarado demonstrado quando a suíte passar para
+as duas implementações **e** o `mypy` aprovar ambas.
 
 ### 1.4 ISP — Segregação de Interfaces
 
@@ -86,9 +87,9 @@ Não há interfaces.
 `EquipamentoRepository`; eventuais portas de leitura para o *dashboard*; porta de relógio; porta de hash de senha). Cada
 serviço declara apenas as portas de que usa.
 
-**Como será demonstrado ou testado:** as assinaturas dos construtores dos serviços listam só as portas necessárias; os
-testes usam dublês que implementam apenas essas operações; revisão de que nenhuma porta carrega métodos que seus clientes
-não chamam.
+**Como será demonstrado ou testado (nada disso existe hoje):** as assinaturas dos construtores dos serviços listam só as
+portas necessárias; os testes usam dublês que implementam apenas essas operações e o **`mypy`** (Fase 02) rejeita o uso de
+método fora da porta declarada; revisão de que nenhuma porta carrega métodos que seus clientes não chamam.
 
 ### 1.5 DIP — Inversão de Dependências
 
@@ -97,12 +98,16 @@ não chamam.
 `Repositorio` conhece detalhes do JSON e carrega regras (AUD-10, AUD-16).
 
 **Solução planejada:** casos de uso dependem de **portas** (`Protocol`) definidas em `application`; implementações ficam
-em `infrastructure`; a composição é feita na borda (`api`) por injeção (ADR-0005). `domain` e `application` não importam
-FastAPI, SQLAlchemy nem `infrastructure`.
+em `infrastructure`; a **raiz de composição** (`composicao`, a camada mais externa) cria as implementações concretas e as
+liga às abstrações por injeção (ADR-0005), de modo que a `api` não importa `infrastructure`. `domain` e `application` não
+importam FastAPI, SQLAlchemy nem `infrastructure`, e o `domain` não importa `application` (o relógio é porta de
+`application` e seu instante chega ao domínio como argumento, ADR-0007).
 
-**Como será demonstrado ou testado:** teste de arquitetura de importações; os mesmos serviços executados com repositórios
-em memória (unidade) e SQLAlchemy (integração) sem alteração; evidência de que trocar a implementação não altera
-`domain` nem `application` (diff vazio nessas camadas na troca JSON → PostgreSQL).
+**Como será demonstrado ou testado (nada disso existe hoje):** teste de arquitetura de importações (inclusive
+`domain` não importar `application` e `api` não importar `infrastructure`); verificação de tipos com **`mypy`** (Fase
+02); os mesmos serviços executados com repositórios em memória (unidade) e SQLAlchemy (integração) sem alteração; evidência
+de que trocar a implementação não altera `domain` nem `application` (diff vazio nessas camadas na troca de repositório).
+DIP só será declarado demonstrado quando esses testes existirem e passarem.
 
 ## 2. Padrões de projeto
 
@@ -114,7 +119,7 @@ padrões, cada um ligado a um problema concreto já evidenciado na auditoria.
 | Padrão | Situação hoje | Fase | Problema que resolve |
 |--------|---------------|------|----------------------|
 | **Repository** | Não implementado. O `Repositorio` atual não tem contrato nem implementação alternativa e carrega regras; **não conta como padrão demonstrado** | 02 (porta e versão em memória), 03 (SQLAlchemy) | AUD-10, AUD-16, AUD-04 a AUD-06: persistência acoplada ao JSON, regras no repositório, impossibilidade de trocar o armazenamento ou testar isoladamente |
-| **Dependency Injection** | Não implementado (`Aplicacao` cria `Repositorio()` direto) | 02 (construtores), 04 (composição com `Depends`) | AUD-16: dependências concretas dentro das classes, sem substituição nem teste isolado |
+| **Dependency Injection** | Não implementado (`Aplicacao` cria `Repositorio()` direto) | 02 (construtores e raiz de composição), 04 (provedores `Depends` na API) | AUD-16: dependências concretas dentro das classes, sem substituição nem teste isolado |
 | **Service Layer** | Não implementado; regras de orquestração estão nas telas | 02 | AUD-02, AUD-09: autorização e orquestração repetidas ou ausentes em cada adaptador (CLI, API) |
 
 **Repository**
@@ -127,7 +132,8 @@ padrões, cada um ligado a um problema concreto já evidenciado na auditoria.
 **Dependency Injection**
 - *Alternativas:* instanciar classes concretas; *Service Locator*/singleton global; contêiner de DI de terceiros
   (detalhes no ADR-0005).
-- *Escolha:* injeção por construtor, com composição na borda usando `Depends` do FastAPI. Sem biblioteca extra.
+- *Escolha:* injeção por construtor, com raiz de composição própria e provedores `Depends` do FastAPI que obtêm o
+  serviço pronto. Sem biblioteca extra.
 - *Evidência futura:* construtores dos serviços recebendo portas; testes de unidade e de API trocando dependências.
 
 **Service Layer**
@@ -144,7 +150,7 @@ Para evitar abstração artificial, estes padrões foram avaliados e adiados ou 
 | Padrão | Decisão | Motivo |
 |--------|---------|--------|
 | **State** (um objeto por status da OS) | Adiado | São 8 status e transições simples; uma **tabela de transições** (ver OCP) resolve com menos código. Reavaliar apenas se o comportamento por estado crescer |
-| **Strategy** (política de atribuição, disponibilidade, permissão) | Adiado | Hoje há um único critério (ordenar por carga, `ui/tela_gestor.py:16`). Só se justifica se surgirem critérios alternativos reais |
+| **Strategy** (política de atribuição, disponibilidade, permissão) | Adiado | Hoje há um único critério (ordenar por carga, `ui/tela_gestor.py:16`) e a regra de disponibilidade foi mantida (D-05, sem novas regras de ocupação). Só se justifica se surgirem critérios alternativos reais |
 | **Observer / eventos de domínio** (gerar histórico) | Descartado | O histórico faz parte do agregado `OrdemServico` e é gerado na própria transição, de forma síncrona e atômica |
 | **Factory Method** | Já existe, não será contado | `OrdemServico.abrir` (`models/ordem_servico.py:88-96`) é um método de fábrica que garante o estado inicial e o primeiro registro de histórico; será mantido sem ser apresentado como padrão novo |
 | **Unit of Work** | Parte do ADR-0004 (proposta) | Tende a ser a sessão do SQLAlchemy usada como unidade de trabalho; não será implementado como camada própria sem necessidade |
@@ -156,12 +162,13 @@ Para evitar abstração artificial, estes padrões foram avaliados e adiados ou 
 |------|--------------------------------------------------------|
 | SRP | Teste de arquitetura sem serialização/ORM no domínio; classes com responsabilidade única descritas com arquivo e linha |
 | OCP | Teste que estende permissões/transições sem editar a lógica existente |
-| LSP | Suíte de contrato aprovada em todas as implementações de cada porta |
-| ISP | Construtores com portas mínimas; dublês de teste enxutos |
-| DIP | Teste de importações; troca de implementação sem diff em `domain`/`application` |
+| LSP | Suíte de contrato aprovada em todas as implementações de cada porta **e** `mypy` aprovando a conformidade ao `Protocol` (ferramentas a partir da Fase 02) |
+| ISP | Construtores com portas mínimas; dublês de teste enxutos; `mypy` sem acesso a método fora da porta |
+| DIP | Teste de importações; `mypy`; troca de implementação sem diff em `domain`/`application`; composição só na raiz de composição |
 | Repository | Porta + duas implementações + suíte de contrato |
 | Dependency Injection | Serviços construídos com dublês em testes; composição na borda |
 | Service Layer | CLI e API chamando os mesmos serviços |
 
 Enquanto essas evidências não existirem, a documentação deve usar os termos "planejado" ou "proposto" e não
-"implementado" ou "demonstrado".
+"implementado" ou "demonstrado". **Hoje nenhum dos três princípios LSP, ISP e DIP está demonstrado**: as ferramentas de
+verificação estática (`pytest`, `ruff`, `mypy`) só serão introduzidas na Fase 02 (D-13) e nenhuma foi instalada.
