@@ -4,7 +4,9 @@ Auditoria técnica do código da Entrega 1 (commit `e6f7354`, tag `entrega-1`), 
 evolução arquitetural. É um documento de diagnóstico: **nenhum código foi alterado**. Complementa
 [`LIMITACOES_E_AUDITORIA.md`](LIMITACOES_E_AUDITORIA.md), que registra o resumo inicial, sem repetir seu conteúdo.
 
-Os achados são da própria equipe. Não correspondem a apontamentos da avaliação da Entrega 1.
+Os achados são da própria equipe. Não correspondem a apontamentos da avaliação da Entrega 1. As decisões tomadas a
+partir deles estão em [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md) e a tabela da seção 3.1 liga cada achado a decisão,
+requisito da matriz e fase.
 
 ## 1. Método, evidências e limites
 
@@ -65,6 +67,35 @@ Esses comportamentos são o contrato funcional a ser protegido por testes de car
 | AUD-20 | Ambiguidade: "técnico" definido por permissão editável | Baixa | Estático |
 | AUD-21 | Reparo pode ser finalizado sem diagnóstico, que depois só é aceito voltando o status | Média | Executado |
 
+### 3.1 Tratamento de cada achado
+
+Todos os achados têm destino explícito. "Decisão" remete a [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md); "Matriz"
+remete a [`MATRIZ_RASTREABILIDADE.md`](MATRIZ_RASTREABILIDADE.md). Itens "aprovado" **não estão implementados**.
+
+| Achado | Decisão | Situação do tratamento | Requisitos da matriz | Fase |
+|--------|---------|------------------------|----------------------|------|
+| AUD-01 | D-01 (pendente) | Autenticação por senha em hash (melhoria necessária para a solução web) | E1-USR-01, E1-GES-02, OPC-01 | 04 |
+| AUD-02 | — | Autorização central nos casos de uso (ADR-0003) | E1-CMP-01, E1-GES-01 | 02, 04 |
+| AUD-03 | — | Permissões tipadas (enumeração) | E1-USR-01, E2-SOL-02 | 02 |
+| AUD-04 | — | Transações e controle otimista (ADR-0004) | E1-RNF-01, OPC-02 | 03 |
+| AUD-05 | — | Sequências do banco | E1-RNF-01, OPC-02 | 03 |
+| AUD-06 | D-08 (pendente) | `app/` e JSON legado preservados; sem importação automática | E1-RNF-01, OPC-07 | 03 |
+| AUD-07 | D-11 (aprovada) | Datas com fuso em UTC (ADR-0007); conversão de dados legados futura | E1-RNF-01 | 02 (tipos), antes da migração (conversão) |
+| AUD-08 | — | Comparação por ID; integridade referencial | E1-RNF-01 | 02, 03 |
+| AUD-09 | D-03 (aprovada) e demais regras da seção 6 | Regras só na UI movidas para a aplicação | E1-GES-03, E1-OS-02, E1-GES-02 | 02 |
+| AUD-10 | — | Repository sem regra de negócio (ADR-0004) | E2-PER-01, E2-SOL-01 | 02, 03 |
+| AUD-11 | D-04 (aprovada) | Bloqueio em OS encerrada; observação pelo autor da abertura | E1-OS-05 | 02 |
+| AUD-12 | Validação de entradas (aprovada, **mudança de comportamento**) | Validação no domínio e na API | E1-CMP-03, E1-TEC-02, E1-OS-01 | 02, 04 |
+| AUD-13 | D-05 (aprovada) | Disponibilidade derivada das OS Em Execução | E1-CMP-04 | 02 |
+| AUD-14 | — | Hierarquia de exceções (ADR-0003) | E2-SOL-01 | 02 |
+| AUD-15 | — | Separação de responsabilidades | E2-SOL-01 | 02 |
+| AUD-16 | — | Injeção de dependências e raiz de composição (ADR-0005) | E2-SOL-05, E2-PAD-01 | 02 |
+| AUD-17 | D-13 (aprovada) | `pytest`, `ruff`, `mypy` desde a Fase 02 (ADR-0006) | OPC-03 | 02 |
+| AUD-18 | D-10 (pendente), D-14 (aprovada) | `app/` preservada; convivência em ADR-0008 | E2-ENT-01 | 02 e após a 04 |
+| AUD-19 | — | Documentação final consistente com o código | E2-DOC-01 a E2-DOC-05 | 11 |
+| AUD-20 | D-02 (aprovada) | Papel explícito no domínio | E1-USR-02 | 02 |
+| AUD-21 | D-06 (aprovada) | Diagnóstico obrigatório antes de Reparo Finalizado | E1-TEC-04 | 02 |
+
 ## 4. Autenticação e autorização
 
 ### AUD-01 — Login por ID, sem credencial (Alta) [Estático + busca]
@@ -91,12 +122,19 @@ sem erro: `tem("aprovar_oss")` retorna `False` e `exigir("aprovar_oss")` nega co
 exige alterar três lugares na mesma classe (`DESCRICOES`, `__init__` e atributos, `:8-53`), o que também afeta o OCP.
 O próprio `DOCUMENTACAO.md` (§8) já reconhece o ponto. **Tratamento:** enumeração tipada de permissões (Fase 02).
 
+**Observação sobre granularidade (baseline):** a permissão `aprovar_os` é **compartilhada** por aprovar, reprovar e
+cancelar: os três métodos chamam `gestor.exigir("aprovar_os")` (`models/ordem_servico.py:173,180,186`) e a descrição é
+"Aprovar, cancelar e encerrar OS" (`models/permissoes.py:21`). Quem pode aprovar pode cancelar. Não há permissão de
+cancelamento própria. Esse comportamento é **preservado** na caracterização; separar as permissões **não está decidido**
+(ver [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md), seção 6.1).
+
 ### AUD-20 — "Técnico" definido por permissão editável (Baixa) [Estático]
 `Usuario.e_tecnico` retorna `pode("apontar_reparo")` (`models/usuario.py:32-35`), e o Gestor pode editar as permissões
 dos cargos (`ui/tela_usuarios.py:90-106`). Retirar essa permissão do cargo Técnico faz os técnicos desaparecerem de
 `Repositorio.tecnicos()` (`repositorio.py:101-102`) e da atribuição, embora ainda tenham OS; conceder a permissão ao
-cargo Gestor faz gestores aparecerem como técnicos. **Decisão pendente:** manter "técnico = permissão" ou vincular ao
-cargo/papel (ver [`PLANO_DE_MIGRACAO.md`](PLANO_DE_MIGRACAO.md), decisões abertas).
+cargo Gestor faz gestores aparecerem como técnicos. **Decisão aprovada (D-02, não implementada):** Gestor e Técnico
+passam a ser **papéis explícitos** no domínio, independentes das permissões; ver
+[`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md) e [ADR-0009](adr/0009-papeis-autorizacao-e-regras-da-os.md).
 
 ## 5. Persistência, concorrência e integridade
 
@@ -133,6 +171,9 @@ evidência do risco de manter duas implementações sobre o mesmo arquivo.
   gera `KeyError`; não há versão de esquema nem migração.
 - Datas são `str` no formato `dd/mm/aaaa hh:mm` (`ordem_servico.py:21-22`, `servico.py:27`): sem fuso, sem ordenação
   confiável por tipo e sem validação. Cálculos de atraso e dashboards exigirão tipo de data real.
+  **Tratamento aprovado (D-11, não implementado):** datas tipadas com fuso, armazenadas em UTC e exibidas em
+  America/Sao_Paulo ([ADR-0007](adr/0007-datas-fuso-horario-e-relogio.md)). A conversão dos dados legados é futura e
+  anterior a qualquer migração de dados.
 
 ### AUD-08 — Identidade por referência e vínculos silenciosos (Média) [Estático]
 `esta_com` compara com `is` (`ordem_servico.py:65-66`); o mesmo vale em `repositorio.py:105,137` e na UI. Funciona porque
@@ -144,16 +185,24 @@ levanta `KeyError` (`:221`). Falta política de integridade referencial.
 ## 6. Regras de negócio e responsabilidades
 
 ### AUD-09 — Regras presentes só na interface (Alta) [Executado]
-| Regra | Onde está | Domínio a impõe? |
-|-------|-----------|------------------|
-| Confirmar antes de atribuir a técnico **Ausente** | `ui/tela_gestor.py:27-29` | **Não**: `atribuir` aceitou técnico Ausente sem erro (Apêndice A, B2) |
-| Impedir que o gestor remova o próprio acesso de gestão | `ui/tela_usuarios.py:58,104` | Não **[Estático]** |
-| Qualquer usuário pode alterar a própria disponibilidade | item de menu sem permissão (`ui/aplicacao.py:36`, `ui/tela_ordens.py:76-79`) | Sem regra no domínio **[Estático]** |
-| Gestor edita cargo e disponibilidade de usuários | atribuição direta a atributos (`ui/tela_usuarios.py:52-64`) | Sem método de domínio **[Estático]** |
-| Inativar/reativar equipamento | `ui/tela_equipamentos.py:52` chama a entidade direto | Sem checagem de permissão (AUD-02) |
+Regras que existem **apenas na interface** do baseline e que, na aplicação web, precisam existir no servidor. São
+comportamentos da Entrega 1 (a preservar ou a decidir), e não apenas defeitos:
+
+| Regra | Onde está | Domínio a impõe? | Destino e situação |
+|-------|-----------|------------------|--------------------|
+| Confirmar antes de atribuir a técnico **Ausente** | `ui/tela_gestor.py:27-29` | **Não**: `atribuir` aceitou técnico Ausente sem erro (Apêndice A, B2) | **D-03 aprovada**: recusar por padrão, confirmação explícita validada na aplicação (futuro) |
+| Impedir que o gestor remova o próprio acesso de gestão | `ui/tela_usuarios.py:58,104` | Não **[Estático]** | Preservar como regra de aplicação (Fase 06); sem decisão nova |
+| Qualquer usuário pode alterar a própria disponibilidade | item de menu sem permissão (`ui/aplicacao.py:36`, `ui/tela_ordens.py:76-79`) | Sem regra no domínio **[Estático]** | Reconciliar com D-05 (ausência manual separada do valor derivado); caracterizar antes |
+| Gestor edita cargo e disponibilidade de usuários | atribuição direta a atributos (`ui/tela_usuarios.py:52-64`) | Sem método de domínio **[Estático]** | Operação de aplicação com permissão `gerir_usuarios` (Fase 06) |
+| Inativar/reativar equipamento | `ui/tela_equipamentos.py:52` chama a entidade direto | Sem checagem de permissão (AUD-02) | Caso de uso com permissão `gerir_equipamentos` (Fase 06) |
+| Campos obrigatórios e valores mínimos | `ui/entrada.py:14-45` | Não (AUD-12) | **Validação de entradas aprovada** (mudança de comportamento, ver AUD-12) |
+| Apontamento sobre qualquer OS, de qualquer usuário | `ui/tela_ordens.py:62` lista todas as OS | Só exige permissão (AUD-11) | **D-04 aprovada** |
+| Confirmações de aprovar, cancelar e excluir | `ui/tela_gestor.py:49,61`, `ui/tela_equipamentos.py:54` | Não se aplicam ao domínio | Confirmação é conveniência de interface; a regra de permissão e estado vale no servidor |
 
 O `DOCUMENTACAO.md` afirma que "as telas não decidem nada" (§2); as linhas acima mostram exceções.
-**Tratamento:** mover cada regra para um caso de uso testável (Fases 02 e 06).
+**Tratamento:** mover cada regra para um caso de uso testável (Fases 02 e 06). Cada regra da tabela deve ser
+**caracterizada** antes de ser movida, para que nenhum comportamento existente se perca (ver
+[ADR-0006](adr/0006-estrategia-de-testes.md)).
 
 ### AUD-10 — Regras de negócio dentro do `Repositorio` (Média) [Estático]
 `remover_equipamento`, `remover_usuario`, `_usuario_tem_historico`, `carga`, `tecnicos` e
@@ -164,8 +213,10 @@ dados e grava o arquivo** quando ele não existe (`:27-31`), efeito colateral in
 ### AUD-11 — Apontamento sem restrição de estado ou dono (Média) [Executado]
 `OrdemServico.adicionar_apontamento` só exige a permissão `registrar_apontamento` (`ordem_servico.py:98-100`). Verificado:
 um técnico que **não** é dono da OS incluiu um apontamento em OS **Concluída** (histórico passou de 11 para 12 registros,
-status inalterado). Isso contradiz a ideia de histórico encerrado. **Decisão pendente:** permitir ou não apontamento em OS
-encerrada e por quem (ver plano de migração).
+status inalterado). Isso contradiz a ideia de histórico encerrado. **Decisão aprovada (D-04, não implementada):** bloquear
+novos apontamentos em OS Concluídas ou Canceladas; em OS ativas, o autor da abertura pode registrar **observações**, sem
+ganhar capacidade técnica; ver [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Neste achado, "apontamento" refere-se à
+operação `adicionar_apontamento` (observação).
 
 ### AUD-21 — Sequência diagnóstico × finalização inconsistente (Média) [Executado]
 `alterar_status` só exige intervenção para finalizar o reparo (`ordem_servico.py:133-134`); `concluir_tecnicamente` exige
@@ -174,20 +225,26 @@ diagnóstico (`:142-143`); mas `registrar_diagnostico` só aceita OS em Atribuí
 ("Registre o diagnóstico antes de concluir.") **e** o diagnóstico também é recusado ("Operação não permitida com a OS em
 'Reparo Finalizado'."). O técnico só avança voltando o status para "Em Execução" (permitido), registrando o diagnóstico e
 finalizando de novo. Não há bloqueio definitivo, mas o caminho é indireto e gera transições e registros de histórico
-extras. **Decisão pendente:** exigir diagnóstico para finalizar, ou aceitar diagnóstico em "Reparo Finalizado".
+extras. **Decisão aprovada (D-06, não implementada):** exigir o diagnóstico **antes** da transição para "Reparo
+Finalizado", aplicando a regra no domínio com erro claro; as demais transições são preservadas.
 
 ### AUD-12 — Validações só na UI (Média) [Executado]
 `ler_float(..., minimo)` (`ui/entrada.py:36-45`) e `ler(..., obrigatorio=True)` validam na tela. No domínio,
 `apontar_reparo` só rejeita horas negativas (`ordem_servico.py:116`). Verificado: abertura de OS com falha vazia e
 apontamento com 0 h e intervenção vazia foram aceitos pelo domínio (Apêndice A, B5). Uma API receberia esses dados sem a
-barreira da CLI. **Tratamento:** validação no domínio (invariantes) e nos esquemas da API (Fases 02 e 04).
+barreira da CLI. **Tratamento aprovado (mudança de comportamento, não implementada):** validação no domínio (invariantes)
+e nos esquemas da API (Fases 02 e 04): rejeitar campos obrigatórios vazios, valores numéricos inválidos e apontamentos com
+duração igual ou inferior a zero. Como o baseline **aceita** zero hora, a mudança é registrada como delta de
+comportamento aprovado ([ADR-0006](adr/0006-estrategia-de-testes.md)), não como regressão a corrigir silenciosamente.
 
 ### AUD-13 — Disponibilidade derivada fora do domínio (Média) [Executado]
 `Repositorio.atualizar_disponibilidades()` só é chamado pelo laço do menu (`ui/aplicacao.py:101`). Verificado: depois de
 `apontar_reparo`, o técnico continuava "Disponível" até a chamada explícita, quando passou a "Em atendimento"; com a OS
 em "Aguardando Peça", voltou a "Disponível" (Apêndice A, E). O comportamento segue o `DOCUMENTACAO.md` §7 (só "Em
 Execução" conta), mas depende de lembrar de chamar o método. Em API, o valor deve ser derivado na leitura ou atualizado
-na mesma transação. **Decisão pendente:** "Aguardando Peça" deve contar como "Em atendimento"?
+na mesma transação. **Decisão aprovada (D-05, não implementada):** preservar a regra (só "Em Execução" caracteriza
+atendimento; "Aguardando Peça", isoladamente, não), calcular a disponibilidade a partir das OS, manter a ausência manual
+separada e com precedência, sem novo SLA; cenários de teste em [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md).
 
 ### AUD-14 — Exceção única (Média) [Estático]
 `RegraNegocioError` cobre falta de permissão, estado inválido, validação e regra de integridade (`models/excecoes.py`).
@@ -230,13 +287,16 @@ desta auditoria; o script ad hoc usado aqui não substitui testes versionados.
 
 | Item em `app/` | Evidência | Avaliação |
 |----------------|-----------|-----------|
-| Campos extras de equipamento: fabricante, nº de série, setor, data de aquisição | `app/persistencia.py:29-34`, `app/modulos/equipamentos.py:48-69` | Útil para a ficha técnica do equipamento ("detalhes técnicos"); **decisão pendente** sobre incluir no modelo |
+| Campos extras de equipamento: fabricante, nº de série, setor, data de aquisição | `app/persistencia.py:29-34`, `app/modulos/equipamentos.py:48-69` | Útil para a ficha técnica do equipamento ("detalhes técnicos"); **decisão pendente D-07** sobre incluir no modelo (recomendação: campos opcionais, antes da Fase 03) |
 | Contadores monotônicos de ID (`seq`) | `app/persistencia.py:15`, `app/contexto.py:18-20` | Resolve reaproveitamento de IDs (AUD-05); na Fase 03 as sequências do banco cumprem esse papel |
 | Histórico como coleção global com `equipamento_id` | `app/contexto.py:51-61` | Facilita consulta por equipamento; o mesmo é possível por consulta SQL no novo modelo |
 | Bloqueio de exclusão de usuário com OS ativas | `app/modulos/usuarios.py:52-59` | Regra mais restritiva que a do baseline (que bloqueia por qualquer histórico); apenas como referência |
 
 **Não reaproveitar:** persistência, interface, modelo de permissões por lista e criação de cargos. **Recomendação:**
-manter `app/` intocada na Fase 01 e decidir sua remoção em fase posterior, com autorização específica.
+manter `app/` intocada na Fase 01 e decidir sua remoção em fase posterior, com autorização específica. O novo backend
+será criado em `backend/src/manutencao/`, sem conflito com `app/` (D-14, aprovada); o destino de cada módulo legado está
+em [ADR-0008](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md) e o futuro de `app/` e da CLI permanece como
+decisão pendente D-10.
 
 ## 9. Documentação existente
 
