@@ -18,7 +18,7 @@ precisam receber repositórios, relógio e serviço de hash sem conhecer as impl
 | Importar e instanciar classes concretas nos serviços (situação atual) | Impede substituição e teste isolado; viola DIP |
 | *Service Locator* / singletons globais | Esconde dependências e dificulta testes paralelos |
 | Biblioteca de contêiner de DI | Dependência adicional sem ganho claro para o tamanho do sistema |
-| **Injeção por construtor, com composição na borda usando `Depends` do FastAPI** (escolhida) | Explícita, sem biblioteca extra, aproveita recurso nativo do *framework* |
+| **Injeção por construtor, com raiz de composição própria e provedores `Depends` do FastAPI que obtêm o serviço pronto** (escolhida) | Explícita, sem biblioteca extra, aproveita recurso nativo do *framework* e mantém a `api` sem importar `infrastructure` |
 
 ## Decisão
 

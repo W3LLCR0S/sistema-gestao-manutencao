@@ -39,7 +39,7 @@ ficam nos métodos da entidade (ponto positivo). Porém:
 | Conversão entidade ↔ JSON/tabela | Mapeadores em `infrastructure` |
 | Hora atual | Porta `Relogio` em `application`; o caso de uso obtém o instante e o **entrega ao domínio** como argumento (ADR-0007) |
 | Persistência e consulta | Repositórios em `infrastructure`, sem regra de negócio |
-| Entrada/saída | `api` (e CLI de transição), sem regra de negócio |
+| Entrada/saída | `api` (e uma eventual CLI sobre os serviços, condicional a D-10), sem regra de negócio |
 
 **Como será demonstrado ou testado:** (a) teste de arquitetura: `domain` não importa `json`, FastAPI, SQLAlchemy nem
 define `to_dict`/`from_dict`; (b) testes de unidade da entidade sem repositório e testes de serviço com repositório em
@@ -68,7 +68,7 @@ estáveis.
 `Enum`, `Exception` em `RegraNegocioError` e `TelaBase`/telas). **Não há exemplo concreto de LSP no baseline e ele não deve ser alegado como demonstrado.**
 
 **Solução planejada:** o ponto natural de substituição são as **portas de repositório** (ADR-0004), que terão ao menos
-duas implementações: em memória e SQLAlchemy (e, só se necessário, um JSON de transição). Para que uma possa substituir a
+duas implementações: em memória e SQLAlchemy (e um JSON de transição apenas se a decisão D-10 mantiver a CLI sobre os novos serviços). Para que uma possa substituir a
 outra, o comportamento observável deve ser o mesmo: tipo de retorno, ausência (resultado vazio ou erro de não encontrado,
 um só critério), ordenação das listas, tratamento de duplicidade e erro de conflito de versão.
 
@@ -166,7 +166,7 @@ Para evitar abstração artificial, estes padrões foram avaliados e adiados ou 
 | ISP | Construtores com portas mínimas; dublês de teste enxutos; `mypy` sem acesso a método fora da porta |
 | DIP | Teste de importações; `mypy`; troca de implementação sem diff em `domain`/`application`; composição só na raiz de composição |
 | Repository | Porta + duas implementações + suíte de contrato |
-| Dependency Injection | Serviços construídos com dublês em testes; composição na borda |
+| Dependency Injection | Serviços construídos com dublês em testes; implementações concretas importadas só pela raiz de composição |
 | Service Layer | CLI e API chamando os mesmos serviços |
 
 Enquanto essas evidências não existirem, a documentação deve usar os termos "planejado" ou "proposto" e não

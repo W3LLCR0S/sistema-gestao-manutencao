@@ -44,7 +44,7 @@ Numa API, isso significaria repetir ou esquecer regras em cada rota.
 | Conflito de estado ou de concorrência | Transição inválida para o status atual; versão desatualizada | 409 |
 | Violação de regra / validação de domínio | Horas inválidas, texto vazio, equipamento inativo | 422 |
 
-A CLI de transição mostra a mensagem do mesmo erro, sem código HTTP.
+Uma eventual CLI sobre os novos serviços (condicional à decisão D-10) mostra a mensagem do mesmo erro, sem código HTTP.
 
 ## Justificativa
 
