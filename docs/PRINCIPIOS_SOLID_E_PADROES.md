@@ -39,7 +39,7 @@ ficam nos métodos da entidade (ponto positivo). Porém:
 | Conversão entidade ↔ JSON/tabela | Mapeadores em `infrastructure` |
 | Hora atual | Porta `Relogio` em `application`; o caso de uso obtém o instante e o **entrega ao domínio** como argumento (ADR-0007) |
 | Persistência e consulta | Repositórios em `infrastructure`, sem regra de negócio |
-| Entrada/saída | `api` (e uma eventual CLI sobre os serviços, condicional a D-10), sem regra de negócio |
+| Entrada/saída | `api`, sem regra de negócio (a CLI legada não usa os novos serviços, D-10) |
 
 **Como será demonstrado ou testado:** (a) teste de arquitetura: `domain` não importa `json`, FastAPI, SQLAlchemy nem
 define `to_dict`/`from_dict`; (b) testes de unidade da entidade sem repositório e testes de serviço com repositório em
@@ -68,7 +68,7 @@ estáveis.
 `Enum`, `Exception` em `RegraNegocioError` e `TelaBase`/telas). **Não há exemplo concreto de LSP no baseline e ele não deve ser alegado como demonstrado.**
 
 **Solução planejada:** o ponto natural de substituição são as **portas de repositório** (ADR-0004), que terão ao menos
-duas implementações: em memória e SQLAlchemy (e um JSON de transição apenas se a decisão D-10 mantiver a CLI sobre os novos serviços). Para que uma possa substituir a
+duas implementações: em memória e SQLAlchemy (sem JSON de transição, conforme D-10). Para que uma possa substituir a
 outra, o comportamento observável deve ser o mesmo: tipo de retorno, ausência (resultado vazio ou erro de não encontrado,
 um só critério), ordenação das listas, tratamento de duplicidade e erro de conflito de versão.
 
@@ -120,7 +120,7 @@ padrões, cada um ligado a um problema concreto já evidenciado na auditoria.
 |--------|---------------|------|----------------------|
 | **Repository** | Não implementado. O `Repositorio` atual não tem contrato nem implementação alternativa e carrega regras; **não conta como padrão demonstrado** | 02 (porta e versão em memória), 03 (SQLAlchemy) | AUD-10, AUD-16, AUD-04 a AUD-06: persistência acoplada ao JSON, regras no repositório, impossibilidade de trocar o armazenamento ou testar isoladamente |
 | **Dependency Injection** | Não implementado (`Aplicacao` cria `Repositorio()` direto) | 02 (construtores e raiz de composição), 04 (provedores `Depends` na API) | AUD-16: dependências concretas dentro das classes, sem substituição nem teste isolado |
-| **Service Layer** | Não implementado; regras de orquestração estão nas telas | 02 | AUD-02, AUD-09: autorização e orquestração repetidas ou ausentes em cada adaptador (CLI, API) |
+| **Service Layer** | Não implementado; regras de orquestração estão nas telas | 02 | AUD-02, AUD-09: autorização e orquestração repetidas ou ausentes em cada adaptador (UI da CLI legada, API) |
 
 **Repository**
 - *Alternativas:* *Active Record* com modelos do ORM como entidades; sessão do ORM exposta aos serviços; repositório
@@ -141,7 +141,7 @@ padrões, cada um ligado a um problema concreto já evidenciado na auditoria.
   encapsula bem as invariantes na entidade).
 - *Escolha:* serviços de aplicação finos, que carregam agregados, verificam permissão, chamam a entidade e confirmam a
   transação. Invariantes permanecem no domínio.
-- *Evidência futura:* um serviço por conjunto coeso de casos de uso (OS, equipamentos, usuários); CLI e API usando os mesmos serviços.
+- *Evidência futura:* um serviço por conjunto coeso de casos de uso (OS, equipamentos, usuários); API e testes usando os mesmos serviços (a CLI legada não os usa, D-10).
 
 ### 2.2 Padrões considerados e **não** adotados agora
 
@@ -167,7 +167,7 @@ Para evitar abstração artificial, estes padrões foram avaliados e adiados ou 
 | DIP | Teste de importações; `mypy`; troca de implementação sem diff em `domain`/`application`; composição só na raiz de composição |
 | Repository | Porta + duas implementações + suíte de contrato |
 | Dependency Injection | Serviços construídos com dublês em testes; implementações concretas importadas só pela raiz de composição |
-| Service Layer | CLI e API chamando os mesmos serviços |
+| Service Layer | API e testes chamando os mesmos serviços |
 
 Enquanto essas evidências não existirem, a documentação deve usar os termos "planejado" ou "proposto" e não
 "implementado" ou "demonstrado". **Hoje nenhum dos três princípios LSP, ISP e DIP está demonstrado**: as ferramentas de

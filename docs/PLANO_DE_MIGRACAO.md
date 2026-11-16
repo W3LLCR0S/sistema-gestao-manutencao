@@ -17,7 +17,7 @@ resolvida (seção 5).
 1. **Preservar antes de mudar.** Testes de caracterização do comportamento da Entrega 1 vêm antes de qualquer
    refatoração (ADR-0006).
 2. **Uma camada por vez, sempre executável.** A CLI legada continua intacta e executável durante a Fase 02; seu
-   descarte é decisão posterior (D-10). O código novo nasce em `backend/src/manutencao/` (D-14) sem alterar o legado.
+   descarte não está decidido e exige autorização posterior (D-10). O código novo nasce em `backend/src/manutencao/` (D-14) sem alterar o legado.
 3. **Regra em um só lugar.** Cada regra que hoje está na UI ou no repositório (AUD-09, AUD-10) é movida para domínio
    ou aplicação, com teste, antes de ser exposta na API.
 4. **Sem dados reais em testes ou migração automática.** Importação de dados reais exige plano idempotente, *backup*,
@@ -32,10 +32,10 @@ resolvida (seção 5).
 
 | Módulo | Situação durante a migração | Destino proposto | Condição |
 |--------|-----------------------------|------------------|----------|
-| `main.py`, `ui/` | Preservados e executáveis | Remover ou manter como referência | D-10 e autorização específica |
+| `main.py`, `ui/` | Preservados e executáveis | Remover ou manter como referência; remoção só com autorização posterior | D-10 e autorização específica |
 | `models/` | Preservado como referência de comportamento | Substituído por `domain/` | Paridade comprovada por caracterização |
-| `persistencia/` | Preservado | Não vira implementação final | D-10 |
-| `app/` | Preservada, não utilizada | Avaliar aproveitamento (OPC-06); remoção só com autorização | D-10 |
+| `persistencia/` | Preservado | Não vira implementação final; sem adaptador JSON novo | D-10 |
+| `app/` | Preservada, não utilizada | Avaliar aproveitamento (OPC-06); remoção só com autorização posterior | D-10 |
 | `dados/` | Local, ignorado pelo Git | Nunca versionado nem usado em testes | — |
 
 Detalhes e justificativa em [ADR-0008](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md).
@@ -78,8 +78,8 @@ dados simulados como se fossem de produção) e é validada de ponta a ponta na 
 3. **Refatorar preservando comportamento:** novo domínio sem serialização; permissões tipadas, tabela de transições,
    hierarquia de erros e datas com fuso (D-11); porta `Relogio` na aplicação, com o instante entregue ao domínio;
    comparação de entidades por ID.
-4. **Portas de repositório** (`Protocol`) por agregado e implementação **em memória**. O adaptador JSON de transição é
-   **condicional** a D-10 (ver seção 5): só será criado se a CLI passar a usar os novos serviços.
+4. **Portas de repositório** (`Protocol`) por agregado e implementação **em memória**. Por D-10 (aprovada), **não** há
+   adaptador JSON de transição nem CLI sobre os novos serviços na Fase 02.
 5. **Serviços de aplicação** com autorização central e **raiz de composição** separada (ADR-0005).
 6. **Aplicar as mudanças aprovadas, uma por vez**, cada uma com seu teste substituindo o de caracterização e registrada
    como delta: D-02 (papéis), D-03 (técnico ausente), D-04 (observações e apontamentos), D-05 (disponibilidade),
@@ -93,9 +93,9 @@ executável; `domain` e `application` sem importar *frameworks* nem persistênci
 
 **Riscos:** regressão silenciosa de regra (mitigação: caracterização prévia e mudanças separadas); refatoração excessiva
 (mitigação: só abstrair com problema concreto); testes acoplados ao legado perderem validade (mitigação: fachada estável,
-ADR-0006); escopo ampliado se a CLI for adaptada (mitigação: decisão D-10 antes de iniciar).
+ADR-0006); escopo ampliado se a CLI fosse adaptada (mitigação: D-10 aprovada, que mantém a CLI intacta e fora do escopo).
 
-**Decisões que condicionam esta fase:** D-10 (CLI e adaptador JSON). As demais pendências não a bloqueiam.
+**Decisões que condicionam esta fase:** D-10 (aprovada: CLI e legado preservados, sem nova CLI nem adaptador JSON). Nenhuma decisão pendente a bloqueia.
 
 ### Fase 03 — Persistência (`feat/persistencia`)
 
@@ -245,9 +245,9 @@ verificada.
 | R-04 | Abstração excessiva ("padrões para aumentar quantidade") | Média | Médio | Só adotar padrão com problema concreto (seção 2.2 de `PRINCIPIOS_SOLID_E_PADROES.md`) |
 | R-05 | Falha de segurança na autenticação | Média | Alto | Bibliotecas consolidadas, sem criptografia própria; testes 401/403; revisão na Fase 09 |
 | R-06 | Concorrência e integridade na API | Média | Alto | Versão otimista e transações; teste de escritas concorrentes |
-| R-07 | Decisões pendentes (D-10, D-07, D-08, D-12, D-01, D-15) retardando fases | Média | Médio | Cada decisão tem fase-limite na seção 5.2; D-10 precisa ser resolvida antes da Fase 02 |
+| R-07 | Decisões pendentes (D-07, D-08, D-12, D-01, D-09, D-15) retardando fases | Média | Médio | Cada decisão tem fase-limite na seção 5.2; nenhuma bloqueia a Fase 02 |
 | R-08 | Ambiente PostgreSQL inconsistente entre máquinas e CI | Média | Médio | Decidir D-12 antes da Fase 03 |
-| R-09 | Legado (`main.py`, `models/`, `app/`) e novo pacote confundirem a manutenção | Média | Médio | Manter o legado intocado até decisão (D-10); todo código novo vai para `backend/src/manutencao/` (ADR-0008) |
+| R-09 | Legado (`main.py`, `models/`, `app/`) e novo pacote confundirem a manutenção | Média | Médio | Manter o legado intocado (D-10 aprovada; remoção só com autorização posterior); todo código novo vai para `backend/src/manutencao/` (ADR-0008) |
 | R-10 | Documentação diverge do código | Média | Médio | Marcar tudo como planejado ou implementado; validar comandos na Fase 11 |
 | R-11 | Custos e limites de hospedagem | Média | Médio | Decisão e aprovação prévia (Fase 10 é opcional) |
 
@@ -269,6 +269,7 @@ considera a fase em que o primeiro artefato dependente nasce, e não a fase em q
 | D-11 | Datas com fuso, UTC no armazenamento, America/Sao_Paulo na exibição; conversão de dados legados futura | Fase 02 (tipos); conversão antes da migração de dados |
 | D-13 | `pytest`, `ruff` e `mypy` a partir da Fase 02; frontend e E2E nas fases correspondentes | Fase 02 |
 | D-14 | Pacote `backend/src/manutencao/`; legado preservado; migração gradual | Fase 02 |
+| D-10 | CLI e legado preservados; sem nova CLI nem adaptador JSON na Fase 02; `app/` e legado não removidos sem autorização posterior; interface principal da Entrega 2 é web | Fase 02 (convivência); remoções em fase posterior |
 | — | Validação de entradas no servidor (mudança de comportamento aprovada, AUD-12) | Fases 02 e 04 |
 | — | Campo `ativo` e desativação de usuários, sem política automática de reatribuição | Fases 02, 03 e 06 |
 
@@ -278,7 +279,6 @@ Nenhuma é considerada aprovada. As recomendações são propostas da equipe.
 
 | ID | Decisão | Origem | Necessária antes de | Observação |
 |----|---------|--------|---------------------|------------|
-| D-10 | CLI sobre os novos serviços e adaptador JSON de transição? Futuro de `app/` | AUD-18 | **Fase 02** (parte CLI); após a Fase 04 (remoções) | **Dependência imediata** da Fase 02. Recomendação: legado intacto, sem adaptador JSON nem CLI nova |
 | D-07 | Incluir campos extras de equipamento (fabricante, nº de série, setor, data de aquisição) | OPC-06 | Fase 03 (esquema do banco) | Evolução aditiva; não bloqueia a Fase 02 |
 | D-08 | Importar os dados JSON existentes? Destino do `dados/dados.json` local | OPC-07, AUD-06 | Fase 03 | Exige autorização específica e a conversão de datas |
 | D-12 | Provisionamento do PostgreSQL de desenvolvimento, teste e CI | ADR-0006 | Fase 03 | Fase 02 usa só repositórios em memória |

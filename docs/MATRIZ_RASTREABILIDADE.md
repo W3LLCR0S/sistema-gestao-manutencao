@@ -157,11 +157,12 @@ Referência: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Todas **aprovadas
 | D-11 Datas e fuso | E1-RNF-01, E1-OS-05 | 02 |
 | D-13 Ferramentas de qualidade | E2-SOL-03, E2-SOL-04, E2-SOL-05, OPC-03 | 02 |
 | D-14 Estrutura do backend | E2-ENT-01, E2-ARQ-02 | 02 |
+| D-10 CLI e legado preservados; interface principal web | E2-ENT-01, E2-FRT-01, E1-RNF-03 | 02 (convivência) |
 | Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02, 04 |
 | Desativação de usuários | E1-GES-02, OPC-10 | 02, 03, 06 |
 
 Pendentes (sem efeito sobre a situação dos requisitos até serem decididas): D-01 (OPC-01), D-07 (OPC-06), D-08 (OPC-07),
-D-09 (OPC-08), D-10 (E2-ENT-01), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).
+D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).
 
 ## 6. Resumo da cobertura (baseline)
 

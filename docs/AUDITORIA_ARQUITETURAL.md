@@ -91,7 +91,7 @@ remete a [`MATRIZ_RASTREABILIDADE.md`](MATRIZ_RASTREABILIDADE.md). Itens "aprova
 | AUD-15 | — | Separação de responsabilidades | E2-SOL-01 | 02 |
 | AUD-16 | — | Injeção de dependências e raiz de composição (ADR-0005) | E2-SOL-05, E2-PAD-01 | 02 |
 | AUD-17 | D-13 (aprovada) | `pytest`, `ruff`, `mypy` desde a Fase 02 (ADR-0006) | OPC-03 | 02 |
-| AUD-18 | D-10 (pendente), D-14 (aprovada) | `app/` preservada; convivência em ADR-0008 | E2-ENT-01 | 02 e após a 04 |
+| AUD-18 | D-10 e D-14 (aprovadas) | `app/` e legado preservados, remoção só com autorização posterior; convivência em ADR-0008 | E2-ENT-01 | 02; remoção em fase posterior |
 | AUD-19 | — | Documentação final consistente com o código | E2-DOC-01 a E2-DOC-05 | 11 |
 | AUD-20 | D-02 (aprovada) | Papel explícito no domínio | E1-USR-02 | 02 |
 | AUD-21 | D-06 (aprovada) | Diagnóstico obrigatório antes de Reparo Finalizado | E1-TEC-04 | 02 |
@@ -295,8 +295,8 @@ desta auditoria; o script ad hoc usado aqui não substitui testes versionados.
 **Não reaproveitar:** persistência, interface, modelo de permissões por lista e criação de cargos. **Recomendação:**
 manter `app/` intocada na Fase 01 e decidir sua remoção em fase posterior, com autorização específica. O novo backend
 será criado em `backend/src/manutencao/`, sem conflito com `app/` (D-14, aprovada); o destino de cada módulo legado está
-em [ADR-0008](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md) e o futuro de `app/` e da CLI permanece como
-decisão pendente D-10.
+em [ADR-0008](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md) e a preservação de `app/` e da CLI está registrada
+em D-10 (aprovada); a remoção de qualquer módulo legado continua sem decisão e exige autorização posterior.
 
 ## 9. Documentação existente
 

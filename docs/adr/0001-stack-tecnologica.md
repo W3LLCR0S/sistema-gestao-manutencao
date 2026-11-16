@@ -36,7 +36,7 @@ domínio em Python já concentra as regras do ciclo da OS e deve ser aproveitado
 
 ## Justificativa
 
-- **Reaproveita o domínio em Python** e a CLI durante a transição.
+- **Reaproveita o domínio em Python**; a CLI legada é preservada como referência (D-10).
 - **FastAPI** gera a documentação OpenAPI a partir de tipos, valida entrada com Pydantic e tem injeção de dependências
   nativa (`Depends`), usada no ADR-0005.
 - **PostgreSQL** oferece transações, restrições de integridade e controle de concorrência, que o JSON não oferece.
@@ -52,6 +52,6 @@ domínio em Python já concentra as regras do ciclo da OS e deve ser aproveitado
   está decidida.
 - **Hospedagem da API e do PostgreSQL em produção não está decidida.** O frontend na Vercel é apenas uma opção. Nenhuma
   publicação ocorre sem autorização específica (Fase 10).
-- A CLI e a persistência JSON deixam de ser mecanismos finais, mas as funcionalidades e regras exigidas pela Entrega 1
+- A CLI e a persistência JSON são preservadas, mas deixam de ser mecanismos finais (D-10), mas as funcionalidades e regras exigidas pela Entrega 1
   devem continuar atendidas (verificado por testes de caracterização, ADR-0006).
 - O diretório `app/` não é removido na Fase 01.

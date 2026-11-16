@@ -16,7 +16,7 @@
 | Documento | Conteúdo |
 |-----------|----------|
 | [`AUDITORIA_ARQUITETURAL.md`](AUDITORIA_ARQUITETURAL.md) | 21 achados com evidência (executada ou estática), tratamento de cada achado e análise de `app/` |
-| [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md) | Decisões aprovadas (D-02 a D-06, D-11, D-13, D-14, validações, desativação de usuários) e decisões pendentes |
+| [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md) | Decisões aprovadas (D-02 a D-06, D-10, D-11, D-13, D-14, validações, desativação de usuários) e decisões pendentes |
 | [`MATRIZ_RASTREABILIDADE.md`](MATRIZ_RASTREABILIDADE.md) | Requisitos das Entregas 1 e 2: situação, evidência, lacuna, fase e critério de aceitação; separa requisitos oficiais, decisões aprovadas e melhorias |
 | [`adr/`](adr/README.md) | Decisões arquiteturais (ADR-0001 a 0009): stack, camadas, responsabilidades, Repository, injeção de dependências, testes, datas e relógio, estrutura do backend, papéis e regras da OS |
 | [`DIAGRAMAS.md`](DIAGRAMAS.md) | Componentes, camadas, entidades, máquina de estados e fluxo da OS (Mermaid) |

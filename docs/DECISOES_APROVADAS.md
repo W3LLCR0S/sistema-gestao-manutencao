@@ -33,7 +33,7 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 | D-07 | Campos extras de equipamento | **Pendente** | OPC-06 | Decidir antes da 03 |
 | D-08 | Importação dos dados JSON existentes | **Pendente** | OPC-07, AUD-06 | Decidir antes da 03 |
 | D-09 | Hospedagem da API e do banco | **Pendente** | ADR-0001 | Decidir antes da 10 |
-| D-10 | Futuro da CLI e do diretório `app/` | **Pendente** (dependência imediata, ver 6.2) | AUD-18 | Decidir antes da 02 (CLI) e após a 04 (remoções) |
+| D-10 | Futuro da CLI e do diretório `app/` | **Aprovada para o planejamento** (remoção do legado segue sem decisão, ver 4) | AUD-18 | 02 (convivência); remoções só com autorização posterior |
 | D-11 | Datas e fuso horário | **Aprovada** | AUD-07 | 02 (tipos); conversão de dados legados depois |
 | D-12 | Provisionamento do PostgreSQL | **Pendente** | ADR-0006 | Decidir antes da 03 |
 | D-13 | Ferramentas de qualidade | **Aprovada** (backend) | AUD-17 | 02 |
@@ -150,7 +150,25 @@ comportamento do baseline, a regra aprovada e os testes que a comprovarão.
   (d) a transição Reparo Finalizado → Em Execução e o retorno continuam válidos; (e) o caminho indireto do baseline
   deixa de ser necessário.
 
-## 4. Decisões técnicas aprovadas (D-11, D-13, D-14)
+## 4. Decisões técnicas aprovadas (D-10, D-11, D-13, D-14)
+
+### D-10 — Futuro da CLI e do diretório `app/`
+
+- **Baseline:** a CLI (`main.py`, `ui/`, `models/`, `persistencia/`) é a Entrega 1; `app/` é uma implementação paralela
+  não importada e sem ponto de entrada (AUD-18).
+- **Aprovado para o planejamento:**
+  1. **Preservar** a CLI original e o código legado.
+  2. **Não** criar nova CLI nem adaptador JSON de transição na Fase 02.
+  3. Desenvolver o novo backend em `backend/src/manutencao/` (D-14), ao lado do legado.
+  4. **Não remover** `app/` nem outros módulos legados sem autorização posterior, específica e atual.
+  5. A **interface principal da Entrega 2 será web**; a CLI não é adaptador dos novos serviços.
+- **Consequências:** a CLI legada serve de referência de comportamento e permanece executável; os testes de
+  caracterização usam uma fachada sobre o legado (ADR-0006); os repositórios novos são em memória (Fase 02) e
+  SQLAlchemy (Fase 03), sem implementação JSON; a CLI não usa a raiz de composição (ADR-0005).
+- **Continua sem decisão:** o destino final de cada módulo legado (manter como referência ou remover) e de `app/`.
+  Qualquer remoção depende de testes de caracterização aprovados e de autorização explícita, em fase posterior
+  (ADR-0008).
+- **Não implementada:** esta decisão apenas orienta o planejamento; nenhum código foi criado nem alterado.
 
 ### D-11 — Datas e fuso horário
 
@@ -222,7 +240,6 @@ Nenhuma é considerada aprovada. As recomendações abaixo continuam sendo **pro
 | D-07 | Incluir fabricante, nº de série, setor e data de aquisição no equipamento | Incluir como campos opcionais do equipamento (evolução aditiva; não bloqueia o domínio da Fase 02) | Fase 03 |
 | D-08 | Importar o `dados/dados.json` existente? | Não importar automaticamente; carga de demonstração por *seed*; importação só com plano, *backup*, *dry-run* e autorização específica | Fase 03 |
 | D-09 | Hospedagem da API e do PostgreSQL | Decidir após a Fase 09; frontend estático separado; banco gerenciado | Fase 10 |
-| D-10 | Futuro da CLI e de `app/` | Ver 6.2 | Antes da Fase 02 (CLI) e após a 04 (remoções) |
 | D-12 | Provisionamento do PostgreSQL (desenvolvimento, teste e CI) | Contêiner descartável para testes de integração; serviço do provedor no CI | Fase 03 |
 | D-15 | Definição de OS "atrasada" | Sem prazo no modelo atual; propor prazo por criticidade somente se a equipe aprovar um SLA | Fase 08 |
 
@@ -234,10 +251,8 @@ Nenhuma é considerada aprovada. As recomendações abaixo continuam sendo **pro
 - O baseline trata o Técnico como o único que opera o reparo; a regra de quem **abre** OS (qualquer usuário com
   `abrir_os`) é preservada.
 
-### 6.2 Dependência imediata de decisão pendente para a Fase 02
+### 6.2 Dependências da Fase 02
 
-**D-10 (parcial)** afeta o plano da Fase 02: manter ou não a CLI como adaptador dos novos serviços e, em consequência,
-se será criado um adaptador JSON de transição. Recomendação documentada: **não** criar o adaptador JSON nem adaptar a
-CLI na Fase 02; manter `main.py` e o código legado intactos e executáveis, servindo como referência de comportamento
-(D-14), e construir o novo pacote ao lado. A alternativa (CLI sobre os novos serviços) é viável, mas amplia o escopo da
-Fase 02. As demais decisões pendentes não bloqueiam a Fase 02 (D-07 é aditiva e as demais pertencem a fases posteriores).
+Nenhuma decisão pendente bloqueia a Fase 02. A D-10, que era a dependência imediata, foi aprovada para o planejamento
+(seção 4): CLI e legado preservados, sem nova CLI nem adaptador JSON. D-07 é aditiva e as demais pertencem a fases
+posteriores.

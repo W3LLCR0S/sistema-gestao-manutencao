@@ -34,8 +34,7 @@ precisam receber repositórios, relógio e serviço de hash sem conhecer as impl
   serviços de aplicação e o domínio não os importam.
 - **Testes** substituem dependências por implementações em memória (diretamente no construtor, ou com
   `dependency_overrides` nos testes de API).
-- Se, pela decisão D-10, houver uma CLI sobre os novos serviços, ela terá sua própria raiz de composição, montando os
-  mesmos serviços. Na recomendação atual, a CLI legada permanece como está e não usa a injeção.
+- Por D-10 (aprovada), não há CLI sobre os novos serviços: a CLI legada permanece como está e não usa a injeção.
 - O relógio é uma porta de `application` e seu instante é entregue ao domínio como argumento
   ([ADR-0007](0007-datas-fuso-horario-e-relogio.md)); o domínio não recebe dependências injetadas.
 - Nenhum contêiner de DI de terceiros.

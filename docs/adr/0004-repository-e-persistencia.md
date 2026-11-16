@@ -31,8 +31,8 @@ trata a incompatibilidade com a implementação paralela em `app/` (AUD-06).
    filtros, listar OS ativas de um técnico), sem regra de negócio.
 2. **Implementações** (adaptadores em `infrastructure`):
    - **em memória**, para testes de unidade e de aplicação;
-   - **JSON de transição**, **condicional**: só será criado se a decisão D-10 mantiver a CLI como adaptador dos novos
-     serviços. Na recomendação atual (CLI legada intacta e executável, conforme D-14), **não** é criado;
+   - **sem JSON de transição**: por D-10 (aprovada), a CLI legada permanece intacta e executável com seu próprio
+     repositório, e **nenhum** adaptador JSON é criado para os novos serviços;
    - **SQLAlchemy 2 / PostgreSQL**, na Fase 03.
 3. **Fronteira de transação** no caso de uso: o serviço de aplicação abre a unidade de trabalho e confirma ao final
    (*proposta*: usar a sessão do SQLAlchemy como unidade de trabalho, exposta por uma porta simples). A UI deixa de

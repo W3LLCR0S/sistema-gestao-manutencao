@@ -25,7 +25,7 @@ antes de finalizar (AUD-21). Estas decisões fixam o que será implementado na F
 
 - Atribuir a Técnico Ausente é **recusado** (409) a menos que a operação traga a confirmação explícita.
 - A confirmação é um **dado da operação** (por exemplo `confirmar_ausente=True`), validada no **caso de uso** de
-  atribuição. Interfaces (CLI, web) só coletam a confirmação do usuário; **não** são o local da regra.
+  atribuição. Interfaces (web; a CLI legada não usa a nova regra) só coletam a confirmação do usuário; **não** são o local da regra.
 
 ### 3. Observações, diagnóstico, apontamentos e status (D-04)
 

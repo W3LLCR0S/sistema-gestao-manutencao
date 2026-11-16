@@ -36,8 +36,8 @@ flowchart LR
 ## 2. Componentes do sistema-alvo
 
 Direção aprovada para documentação (ADR-0001, ADR-0002 e ADR-0008). O pacote do backend será
-`backend/src/manutencao/` (D-14). Nomes de rotas serão definidos nas fases de implementação. A CLI sobre os novos
-serviços é **condicional** à decisão D-10 (pendente); na recomendação atual, a CLI legada permanece intacta.
+`backend/src/manutencao/` (D-14). Nomes de rotas serão definidos nas fases de implementação. Por D-10 (aprovada),
+não há CLI sobre os novos serviços: a CLI legada permanece intacta e fora do sistema-alvo; a interface principal é web.
 
 ```mermaid
 flowchart TB
@@ -66,7 +66,6 @@ flowchart TB
             migr["migracoes Alembic"]
         end
         comp["composicao<br/>raiz de composicao"]
-        cli["CLI sobre os servicos<br/>condicional a D-10"]
     end
 
     pg[("PostgreSQL")]
@@ -74,7 +73,6 @@ flowchart TB
     spa -->|"HTTP + JSON, contrato OpenAPI"| rotas
     rotas --> provedores
     provedores --> servicos
-    cli -.-> servicos
     servicos --> entidades
     servicos --> portas
     reposql -.->|"implementa"| portas

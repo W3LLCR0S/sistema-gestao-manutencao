@@ -1,6 +1,6 @@
 # ADR-0008 — Estrutura do backend e convivência com o legado
 
-- **Status:** Aprovada (D-14). **Não implementada.** Nenhum diretório novo foi criado nesta fase.
+- **Status:** Aprovada (D-14; convivência com o legado conforme D-10). **Não implementada.** Nenhum diretório novo foi criado nesta fase.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0006; AUD-06, AUD-18; [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (D-14, D-10)
 
@@ -52,15 +52,15 @@ Convivência durante a migração:
 
 | Módulo | Papel hoje | Destino proposto | Condição para mudar |
 |--------|------------|------------------|---------------------|
-| `main.py` | Ponto de entrada da CLI | Permanece até decisão D-10; depois, remover ou manter como referência | D-10 e autorização específica |
-| `models/` | Domínio da CLI | Permanece como **referência de comportamento** para a caracterização; substituído por `domain/` | Paridade comprovada pelos testes de caracterização e D-10 |
-| `persistencia/` | Repositório JSON da CLI | Permanece enquanto a CLI existir; não vira implementação final (ADR-0004) | D-10 |
-| `ui/` | Interface da CLI | Permanece; o novo frontend é a interface final | D-10 |
-| `app/` | Implementação paralela não usada | **Preservada**; funcionalidades aproveitáveis são avaliadas caso a caso (OPC-06) | D-10 e autorização específica de remoção |
+| `main.py` | Ponto de entrada da CLI | Preservado (D-10); remover ou manter como referência é decisão posterior | Autorização específica e atual |
+| `models/` | Domínio da CLI | Permanece como **referência de comportamento** para a caracterização; substituído por `domain/` | Paridade comprovada pelos testes de caracterização e autorização específica |
+| `persistencia/` | Repositório JSON da CLI | Preservado (D-10); não vira implementação final nem ganha adaptador novo (ADR-0004) | Autorização específica |
+| `ui/` | Interface da CLI | Preservado (D-10); o novo frontend web é a interface principal | Autorização específica |
+| `app/` | Implementação paralela não usada | **Preservada** (D-10); funcionalidades aproveitáveis são avaliadas caso a caso (OPC-06) | Autorização específica de remoção |
 | `dados/` | Dados locais (ignorados pelo Git) | Nunca versionados; nunca lidos pelos testes | — |
 
-A remoção de qualquer módulo exige: testes de caracterização aprovados, decisão D-10 e **autorização explícita
-e atual**. Nada disso ocorre na Fase 01.
+A remoção de qualquer módulo exige: testes de caracterização aprovados e **autorização explícita
+e atual** (a D-10 aprova a preservação, não a remoção). Nada disso ocorre na Fase 01.
 
 ## Justificativa
 

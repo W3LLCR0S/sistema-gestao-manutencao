@@ -15,9 +15,9 @@ Numa API, isso significaria repetir ou esquecer regras em cada rota.
 
 | Alternativa | Avaliação |
 |-------------|-----------|
-| Manter regras nas rotas (controladores "gordos") | Duplica regras entre rotas e CLI; difícil de testar sem HTTP |
+| Manter regras nas rotas (controladores "gordos") | Duplica regras entre rotas; difícil de testar sem HTTP |
 | Entidades "anêmicas" com toda a regra em serviços | Perde o encapsulamento que o baseline já tem e que funciona (`OrdemServico`) |
-| Autorizar apenas na borda (API) | A regra deixa de proteger a CLI e outros adaptadores; falha se uma rota esquecer a verificação |
+| Autorizar apenas na borda (API) | A regra deixa de proteger outros adaptadores e os testes de aplicação; falha se uma rota esquecer a verificação |
 | **Invariantes na entidade, autorização e orquestração nos casos de uso, tradução na borda** (escolhida) | Cada preocupação em um único lugar testável |
 
 ## Decisão
@@ -44,11 +44,11 @@ Numa API, isso significaria repetir ou esquecer regras em cada rota.
 | Conflito de estado ou de concorrência | Transição inválida para o status atual; versão desatualizada | 409 |
 | Violação de regra / validação de domínio | Horas inválidas, texto vazio, equipamento inativo | 422 |
 
-Uma eventual CLI sobre os novos serviços (condicional à decisão D-10) mostra a mensagem do mesmo erro, sem código HTTP.
+Não há CLI sobre os novos serviços (D-10); a CLI legada permanece com seu tratamento de erros atual.
 
 ## Justificativa
 
-- Uma regra, um lugar: a mesma verificação vale para API, CLI e testes.
+- Uma regra, um lugar: a mesma verificação vale para a API e os testes.
 - Preserva o encapsulamento já existente nas entidades (ponto forte do baseline).
 - Separa "quem pode" (aplicação) de "o que é válido" (domínio) e de "como chega" (API).
 
