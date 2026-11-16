@@ -25,6 +25,7 @@ markers = [
     "integracao: repositorios reais, migracoes e API",
     "contrato: mesma suite executada contra todas as implementacoes de uma porta",
     "arquitetura: regras de dependencia entre camadas e isolamento do legado",
+    "cenario(id): identifica o cenario de caracterizacao (registro em tests/caracterizacao/cenarios.py)",
 ]
 
 # ------------------------------------------------------------------ ruff
