@@ -1,0 +1,22 @@
+# Ferramentas de desenvolvimento do backend (Fase 02, Operacao A; ADR-0006, D-13).
+# Versoes exatas, inclusive transitivas, para reproduzir o ambiente.
+# Instalacao (a partir de backend/, dentro do ambiente virtual .venv):
+#   python -m pip install -r requirements-dev.txt
+# Nenhuma dependencia de producao esta listada: ainda nao ha codigo que a exija.
+
+# --- Diretas ---
+pytest==9.2.0
+ruff==0.17.5
+mypy==2.4.1
+
+# --- Transitivas (fixadas) ---
+ast-serialize==0.13.1
+colorama==0.4.6 ; sys_platform == "win32"
+iniconfig==2.3.1
+librt==0.16.0
+mypy-extensions==1.2.0
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.7.0
+Pygments==2.21.0
+typing-extensions==4.16.0
