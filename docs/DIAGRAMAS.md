@@ -322,7 +322,7 @@ sequenceDiagram
     end
     opt observacao em OS ativa (alvo D-04)
         U->>S: registrar observacao (gestor, tecnico responsavel ou autor da abertura)
-        S-->>U: historico registra autor, data e tipo; status inalterado
+        S-->>U: historico registra autor, data e tipo, mantendo o status
     end
     opt cancelamento antes do encerramento
         G->>S: cancelar com motivo
@@ -357,7 +357,7 @@ sequenceDiagram
     REP->>DB: SELECT da OS com historico e pecas
     DB-->>REP: registros e versao
     REP-->>SVC: entidade OrdemServico
-    SVC->>SVC: autoriza (permissao e OS do tecnico; senao 403)
+    SVC->>SVC: autoriza permissao e responsabilidade pela OS, caso contrario retorna 403
     SVC->>REL: agora()
     REL-->>SVC: instante com fuso (UTC)
     SVC->>DOM: apontar_reparo(horas, intervencao, pecas, instante)
