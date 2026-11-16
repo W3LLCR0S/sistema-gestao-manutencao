@@ -42,6 +42,7 @@ dela está implementado, e não deve ser lida como descrição do código existe
 | `docs/FLUXO_DE_DESENVOLVIMENTO.md` | Branches, commits, revisão, merge e tags. |
 | `docs/LIMITACOES_E_AUDITORIA.md` | Limitações conhecidas da Entrega 1 e problemas da auditoria inicial. |
 | `docs/ORGANIZACAO_DO_REPOSITORIO.md` | Este documento. |
+| `docs/README.md` | Índice da documentação, incluindo auditoria, matriz de requisitos, ADRs, diagramas e plano de migração (Fase 01). |
 
 Documentação de desenvolvimento fica em `docs/`. `README.md` e `DOCUMENTACAO.md` permanecem na raiz.
 
@@ -99,8 +100,11 @@ Documentação de desenvolvimento fica em `docs/`. `README.md` e `DOCUMENTACAO.m
 - **Interface:** entrada e saída. Hoje é o terminal em `ui/`.
 
 **Frontend e backend.** A intenção é uma aplicação web em que o frontend e o backend fiquem em diretórios separados,
-comunicando-se por uma API, com regras de negócio apenas no backend. A estrutura de pastas, as tecnologias e o contrato
-da API ainda **não foram definidos**.
+comunicando-se por uma API, com regras de negócio apenas no backend. O backend novo será criado no pacote
+`backend/src/manutencao/`, ao lado do código legado, que é preservado durante a migração (decisão D-14,
+[`adr/0008`](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md)); o contrato da API ainda **não foi definido**.
+A direção técnica aprovada (stack, camadas, Repository, injeção de dependências, testes, datas e regras da OS) está
+registrada em [`adr/`](adr/README.md) e [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md); continua **não implementada**.
 
 **Qualidade.** Hoje não há testes automatizados. Testes serão introduzidos em etapa própria, em diretório dedicado.
 
