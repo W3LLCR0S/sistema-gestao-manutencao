@@ -88,6 +88,49 @@ class OrdemServico:
         self._motivo_cancelamento = ""
         self._servicos: list[Servico] = []
 
+    @classmethod
+    def restaurar(
+        cls,
+        *,
+        numero: int,
+        equipamento: Equipamento,
+        falha: str,
+        criticidade: Criticidade,
+        aberta_por: Usuario,
+        data_abertura: datetime,
+        status: StatusOS,
+        tecnico_atribuido: Usuario | None,
+        diagnostico: str,
+        causa_raiz: str,
+        teste_funcional: str,
+        motivo_cancelamento: str,
+        data_conclusao: datetime | None,
+        servicos: Sequence[Servico],
+    ) -> "OrdemServico":
+        """Reconstitui uma OS **já existente** a partir do estado guardado (Fase 03).
+
+        Não é uma operação de negócio: não verifica permissão, transição nem texto obrigatório e não
+        registra nada no histórico; apenas devolve o objeto como ele foi persistido. As horas, as
+        intervenções e as peças **não são parâmetros**: derivam dos registros de ``Reparo`` do
+        histórico, que é a única origem deles (:meth:`apontar_reparo`). Quem chama (um repositório)
+        é responsável por fornecer um estado que a própria entidade produziu.
+        """
+        ordem = cls(numero, equipamento, falha, criticidade, aberta_por, data_abertura)
+        ordem._status = status
+        ordem._tecnico_atribuido = tecnico_atribuido
+        ordem._diagnostico = diagnostico
+        ordem._causa_raiz = causa_raiz
+        ordem._teste_funcional = teste_funcional
+        ordem._motivo_cancelamento = motivo_cancelamento
+        ordem._data_conclusao = None if data_conclusao is None else garantir_utc(data_conclusao)
+        ordem._servicos = list(servicos)
+        for servico in ordem._servicos:
+            if servico.tipo is TipoServico.REPARO:
+                ordem._horas_trabalhadas += servico.horas
+                ordem._intervencoes_realizadas.append(servico.descricao)
+                ordem._pecas_utilizadas.extend(servico.pecas)
+        return ordem
+
     # ======================== identidade e leitura ========================
     def __eq__(self, outro: object) -> bool:
         if not isinstance(outro, OrdemServico):
