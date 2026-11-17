@@ -117,6 +117,13 @@ def test_aud03_permissao_com_nome_errado_e_negada_em_silencio(f: Fachada) -> Non
     assert resultado.mensagem == "Sem permissão: aprovar_oss."  # cai no nome cru, sem descrição
 
 
+@pytest.mark.cenario("CAR-74")
+def test_aud03_definir_permissoes_ignora_silenciosamente_nomes_desconhecidos(f: Fachada) -> None:
+    f.definir_permissoes_cargo(CARGO_TECNICO, ("ver_os", "voar", "aprovar_oss"))
+    cargo = next(c for c in f.cargos() if c.id == CARGO_TECNICO)
+    assert cargo.permissoes == ("ver_os",)  # sem erro: os nomes inexistentes somem
+
+
 # ====================================================== AUD-05 / AUD-04: ids e concorrência
 
 

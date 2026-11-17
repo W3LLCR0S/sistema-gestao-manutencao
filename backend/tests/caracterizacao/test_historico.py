@@ -151,7 +151,7 @@ def test_data_de_conclusao_so_existe_ao_aprovar_ou_cancelar(f: Fachada) -> None:
     assert os_snap(f, numero).data_conclusao is None
 
 
-@pytest.mark.cenario("CAR-27")
+@pytest.mark.cenario("CAR-90")
 def test_datas_sao_texto_dd_mm_aaaa_hh_mm_sem_fuso(f: Fachada) -> None:
     """AUD-07/D-11: o legado grava texto sem fuso e sem segundos (será substituído por UTC)."""
     numero = os_concluida(f)

@@ -249,14 +249,6 @@ def test_ha_dois_cargos_fixos_na_base_inicial(f: Fachada) -> None:
 
 
 @pytest.mark.cenario("CAR-70")
-def test_definir_permissoes_ignora_silenciosamente_nomes_desconhecidos(f: Fachada) -> None:
-    """Preservar/AUD-03: um nome inexistente não gera erro nem permissão."""
-    f.definir_permissoes_cargo(CARGO_TECNICO, ("ver_os", "voar", "aprovar_oss"))
-    cargo = next(c for c in f.cargos() if c.id == CARGO_TECNICO)
-    assert cargo.permissoes == ("ver_os",)
-
-
-@pytest.mark.cenario("CAR-70")
 def test_permissoes_do_cargo_sobrevivem_a_gravacao_e_recarga(f: Fachada) -> None:
     f.definir_permissoes_cargo(CARGO_TECNICO, (*PERMISSOES_PADRAO_TECNICO, "atribuir_os"))
     novo = f.cadastrar_usuario("Diego", CARGO_TECNICO, "d@e.com", "Seg")
