@@ -7,8 +7,12 @@ recusa nunca deixa a OS (nem o histórico) pela metade.
 
 Diferenças deliberadas, e só estas:
 
-* **Instantes** (D-11): o legado lia o relógio dentro da entidade; aqui cada operação que
-  registra algo recebe ``quando`` (palavra-chave obrigatória), e as datas são ``datetime``.
+* **Instantes** (D-11, DLT-07): o legado lia o relógio dentro da entidade; aqui cada operação que
+  registra algo recebe ``quando`` (palavra-chave obrigatória), com fuso, e as datas são ``datetime``
+  em UTC. O instante é validado por :func:`garantir_utc` **depois** de todas as verificações
+  funcionais e **antes** da primeira alteração: a precedência do legado se mantém (um instante
+  inválido nunca mascara uma recusa funcional) e a recusa por instante também não deixa nada
+  alterado. É a única recusa nova em relação ao legado.
 * **Permissões tipadas** (DLT-11): :class:`Permissao` no lugar de texto.
 * **Sem serialização** (``to_dict``/``from_dict``) e sem acesso a repositório.
 
@@ -31,6 +35,7 @@ from manutencao.domain.erros import (
 from manutencao.domain.peca_material import PecaMaterial
 from manutencao.domain.permissoes import Permissao
 from manutencao.domain.servico import Servico
+from manutencao.domain.tempo import garantir_utc
 from manutencao.domain.transicoes import (
     STATUS_ATENDIMENTO,
     STATUS_ORIGEM_TECNICO,
@@ -58,7 +63,7 @@ class OrdemServico:
         self._falha = falha
         self._criticidade = criticidade
         self._aberta_por = aberta_por
-        self._data_abertura = data_abertura
+        self._data_abertura = garantir_utc(data_abertura)
         self._status = StatusOS.ABERTA
         self._tecnico_atribuido: Usuario | None = None
         self._diagnostico = ""
@@ -211,12 +216,14 @@ class OrdemServico:
                 CodigoErro.EQUIPAMENTO_INATIVO,
                 "Não é possível abrir OS para equipamento inativo.",
             )
+        quando = garantir_utc(quando)
         os_ = cls(numero, equipamento, falha, criticidade, usuario, quando)
         os_._registrar_servico(TipoServico.ABERTURA, f"[{criticidade}] {falha}", usuario, quando)
         return os_
 
     def adicionar_apontamento(self, usuario: Usuario, texto: str, *, quando: datetime) -> None:
         usuario.exigir(Permissao.REGISTRAR_APONTAMENTO)
+        quando = garantir_utc(quando)
         self._registrar_servico(TipoServico.APONTAMENTO, texto, usuario, quando)
 
     # ======================== técnico ========================
@@ -226,6 +233,7 @@ class OrdemServico:
         tecnico.exigir(Permissao.DIAGNOSTICAR)
         self._exigir_tecnico_da_os(tecnico)
         self._exigir_status(*STATUS_ATENDIMENTO)
+        quando = garantir_utc(quando)
         self._diagnostico = parecer
         self._causa_raiz = causa_raiz
         self._registrar_servico(
@@ -248,6 +256,7 @@ class OrdemServico:
             raise ViolacaoDeRegraError(
                 CodigoErro.HORAS_NEGATIVAS, "Horas trabalhadas não podem ser negativas."
             )
+        quando = garantir_utc(quando)
         if self._status == StatusOS.ATRIBUIDA:
             self._mudar_status(StatusOS.EM_EXECUCAO, tecnico, quando)
         self._horas_trabalhadas += horas
@@ -272,7 +281,7 @@ class OrdemServico:
                 CodigoErro.SEM_INTERVENCAO,
                 "Registre ao menos uma intervenção antes de finalizar o reparo.",
             )
-        self._mudar_status(novo, tecnico, quando)
+        self._mudar_status(novo, tecnico, garantir_utc(quando))
 
     def concluir_tecnicamente(
         self, tecnico: Usuario, teste: str, passou_no_teste: bool, *, quando: datetime
@@ -285,6 +294,7 @@ class OrdemServico:
             raise ViolacaoDeRegraError(
                 CodigoErro.SEM_DIAGNOSTICO, "Registre o diagnóstico antes de concluir."
             )
+        quando = garantir_utc(quando)
         if not passou_no_teste:
             self._registrar_servico(
                 TipoServico.TESTE_FUNCIONAL, f"Reprovado: {teste}", tecnico, quando
@@ -311,6 +321,7 @@ class OrdemServico:
             raise ConflitoDeEstadoError(
                 CodigoErro.JA_ATRIBUIDA, "A OS já está atribuída a este técnico."
             )
+        quando = garantir_utc(quando)
         anterior = self._tecnico_atribuido
         self._tecnico_atribuido = tecnico
         if anterior is not None:
@@ -328,6 +339,7 @@ class OrdemServico:
     def aprovar(self, gestor: Usuario, *, quando: datetime) -> None:
         gestor.exigir(Permissao.APROVAR_OS)
         self._exigir_status(StatusOS.AGUARDANDO_APROVACAO)
+        quando = garantir_utc(quando)
         self._data_conclusao = quando
         self._registrar_servico(
             TipoServico.ENCERRAMENTO, "Reparo validado e OS encerrada.", gestor, quando
@@ -337,6 +349,7 @@ class OrdemServico:
     def reprovar(self, gestor: Usuario, motivo: str, *, quando: datetime) -> None:
         gestor.exigir(Permissao.APROVAR_OS)
         self._exigir_status(StatusOS.AGUARDANDO_APROVACAO)
+        quando = garantir_utc(quando)
         self._registrar_servico(
             TipoServico.REPROVACAO, f"Devolvida ao técnico: {motivo}", gestor, quando
         )
@@ -346,6 +359,7 @@ class OrdemServico:
         gestor.exigir(Permissao.APROVAR_OS)
         if self.encerrada:
             raise ConflitoDeEstadoError(CodigoErro.OS_ENCERRADA, "A OS já está encerrada.")
+        quando = garantir_utc(quando)
         self._motivo_cancelamento = motivo
         self._data_conclusao = quando
         self._registrar_servico(TipoServico.CANCELAMENTO, motivo, gestor, quando)

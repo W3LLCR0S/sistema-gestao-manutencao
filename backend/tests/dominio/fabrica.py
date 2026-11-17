@@ -26,6 +26,11 @@ class Relogio:
         return self.agora
 
 
+def sem_acesso() -> Usuario:
+    """Usuário cujo cargo não tem nenhuma permissão."""
+    return Usuario(9, "Visitante", Cargo(9, "Sem acesso", Permissoes()))
+
+
 @dataclass
 class Mundo:
     """Os mesmos cargos, usuários e equipamentos da base inicial do legado."""

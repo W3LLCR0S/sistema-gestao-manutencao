@@ -13,7 +13,6 @@ from datetime import datetime
 
 import pytest
 
-from manutencao.domain.cargo import Cargo
 from manutencao.domain.enums import Criticidade, StatusOS, TipoServico
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import (
@@ -25,9 +24,7 @@ from manutencao.domain.erros import (
 )
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.peca_material import PecaMaterial
-from manutencao.domain.permissoes import Permissoes
-from manutencao.domain.usuario import Usuario
-from tests.dominio.fabrica import Mundo, instantaneo
+from tests.dominio.fabrica import Mundo, instantaneo, sem_acesso
 
 S = StatusOS
 T = TipoServico
@@ -42,11 +39,6 @@ TECNICO_MUDA_A_PARTIR_DE = frozenset(
     {S.ATRIBUIDA, S.EM_EXECUCAO, S.AGUARDANDO_PECA, S.REPARO_FINALIZADO}
 )
 TECNICO_ATENDE = (S.ATRIBUIDA, S.EM_EXECUCAO, S.AGUARDANDO_PECA)
-
-
-def sem_acesso() -> Usuario:
-    """Usuário cujo cargo não tem nenhuma permissão."""
-    return Usuario(9, "Visitante", Cargo(9, "Sem acesso", Permissoes()))
 
 
 def recusa(
