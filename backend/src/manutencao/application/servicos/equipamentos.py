@@ -3,7 +3,7 @@
 Preservam as permissões efetivas do legado: consultar exige ``ver_equipamentos`` e gerir exige
 ``gerir_equipamentos`` (o menu da CLI as aplicava; aqui são verificadas no caso de uso, AUD-02;
 DLT-13 e DLT-14), sempre antes de procurar o recurso (DLT-16); ator inexistente é recusado (DLT-17).
-Nenhuma validação nova de campos (DLT-08 é da Operação E).
+O nome é obrigatório (DLT-08).
 """
 
 from manutencao.application.erros import CodigoErroAplicacao, RegraDeAplicacaoError
@@ -16,6 +16,7 @@ from manutencao.application.portas.repositorios import (
 from manutencao.application.servicos.comum import carregar_ator, exigir_encontrado
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.permissoes import Permissao
+from manutencao.domain.validacao import exigir_texto
 
 
 class ServicoDeEquipamentos:
@@ -49,6 +50,7 @@ class ServicoDeEquipamentos:
     # ----------------------------------------------------------------------------------- gestão
     def cadastrar(self, ator_id: int, nome: str, modelo: str) -> Equipamento:
         carregar_ator(self._usuarios, ator_id).exigir(Permissao.GERIR_EQUIPAMENTOS)
+        exigir_texto(nome, "o nome do equipamento")
         equipamento = Equipamento(self._equipamentos.proximo_id(), nome, modelo)
         self._equipamentos.adicionar(equipamento)
         return equipamento
@@ -56,6 +58,7 @@ class ServicoDeEquipamentos:
     def atualizar(self, ator_id: int, equipamento_id: int, nome: str, modelo: str) -> Equipamento:
         carregar_ator(self._usuarios, ator_id).exigir(Permissao.GERIR_EQUIPAMENTOS)
         equipamento = self._carregar(equipamento_id)
+        exigir_texto(nome, "o nome do equipamento")
         equipamento.nome = nome
         equipamento.modelo = modelo
         self._equipamentos.salvar(equipamento)

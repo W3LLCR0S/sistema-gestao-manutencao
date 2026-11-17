@@ -57,5 +57,5 @@ def montar(
         servico_equipamentos=ServicoDeEquipamentos(equipamentos, usuarios, ordens),
         servico_usuarios=ServicoDeUsuarios(usuarios, cargos, ordens),
         servico_ordens=ServicoDeOrdens(ordens, usuarios, equipamentos, relogio),
-        servico_disponibilidade=ServicoDeDisponibilidade(usuarios, ordens, projecoes),
+        servico_disponibilidade=ServicoDeDisponibilidade(usuarios, projecoes),
     )

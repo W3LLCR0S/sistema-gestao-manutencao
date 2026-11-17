@@ -121,9 +121,7 @@ def test_caso_de_uso_so_toca_as_portas_de_que_precisa(amb: Ambiente) -> None:
 
 def test_a_disponibilidade_manual_nao_consulta_nenhuma_ordem(amb: Ambiente) -> None:
     ordens_proibidas = cast(OrdemServicoRepository, PortaProibida())
-    servico = ServicoDeDisponibilidade(
-        amb.usuarios, ordens_proibidas, Projecoes(amb.usuarios, ordens_proibidas)
-    )
+    servico = ServicoDeDisponibilidade(amb.usuarios, Projecoes(amb.usuarios, ordens_proibidas))
     servico.alterar_minha_disponibilidade(BRUNO, Disponibilidade.AUSENTE)
     bruno = amb.usuarios.obter(BRUNO)
     assert bruno is not None

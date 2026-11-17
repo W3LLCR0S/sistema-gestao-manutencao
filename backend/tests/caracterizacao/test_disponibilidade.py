@@ -8,6 +8,7 @@ delta da D-05 (disponibilidade derivada das OS, sem rotina), registrado em ``del
 
 import pytest
 
+from tests.caracterizacao.adaptador_legado import AdaptadorLegado
 from tests.caracterizacao.cenarios import (
     ANA,
     AUSENTE,
@@ -159,7 +160,8 @@ def test_rotina_sobrescreve_disponibilidade_manual_exceto_ausente(f: Fachada) ->
 
 
 @pytest.mark.cenario("CAR-51")
-def test_disponibilidade_sobrevive_a_gravacao_e_recarga(f: Fachada) -> None:
+def test_disponibilidade_sobrevive_a_gravacao_e_recarga(legado: AdaptadorLegado) -> None:
+    f = legado
     aceitar(f.definir_disponibilidade(CARLA, AUSENTE, solicitante=CARLA))
     os_em_execucao(f)
     f.atualizar_disponibilidades()

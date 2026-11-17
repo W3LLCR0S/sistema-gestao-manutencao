@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from manutencao.domain.cargo import Cargo
+from manutencao.domain.enums import Papel
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.permissoes import Permissao, Permissoes
 from manutencao.domain.usuario import Usuario
@@ -26,7 +27,7 @@ def _popular(
     mundo = Mundo()
     cargos.adicionar(Cargo(1, "Gestor", Permissoes.padrao_gestor()))
     cargos.adicionar(Cargo(2, "Técnico", Permissoes.padrao_tecnico()))
-    usuarios.adicionar(Usuario(1, "Ana", mundo.gestor))
+    usuarios.adicionar(Usuario(1, "Ana", mundo.gestor, papel=Papel.GESTOR))
     equipamentos.adicionar(Equipamento(1, "Torno CNC", "GL 240"))
     ordens.adicionar(mundo.aberta())
 
@@ -53,8 +54,8 @@ def test_usuarios_resolvem_o_cargo_da_propria_instancia() -> None:
     usuarios_a, usuarios_b = UsuariosEmMemoria(cargos_a), UsuariosEmMemoria(cargos_b)
     cargo = cargos_a.obter(1)
     assert cargo is not None
-    usuarios_a.adicionar(Usuario(1, "Bruno", cargo))
-    usuarios_b.adicionar(Usuario(1, "Bruno", cargo))
+    usuarios_a.adicionar(Usuario(1, "Bruno", cargo, papel=Papel.TECNICO))
+    usuarios_b.adicionar(Usuario(1, "Bruno", cargo, papel=Papel.TECNICO))
 
     cargo.permissoes.definir([Permissao.VER_OS])
     cargos_a.salvar(cargo)  # muda só a instância A

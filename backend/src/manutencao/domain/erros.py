@@ -30,6 +30,12 @@ class CodigoErro(StrEnum):
     QUANTIDADE_INVALIDA = "quantidade_invalida"
     PERMISSAO_INVALIDA = "permissao_invalida"
     INSTANTE_INVALIDO = "instante_invalido"
+    # Operação E (D-03, D-04, DLT-08, DLT-09)
+    TECNICO_AUSENTE = "tecnico_ausente"
+    SEM_VINCULO_COM_A_OS = "sem_vinculo_com_a_os"
+    CAMPO_OBRIGATORIO = "campo_obrigatorio"
+    HORAS_NAO_POSITIVAS = "horas_nao_positivas"
+    USUARIO_INATIVO = "usuario_inativo"
 
 
 class DominioError(Exception):

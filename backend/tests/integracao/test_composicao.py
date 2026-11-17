@@ -90,7 +90,6 @@ def test_fluxo_completo_pelo_container_com_relogio_fixo() -> None:
     relogio.avancar(hours=1)
     ordens.registrar_diagnostico(BRUNO, numero, "Rolamento gasto", "Falta de graxa")
     ordens.apontar_reparo(BRUNO, numero, 1.5, "Troca", [PecaInformada("Rolamento", 2)])
-    disponibilidade.atualizar_disponibilidades()
     assert disponibilidade.consultar(ANA)[0].disponibilidade.value == "Em atendimento"
     ordens.alterar_status(BRUNO, numero, StatusOS.REPARO_FINALIZADO)
     assert ordens.concluir_tecnicamente(BRUNO, numero, "Funcionou", True)

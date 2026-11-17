@@ -143,7 +143,9 @@ def test_usuario_com_historico_em_os_nao_pode_ser_excluido(f: Fachada, usuario: 
 @pytest.mark.cenario("CAR-65")
 def test_autor_de_apenas_uma_observacao_tambem_tem_historico(f: Fachada) -> None:
     numero = os_aberta(f, solicitante=ANA)
-    novo = f.cadastrar_usuario("Diego", CARGO_TECNICO)
+    # D-04: um terceiro técnico não observa mais; um segundo gestor sim (não abriu nem é o
+    # responsável). A expectativa é a mesma: quem só observou tem histórico.
+    novo = f.cadastrar_usuario("Diego", CARGO_GESTOR)
     aceitar(f.adicionar_observacao(numero, novo, "passou aqui"))
     recusada(f.remover_usuario(novo, ANA), Recusa.USUARIO_COM_HISTORICO)
 

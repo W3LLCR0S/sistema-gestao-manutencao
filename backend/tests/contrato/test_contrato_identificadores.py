@@ -12,6 +12,7 @@ import pytest
 
 from manutencao.application.erros import IdentificadorJaEmitidoError
 from manutencao.domain.cargo import Cargo
+from manutencao.domain.enums import Papel
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.permissoes import Permissoes
@@ -41,7 +42,7 @@ def _adicionar_usuario(repos: Repositorios, id: int) -> None:
     _cargos(repos)
     cargo = repos.cargos.obter(1)
     assert cargo is not None
-    repos.usuarios.adicionar(Usuario(id, f"U{id}", cargo))
+    repos.usuarios.adicionar(Usuario(id, f"U{id}", cargo, papel=Papel.TECNICO))
 
 
 def _salvar_usuario(repos: Repositorios, id: int) -> None:

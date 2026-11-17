@@ -16,15 +16,25 @@ Diferenças deliberadas, e só estas:
 * **Permissões tipadas** (DLT-11): :class:`Permissao` no lugar de texto.
 * **Sem serialização** (``to_dict``/``from_dict``) e sem acesso a repositório.
 
-Mudanças funcionais aprovadas (D-02 a D-06, validações, usuário ativo) **não** estão aqui; ver
-``backend/tests/caracterizacao/deltas.py``. A autorização por papel e a posse da OS continuam
-exigidas pelos métodos como no legado; a centralização na camada de aplicação é da Operação D.
+Mudanças funcionais aprovadas na Operação E (ver ``backend/tests/caracterizacao/deltas.py``):
+
+* **D-03 / DLT-02**: atribuir a técnico ``Ausente`` é recusado, salvo confirmação explícita
+  (``confirmar_ausente``); o histórico registra que o técnico estava ausente.
+* **D-04 / DLT-03, DLT-04**: observações só em OS ativa; registram Gestor, técnico responsável e
+  quem abriu a OS. O autor da abertura não ganha capacidade técnica.
+* **D-06 / DLT-06**: o diagnóstico é exigido antes de ``Reparo Finalizado``.
+* **DLT-08**: campos obrigatórios e horas maiores que zero (``domain.validacao``).
+* **DLT-09**: um usuário inativo não opera (``Usuario.exigir``) e não é atribuível.
+
+A posse da OS continua exigida pelos métodos como no legado. Os novos requisitos são verificados
+**depois** das verificações antigas e **antes** de qualquer alteração, de modo que uma recusa nunca
+deixa a OS (nem o histórico) pela metade.
 """
 
 from collections.abc import Sequence
 from datetime import datetime
 
-from manutencao.domain.enums import Criticidade, StatusOS, TipoServico
+from manutencao.domain.enums import Criticidade, Disponibilidade, StatusOS, TipoServico
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import (
     CodigoErro,
@@ -44,6 +54,7 @@ from manutencao.domain.transicoes import (
     transicao_permitida,
 )
 from manutencao.domain.usuario import Usuario
+from manutencao.domain.validacao import exigir_horas_positivas, exigir_texto
 
 
 class OrdemServico:
@@ -216,13 +227,31 @@ class OrdemServico:
                 CodigoErro.EQUIPAMENTO_INATIVO,
                 "Não é possível abrir OS para equipamento inativo.",
             )
+        exigir_texto(falha, "a descrição da falha")
         quando = garantir_utc(quando)
         os_ = cls(numero, equipamento, falha, criticidade, usuario, quando)
         os_._registrar_servico(TipoServico.ABERTURA, f"[{criticidade}] {falha}", usuario, quando)
         return os_
 
+    def pode_registrar_observacao(self, usuario: Usuario) -> bool:
+        """Quem pode observar uma OS ativa (D-04, DLT-04): o Gestor, o técnico responsável e quem
+        a abriu. É vínculo com a OS; a permissão ``registrar_apontamento`` é exigida à parte."""
+        return usuario.e_gestor or self.esta_com(usuario) or self._aberta_por == usuario
+
     def adicionar_apontamento(self, usuario: Usuario, texto: str, *, quando: datetime) -> None:
+        """Observação da OS (D-04): comentário livre que **não altera o status**.
+
+        Ordem: permissão, vínculo com a OS (quem não pode agir não aprende nada sobre o estado) e,
+        por fim, o estado: uma OS Concluída ou Cancelada é imutável (DLT-03).
+        """
         usuario.exigir(Permissao.REGISTRAR_APONTAMENTO)
+        if not self.pode_registrar_observacao(usuario):
+            raise PermissaoNegadaError(
+                CodigoErro.SEM_VINCULO_COM_A_OS,
+                "Só o gestor, o técnico responsável ou quem abriu a OS pode registrar observações.",
+            )
+        if self.encerrada:
+            raise ConflitoDeEstadoError(CodigoErro.OS_ENCERRADA, "A OS já está encerrada.")
         quando = garantir_utc(quando)
         self._registrar_servico(TipoServico.APONTAMENTO, texto, usuario, quando)
 
@@ -233,6 +262,8 @@ class OrdemServico:
         tecnico.exigir(Permissao.DIAGNOSTICAR)
         self._exigir_tecnico_da_os(tecnico)
         self._exigir_status(*STATUS_ATENDIMENTO)
+        exigir_texto(parecer, "o parecer técnico")
+        exigir_texto(causa_raiz, "a causa-raiz")
         quando = garantir_utc(quando)
         self._diagnostico = parecer
         self._causa_raiz = causa_raiz
@@ -252,10 +283,8 @@ class OrdemServico:
         tecnico.exigir(Permissao.APONTAR_REPARO)
         self._exigir_tecnico_da_os(tecnico)
         self._exigir_status(*STATUS_ATENDIMENTO)
-        if horas < 0:
-            raise ViolacaoDeRegraError(
-                CodigoErro.HORAS_NEGATIVAS, "Horas trabalhadas não podem ser negativas."
-            )
+        exigir_horas_positivas(horas)
+        exigir_texto(intervencao, "a intervenção realizada")
         quando = garantir_utc(quando)
         if self._status == StatusOS.ATRIBUIDA:
             self._mudar_status(StatusOS.EM_EXECUCAO, tecnico, quando)
@@ -280,6 +309,11 @@ class OrdemServico:
             raise ViolacaoDeRegraError(
                 CodigoErro.SEM_INTERVENCAO,
                 "Registre ao menos uma intervenção antes de finalizar o reparo.",
+            )
+        if novo == StatusOS.REPARO_FINALIZADO and not self._diagnostico:
+            raise ViolacaoDeRegraError(
+                CodigoErro.SEM_DIAGNOSTICO,
+                "Registre o diagnóstico técnico antes de finalizar o reparo.",
             )
         self._mudar_status(novo, tecnico, garantir_utc(quando))
 
@@ -308,8 +342,21 @@ class OrdemServico:
         return True
 
     # ======================== gestor ========================
-    def atribuir(self, tecnico: Usuario, gestor: Usuario, *, quando: datetime) -> Usuario | None:
-        """Atribui ou reatribui a OS. Devolve o técnico anterior (ou ``None``)."""
+    def atribuir(
+        self,
+        tecnico: Usuario,
+        gestor: Usuario,
+        *,
+        quando: datetime,
+        confirmar_ausente: bool = False,
+    ) -> Usuario | None:
+        """Atribui ou reatribui a OS. Devolve o técnico anterior (ou ``None``).
+
+        Um técnico inativo nunca é atribuível (DLT-09). Atribuir a um técnico ``Ausente`` é recusado
+        (conflito) a menos que ``confirmar_ausente`` seja verdadeiro (D-03, DLT-02); a confirmação
+        só vale para quem tem a permissão de atribuir (verificada antes) e a atribuição feita assim
+        fica registrada no histórico.
+        """
         gestor.exigir(Permissao.ATRIBUIR_OS)
         if self.encerrada or self._status == StatusOS.AGUARDANDO_APROVACAO:
             raise ConflitoDeEstadoError(
@@ -317,20 +364,34 @@ class OrdemServico:
             )
         if not tecnico.e_tecnico:
             raise ViolacaoDeRegraError(CodigoErro.NAO_E_TECNICO, f"{tecnico.nome} não é técnico.")
+        if not tecnico.ativo:
+            raise ViolacaoDeRegraError(
+                CodigoErro.USUARIO_INATIVO, f"{tecnico.nome} está inativo e não pode receber OS."
+            )
         if self.esta_com(tecnico):
             raise ConflitoDeEstadoError(
                 CodigoErro.JA_ATRIBUIDA, "A OS já está atribuída a este técnico."
             )
+        ausente = tecnico.disponibilidade is Disponibilidade.AUSENTE
+        if ausente and not confirmar_ausente:
+            raise ConflitoDeEstadoError(
+                CodigoErro.TECNICO_AUSENTE,
+                f"{tecnico.nome} está ausente; confirme a atribuição para prosseguir.",
+            )
         quando = garantir_utc(quando)
+        sufixo = " (técnico ausente; atribuição confirmada pelo gestor)" if ausente else ""
         anterior = self._tecnico_atribuido
         self._tecnico_atribuido = tecnico
         if anterior is not None:
             self._registrar_servico(
-                TipoServico.REATRIBUICAO, f"{anterior.nome} → {tecnico.nome}", gestor, quando
+                TipoServico.REATRIBUICAO,
+                f"{anterior.nome} → {tecnico.nome}{sufixo}",
+                gestor,
+                quando,
             )
         else:
             self._registrar_servico(
-                TipoServico.ATRIBUICAO, f"Atribuída a {tecnico.nome}", gestor, quando
+                TipoServico.ATRIBUICAO, f"Atribuída a {tecnico.nome}{sufixo}", gestor, quando
             )
         if self._status == StatusOS.ABERTA:
             self._mudar_status(StatusOS.ATRIBUIDA, gestor, quando)
@@ -349,6 +410,7 @@ class OrdemServico:
     def reprovar(self, gestor: Usuario, motivo: str, *, quando: datetime) -> None:
         gestor.exigir(Permissao.APROVAR_OS)
         self._exigir_status(StatusOS.AGUARDANDO_APROVACAO)
+        exigir_texto(motivo, "o motivo da reprovação")
         quando = garantir_utc(quando)
         self._registrar_servico(
             TipoServico.REPROVACAO, f"Devolvida ao técnico: {motivo}", gestor, quando
@@ -359,6 +421,7 @@ class OrdemServico:
         gestor.exigir(Permissao.APROVAR_OS)
         if self.encerrada:
             raise ConflitoDeEstadoError(CodigoErro.OS_ENCERRADA, "A OS já está encerrada.")
+        exigir_texto(motivo, "o motivo do cancelamento")
         quando = garantir_utc(quando)
         self._motivo_cancelamento = motivo
         self._data_conclusao = quando

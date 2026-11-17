@@ -39,9 +39,10 @@ from manutencao.application.erros import (
     RegraDeAplicacaoError,
 )
 from manutencao.composicao.fabrica import criar_container_em_memoria
-from manutencao.domain.enums import Criticidade, Disponibilidade, StatusOS
+from manutencao.domain.enums import Criticidade, Disponibilidade, Papel, StatusOS
 from manutencao.domain.erros import DominioError
 from manutencao.domain.permissoes import Permissao
+from manutencao.domain.usuario import Usuario
 from tests.caracterizacao.aplicabilidade import Responsabilidade
 from tests.caracterizacao.fachada import (
     CargoSnap,
@@ -62,6 +63,7 @@ from tests.caracterizacao.traducao import (
 )
 
 ADMINISTRADOR = 1  # Ana Souza, a gestora da base inicial
+CARGO_GESTOR = 1  # o cargo Gestor da base inicial; o outro cargo é o Técnico
 
 # Os únicos métodos que agem como ADMINISTRADOR: preparação de cenário (ver a docstring do módulo).
 PREPARACOES_COMO_ADMINISTRADOR = frozenset(
@@ -191,7 +193,10 @@ class AdaptadorServicos:
 
     # --- disponibilidade
     def atualizar_disponibilidades(self) -> None:
-        self._c.servico_disponibilidade.atualizar_disponibilidades()
+        """Sem efeito: a disponibilidade é derivada das OS a cada leitura (D-05, DLT-05).
+
+        Existe só porque a fachada herda a rotina do legado; nos serviços não há rotina a executar.
+        """
 
     def definir_disponibilidade(self, usuario: int, valor: str, *, solicitante: int) -> Resultado:
         """Quem pede (``solicitante``), quem tem a disponibilidade alterada (``usuario``) e o valor
@@ -204,7 +209,15 @@ class AdaptadorServicos:
 
     # ---------------------------------------------------------------------------------- cadastros
     def cadastrar_usuario(self, nome: str, cargo: int, email: str = "", escala: str = "") -> int:
-        return self._c.servico_usuarios.cadastrar(ADMINISTRADOR, nome, cargo, email, escala).id
+        # O papel é explícito nos serviços (D-02); o cenário só informa o cargo, de onde o papel
+        # inicial sai aqui, na preparação: Gestor para o cargo Gestor, Técnico para o outro.
+        return self._c.servico_usuarios.cadastrar(
+            ADMINISTRADOR, nome, cargo, email, escala, papel=self._papel_do_cargo(cargo)
+        ).id
+
+    @staticmethod
+    def _papel_do_cargo(cargo: int) -> Papel:
+        return Papel.GESTOR if cargo == CARGO_GESTOR else Papel.TECNICO
 
     def editar_usuario(
         self,
@@ -283,7 +296,11 @@ class AdaptadorServicos:
 
     def cadastrar_usuario_por(self, solicitante: int, nome: str, cargo: int) -> Resultado:
         return self._executar(
-            lambda: self._c.servico_usuarios.cadastrar(solicitante, nome, cargo).id
+            lambda: (
+                self._c.servico_usuarios.cadastrar(
+                    solicitante, nome, cargo, papel=self._papel_do_cargo(cargo)
+                ).id
+            )
         )
 
     def editar_usuario_por(self, solicitante: int, usuario: int, nome: str) -> Resultado:
@@ -329,10 +346,7 @@ class AdaptadorServicos:
 
     def consultar_usuarios_por(self, solicitante: int) -> Resultado:
         return self._executar(
-            lambda: tuple(
-                snap_usuario(u, self._c.projecoes.carga_do_tecnico(u.id))
-                for u in self._c.servico_usuarios.listar(solicitante)
-            )
+            lambda: tuple(self._snap(u) for u in self._c.servico_usuarios.listar(solicitante))
         )
 
     def listar_cargos_por(self, solicitante: int) -> Resultado:
@@ -365,16 +379,21 @@ class AdaptadorServicos:
         achado = self._c.usuarios.obter(usuario_id)
         if achado is None:
             return None
-        return snap_usuario(achado, self._c.projecoes.carga_do_tecnico(achado.id))
+        return self._snap(achado)
 
     def usuario(self, id: int) -> UsuarioSnap | None:
         return self._snap_usuario(id)
 
-    def usuarios(self) -> tuple[UsuarioSnap, ...]:
-        return tuple(
-            snap_usuario(u, self._c.projecoes.carga_do_tecnico(u.id))
-            for u in self._c.usuarios.listar()
+    def _snap(self, u: Usuario) -> UsuarioSnap:
+        """O usuário com a carga e a disponibilidade **derivada** das OS (D-05)."""
+        return snap_usuario(
+            u,
+            self._c.projecoes.carga_do_tecnico(u.id),
+            self._c.projecoes.disponibilidade_efetiva(u),
         )
+
+    def usuarios(self) -> tuple[UsuarioSnap, ...]:
+        return tuple(self._snap(u) for u in self._c.usuarios.listar())
 
     def tecnicos(self) -> tuple[int, ...]:
         return tuple(t.id for t in self._c.projecoes.tecnicos())

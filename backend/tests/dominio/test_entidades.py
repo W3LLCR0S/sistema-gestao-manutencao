@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from manutencao.domain.cargo import Cargo
-from manutencao.domain.enums import Disponibilidade, TipoServico
+from manutencao.domain.enums import Disponibilidade, Papel, TipoServico
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import (
     CodigoErro,
@@ -101,21 +101,36 @@ def test_cargo_e_igual_por_identificador() -> None:
 
 
 def test_usuario_nasce_disponivel_com_dados_cadastrais_vazios() -> None:
-    usuario = Usuario(2, "Bruno Lima", _cargo())
+    usuario = Usuario(2, "Bruno Lima", _cargo(), papel=Papel.TECNICO)
     assert usuario.disponibilidade is Disponibilidade.DISPONIVEL
     assert (usuario.email, usuario.escala) == ("", "")
     assert str(usuario) == "Bruno Lima"
 
 
 def test_usuario_e_igual_por_identificador() -> None:
-    assert Usuario(1, "Ana", _cargo()) == Usuario(1, "Outro nome", _cargo(9))
-    assert Usuario(1, "Ana", _cargo()) != Usuario(2, "Ana", _cargo())
-    assert len({Usuario(1, "A", _cargo()), Usuario(1, "B", _cargo())}) == 1
+    assert Usuario(1, "Ana", _cargo(), papel=Papel.TECNICO) == Usuario(
+        1, "Outro nome", _cargo(9), papel=Papel.TECNICO
+    )
+    assert Usuario(1, "Ana", _cargo(), papel=Papel.TECNICO) != Usuario(
+        2, "Ana", _cargo(), papel=Papel.TECNICO
+    )
+    assert (
+        len(
+            {
+                Usuario(1, "A", _cargo(), papel=Papel.TECNICO),
+                Usuario(1, "B", _cargo(), papel=Papel.TECNICO),
+            }
+        )
+        == 1
+    )
 
 
 def test_permissoes_do_usuario_vem_do_cargo_e_acompanham_suas_mudancas() -> None:
     cargo = _cargo()
-    bruno, carla = Usuario(2, "Bruno", cargo), Usuario(3, "Carla", cargo)
+    bruno, carla = (
+        Usuario(2, "Bruno", cargo, papel=Papel.TECNICO),
+        Usuario(3, "Carla", cargo, papel=Papel.TECNICO),
+    )
     assert bruno.pode(Permissao.APONTAR_REPARO)
     assert carla.pode(Permissao.APONTAR_REPARO)
     cargo.permissoes.definir([Permissao.VER_OS])
@@ -126,14 +141,14 @@ def test_permissoes_do_usuario_vem_do_cargo_e_acompanham_suas_mudancas() -> None
 
 def test_mudar_de_cargo_muda_as_permissoes() -> None:
     gestor = Cargo(1, "Gestor", Permissoes.padrao_gestor())
-    usuario = Usuario(2, "Bruno", _cargo())
+    usuario = Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO)
     assert not usuario.pode(Permissao.APROVAR_OS)
     usuario.cargo = gestor
     assert usuario.pode(Permissao.APROVAR_OS)
 
 
 def test_exigir_nao_faz_nada_quando_tem_a_permissao() -> None:
-    Usuario(2, "Bruno", _cargo()).exigir(Permissao.DIAGNOSTICAR)
+    Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO).exigir(Permissao.DIAGNOSTICAR)
 
 
 @pytest.mark.parametrize(
@@ -145,39 +160,42 @@ def test_exigir_nao_faz_nada_quando_tem_a_permissao() -> None:
 )
 def test_exigir_recusa_com_a_descricao_da_permissao(permissao: Permissao, descricao: str) -> None:
     with pytest.raises(PermissaoNegadaError) as erro:
-        Usuario(2, "Bruno", _cargo()).exigir(permissao)
+        Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO).exigir(permissao)
     assert erro.value.codigo is CodigoErro.SEM_PERMISSAO
     assert str(erro.value) == f"Sem permissão: {descricao}."
 
 
 def test_pode_e_exigir_recusam_texto_em_vez_de_negar_em_silencio() -> None:
-    bruno = Usuario(2, "Bruno", _cargo())
+    bruno = Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO)
     for operacao in (bruno.pode, bruno.exigir):
         with pytest.raises(ViolacaoDeRegraError) as erro:
             operacao("aprovar_oss")  # type: ignore[arg-type]
         assert erro.value.codigo is CodigoErro.PERMISSAO_INVALIDA
 
 
-def test_e_tecnico_depende_so_de_apontar_reparo() -> None:
+def test_e_tecnico_depende_so_do_papel_e_nao_de_apontar_reparo() -> None:
+    """D-02 (DLT-01): no legado retirar ``apontar_reparo`` destituía o técnico (AUD-20)."""
     cargo = _cargo()
-    bruno = Usuario(2, "Bruno", cargo)
+    bruno = Usuario(2, "Bruno", cargo, papel=Papel.TECNICO)
     antes = bruno.e_tecnico
     cargo.permissoes.definir([p for p in Permissao if p is not Permissao.APONTAR_REPARO])
     depois = bruno.e_tecnico
-    assert (antes, depois) == (True, False)
+    assert (antes, depois) == (True, True)
+    assert not bruno.pode(Permissao.APONTAR_REPARO)  # continua técnico, mas sem a permissão
 
 
-def test_gestor_nao_e_tecnico_ate_receber_apontar_reparo() -> None:
-    """AUD-20 (DLT-01): no legado a identidade de técnico é uma permissão; preservado até a D-02."""
-    gestor = Usuario(1, "Ana", Cargo(1, "Gestor", Permissoes.padrao_gestor()))
+def test_gestor_nao_vira_tecnico_ao_receber_apontar_reparo() -> None:
+    """D-02 (DLT-01): no legado conceder ``apontar_reparo`` ao gestor o tornava técnico (AUD-20)."""
+    gestor = Usuario(1, "Ana", Cargo(1, "Gestor", Permissoes.padrao_gestor()), papel=Papel.GESTOR)
     antes = gestor.e_tecnico
     gestor.cargo.permissoes.definir([Permissao.APONTAR_REPARO])
     depois = gestor.e_tecnico
-    assert (antes, depois) == (False, True)
+    assert (antes, depois) == (False, False)
+    assert gestor.pode(Permissao.APONTAR_REPARO)  # a permissão vale, o papel não muda
 
 
 def test_disponibilidade_e_um_valor_armazenado_alteravel() -> None:
-    usuario = Usuario(2, "Bruno", _cargo())
+    usuario = Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO)
     usuario.disponibilidade = Disponibilidade.AUSENTE
     assert usuario.disponibilidade is Disponibilidade.AUSENTE
 
@@ -188,7 +206,7 @@ AGORA = datetime(2026, 3, 10, 9, 0, tzinfo=UTC)
 
 
 def test_servico_guarda_os_campos_e_tem_valores_padrao() -> None:
-    autor = Usuario(2, "Bruno", _cargo())
+    autor = Usuario(2, "Bruno", _cargo(), papel=Papel.TECNICO)
     servico = Servico(1, TipoServico.ABERTURA, "[Alta] Torno parado", autor, AGORA)
     assert (servico.numero, servico.tipo, servico.responsavel, servico.data) == (
         1,

@@ -20,10 +20,10 @@ class PecaInformada:
 
 @dataclass(frozen=True)
 class DisponibilidadeDoTecnico:
-    """Uma linha da consulta de disponibilidade: o valor **armazenado** e a carga de trabalho.
+    """Uma linha da consulta de disponibilidade: o valor **derivado** e a carga de trabalho.
 
-    ``disponibilidade`` é o valor guardado, que só muda por ação manual ou pela rotina
-    ``atualizar_disponibilidades`` (comportamento do legado; a derivação é a D-05, Operação E).
+    ``disponibilidade`` é calculada a partir das OS a cada consulta (D-05): ausência manual,
+    senão ``Em atendimento`` se há OS Em Execução, senão ``Disponível``.
     ``carga`` é o número de OS ativas (não encerradas) atribuídas ao técnico.
     """
 

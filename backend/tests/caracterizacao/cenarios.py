@@ -217,7 +217,7 @@ CENARIOS: tuple[Cenario, ...] = (
         M,
         ("D-05", "AUD-09"),
     ),
-    Cenario("CAR-52", "disponibilidade", "A rotina só recalcula técnicos", P),
+    Cenario("CAR-52", "disponibilidade", "A rotina só recalcula técnicos", M, ("D-05",)),
     Cenario("CAR-53", "disponibilidade", "Carga = OS ativas atribuídas ao técnico", P),
     Cenario("CAR-54", "disponibilidade", "Técnico ausente continua técnico e com carga", P),
     # --- permissões (test_permissoes.py)
@@ -236,7 +236,7 @@ CENARIOS: tuple[Cenario, ...] = (
     # --- cadastros (test_cadastros.py)
     Cenario("CAR-61", "cadastros", "Cadastro de usuário: próximo id e disponibilidade inicial", P),
     Cenario("CAR-62", "cadastros", "Novo técnico recebe OS; novo gestor não", P),
-    Cenario("CAR-63", "cadastros", "Edição de usuário e mudança de cargo", P),
+    Cenario("CAR-63", "cadastros", "Edição de usuário e mudança de cargo", M, ("D-02",)),
     Cenario("CAR-64", "cadastros", "Exclusão sem histórico; autoexclusão recusada", P),
     Cenario("CAR-65", "cadastros", "Usuário com histórico em OS não é excluído", P),
     Cenario("CAR-66", "cadastros", "Cadastro e edição de equipamento", P),

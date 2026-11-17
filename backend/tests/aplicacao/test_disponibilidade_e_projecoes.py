@@ -1,10 +1,11 @@
-"""Disponibilidade, carga e projeções de leitura: o comportamento ATUAL do legado (sem a D-05)."""
+"""Carga, projeções de leitura e consulta de disponibilidade (a derivação da D-05 está em
+``test_operacao_e.py``; aqui, o que independe dela)."""
 
 import pytest
 
 from manutencao.application.dto import DisponibilidadeDoTecnico
 from manutencao.application.erros import NaoEncontradoError
-from manutencao.domain.enums import Disponibilidade, StatusOS
+from manutencao.domain.enums import Disponibilidade
 from manutencao.domain.erros import PermissaoNegadaError
 from manutencao.domain.permissoes import Permissao
 from tests.apoio.ambiente import (
@@ -66,10 +67,13 @@ def test_reatribuir_move_a_carga_de_um_tecnico_para_o_outro(amb: Ambiente) -> No
 # --------------------------------------------------------------------------------- projeções
 
 
-def test_tecnicos_sao_quem_tem_apontar_reparo_como_no_legado(amb: Ambiente) -> None:
+def test_tecnicos_sao_quem_tem_o_papel_tecnico_e_nao_dependem_das_permissoes(
+    amb: Ambiente,
+) -> None:
+    """D-02 (DLT-01; AUD-20 do legado): o papel, não a permissão ``apontar_reparo``, define."""
     assert [t.id for t in amb.projecoes.tecnicos()] == [BRUNO, CARLA]
     amb.servico_usuarios.definir_permissoes_do_cargo(ANA, CARGO_TECNICO, [Permissao.VER_OS])
-    assert amb.projecoes.tecnicos() == ()  # AUD-20, preservado (D-02 é da Operação E)
+    assert [t.id for t in amb.projecoes.tecnicos()] == [BRUNO, CARLA]
 
 
 def test_ordens_por_equipamento_incluem_todos_os_estados(amb: Ambiente) -> None:
@@ -92,7 +96,7 @@ def test_ordens_por_tecnico_ignoram_os_sem_tecnico(amb: Ambiente) -> None:
 # --------------------------------------------------------------------------------- consulta
 
 
-def test_consultar_lista_escala_disponibilidade_armazenada_e_carga(amb: Ambiente) -> None:
+def test_consultar_lista_escala_disponibilidade_derivada_e_carga(amb: Ambiente) -> None:
     atribuida(amb, BRUNO)
     linhas = amb.servico_disponibilidade.consultar(ANA)
     assert linhas == (
@@ -117,17 +121,16 @@ def test_consultar_exige_ver_disponibilidade(amb: Ambiente) -> None:
     amb.servico_usuarios.definir_permissoes_do_cargo(ANA, CARGO_TECNICO, [Permissao.VER_OS])
     with pytest.raises(PermissaoNegadaError):
         amb.servico_disponibilidade.consultar(BRUNO)
-    assert len(amb.servico_disponibilidade.consultar(ANA)) == 0  # sem técnicos: lista vazia
+    # os técnicos continuam listados: o papel (D-02) não depende das permissões
+    assert len(amb.servico_disponibilidade.consultar(ANA)) == 2
 
 
-def test_consulta_antes_da_rotina_mostra_o_valor_antigo(amb: Ambiente) -> None:
-    """AUD-13 (D-05 nº 10): a OS entra em execução e a disponibilidade só muda pela rotina."""
+def test_consulta_logo_apos_a_transicao_ja_traz_o_valor_derivado(amb: Ambiente) -> None:
+    """D-05 nº 10 (AUD-13 do legado): sem rotina, a mesma resposta já reflete a OS em execução."""
     em_execucao(amb, BRUNO)
-    antes = amb.servico_disponibilidade.consultar(ANA)
-    assert antes[0].disponibilidade is Disponibilidade.DISPONIVEL
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    depois = amb.servico_disponibilidade.consultar(ANA)
-    assert depois[0].disponibilidade is Disponibilidade.EM_ATENDIMENTO
+    linhas = amb.servico_disponibilidade.consultar(ANA)
+    assert linhas[0].disponibilidade is Disponibilidade.EM_ATENDIMENTO
+    assert _disp(amb, BRUNO) is Disponibilidade.DISPONIVEL  # o valor manual guardado não mudou
 
 
 # ---------------------------------------------------------------------------- ajuste manual
@@ -145,58 +148,9 @@ def test_ajuste_manual_de_usuario_inexistente_levanta_nao_encontrado(amb: Ambien
         amb.servico_disponibilidade.alterar_minha_disponibilidade(99, Disponibilidade.AUSENTE)
 
 
-# ---------------------------------------------------------------------------------- rotina
-
-
-def test_rotina_em_execucao_vira_em_atendimento_e_sem_execucao_volta_a_disponivel(
-    amb: Ambiente,
-) -> None:
-    numero = em_execucao(amb, BRUNO)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, BRUNO) is Disponibilidade.EM_ATENDIMENTO
-    assert _disp(amb, CARLA) is Disponibilidade.DISPONIVEL
-    amb.servico_ordens.alterar_status(BRUNO, numero, StatusOS.AGUARDANDO_PECA)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, BRUNO) is Disponibilidade.DISPONIVEL  # só "Em Execução" conta
-
-
-def test_rotina_so_considera_os_em_execucao(amb: Ambiente) -> None:
-    atribuida(amb, BRUNO)  # Atribuída não é "em campo"
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, BRUNO) is Disponibilidade.DISPONIVEL
-
-
-def test_rotina_nao_altera_quem_esta_ausente_mesmo_com_os_em_execucao(amb: Ambiente) -> None:
-    em_execucao(amb, BRUNO)
-    amb.servico_disponibilidade.alterar_minha_disponibilidade(BRUNO, Disponibilidade.AUSENTE)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, BRUNO) is Disponibilidade.AUSENTE
-    assert amb.projecoes.carga_do_tecnico(BRUNO) == 1  # continua técnico, com carga
-    assert [t.id for t in amb.projecoes.tecnicos()] == [BRUNO, CARLA]
-
-
-def test_rotina_so_recalcula_tecnicos(amb: Ambiente) -> None:
-    amb.servico_disponibilidade.alterar_minha_disponibilidade(ANA, Disponibilidade.EM_ATENDIMENTO)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, ANA) is Disponibilidade.EM_ATENDIMENTO  # a gestora não é técnica
-
-
-def test_rotina_sobrescreve_o_ajuste_manual_de_um_tecnico_nao_ausente(amb: Ambiente) -> None:
-    amb.servico_disponibilidade.alterar_minha_disponibilidade(CARLA, Disponibilidade.EM_ATENDIMENTO)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert _disp(amb, CARLA) is Disponibilidade.DISPONIVEL
-
-
-def test_rotina_e_idempotente(amb: Ambiente) -> None:
-    em_execucao(amb, BRUNO)
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    primeira = [(u.id, u.disponibilidade) for u in amb.usuarios.listar()]
-    amb.servico_disponibilidade.atualizar_disponibilidades()
-    assert [(u.id, u.disponibilidade) for u in amb.usuarios.listar()] == primeira
-
-
 def test_nenhum_caso_de_uso_atualiza_a_disponibilidade_sozinho(amb: Ambiente) -> None:
-    """A D-05 (derivação) é da Operação E: aqui só a rotina explícita recalcula."""
+    """Nada grava a disponibilidade: o valor manual guardado só muda por ação manual; o efetivo
+    é derivado na leitura (D-05), sem rotina."""
     em_execucao(amb, BRUNO)
     assert _disp(amb, BRUNO) is Disponibilidade.DISPONIVEL
     amb.servico_ordens.cancelar(ANA, 1, "x")

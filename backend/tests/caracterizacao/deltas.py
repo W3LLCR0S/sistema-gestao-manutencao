@@ -11,12 +11,14 @@ legado existe e (4) esta rastreabilidade aponta a ``evidencia``: ``arquivo::test
 evidência existe.
 
 Estado atual: DLT-07 (datas UTC) e DLT-11 (permissões tipadas), da Operação C, DLT-10 (IDs
-monotônicos), da Operação D, e DLT-12 a DLT-17 (autorização nos serviços, regularização da
-Operação D) estão implementados. DLT-01 a DLT-06, DLT-08 e DLT-09 são da Operação E.
+monotônicos), da Operação D, DLT-12 a DLT-17 (autorização nos serviços, regularização da Operação
+D) e DLT-01 a DLT-06, DLT-08 e DLT-09 (regras de negócio, Operação E) estão implementados.
 
 DLT-12 a DLT-17 foram **aprovados expressamente** em 2026-11-17 (``APROVACAO_REGULARIZACAO_D``) e
 registram, além dos campos de sempre, a justificativa, a camada responsável e o teste do
-comportamento legado (``testes_legado``). Os identificadores anteriores não foram alterados.
+comportamento legado (``testes_legado``). Os deltas da Operação E vêm de decisões aprovadas em
+2026-11-15 e foram implementados após a autorização da Operação E (``APROVACAO_OPERACAO_E``) e
+registram os mesmos campos. Os identificadores anteriores não foram alterados.
 """
 
 from dataclasses import dataclass
@@ -51,6 +53,24 @@ APROVACAO_REGULARIZACAO_D = (
     "DLT-12 a DLT-17 em docs/DECISOES_APROVADAS.md, seção 7, e docs/adr/0006"
 )
 
+APROVACAO_OPERACAO_E = (
+    "Decisões aprovadas em 2026-11-15 (docs/DECISOES_APROVADAS.md: D-02 a D-06 e as melhorias "
+    "5.1 e 5.2; docs/adr/0009); implementação da Operação E autorizada em 2026-11-17"
+)
+
+_DOM = "dominio/test_operacao_e.py::"
+_ORD = "dominio/test_ordem_servico.py::"
+_ENT = "dominio/test_entidades.py::"
+_AOE = "aplicacao/test_operacao_e.py::"
+_CMP = "caracterizacao/test_operacao_e_servicos.py::"
+_ADS = "caracterizacao/test_adaptador_servicos.py::"
+_ADD = "caracterizacao/test_adaptador_dominio.py::"
+_CAD = "caracterizacao/test_cadastros.py::"
+_ATR = "caracterizacao/test_atribuicao.py::"
+_DSP = "caracterizacao/test_disponibilidade.py::"
+_OBS = "caracterizacao/test_observacao.py::"
+_TEC = "caracterizacao/test_tecnico.py::"
+_PRM = "caracterizacao/test_permissoes.py::"
 _LEG = "caracterizacao/test_legado_defeitos.py::"
 _PAR = "caracterizacao/test_autorizacao_servicos.py::"
 _APL = "aplicacao/test_autorizacao.py::"
@@ -61,40 +81,134 @@ DELTAS: tuple[Delta, ...] = (
         "D-02",
         "Identidade de técnico",
         "É técnico quem tem a permissão apontar_reparo; retirá-la tira o usuário da lista de "
-        "técnicos e da atribuição; concedê-la ao Gestor o torna atribuível.",
-        "Gestor e Técnico são papéis explícitos, independentes das permissões; permissão "
-        "técnica não torna Gestor em Técnico e retirar apontar_reparo não destitui o Técnico.",
-        ("CAR-18", "CAR-60", "CAR-82"),
+        "técnicos e da atribuição; concedê-la ao Gestor o torna atribuível; trocar o cargo move o "
+        "usuário entre técnicos e gestores.",
+        "Gestor e Técnico são papéis explícitos, independentes das permissões: permissão "
+        "técnica não torna Gestor em Técnico, retirar apontar_reparo não destitui o Técnico e "
+        "trocar o cargo não muda o papel. Mudar o papel é uma operação explícita, restrita ao "
+        "Gestor, que não reatribui OS.",
+        ("CAR-18", "CAR-60", "CAR-63", "CAR-82"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt01_o_papel_e_obrigatorio_e_explicito",
+            f"{_DOM}test_dlt01_o_papel_nao_depende_das_permissoes",
+            f"{_DOM}test_dlt01_tecnico_sem_apontar_reparo_continua_atribuivel_e_e_negado_ao_apontar",
+            f"{_DOM}test_dlt01_gestor_com_permissoes_tecnicas_nao_recebe_atribuicao",
+            f"{_ENT}test_e_tecnico_depende_so_do_papel_e_nao_de_apontar_reparo",
+            f"{_ENT}test_gestor_nao_vira_tecnico_ao_receber_apontar_reparo",
+            f"{_AOE}test_dlt01_a_lista_de_tecnicos_depende_do_papel_e_nao_das_permissoes",
+            f"{_AOE}test_dlt01_tecnico_sem_apontar_reparo_e_atribuivel_e_e_negado_ao_apontar",
+            f"{_AOE}test_dlt01_gestor_com_permissoes_tecnicas_nao_aparece_nem_recebe_atribuicao",
+            f"{_AOE}test_dlt01_o_cadastro_guarda_o_papel_informado",
+            f"{_AOE}test_dlt01_o_gestor_altera_o_papel_por_uma_operacao_explicita",
+            f"{_AOE}test_dlt01_alterar_papel_e_restrito_ao_gestor_mesmo_com_a_permissao_de_gerir_usuarios",
+            f"{_AOE}test_dlt01_um_gestor_sem_a_permissao_de_gerir_usuarios_tambem_e_recusado",
+            f"{_AOE}test_dlt01_ninguem_deixa_de_ser_gestor_por_conta_propria",
+            f"{_AOE}test_dlt01_mudar_o_papel_nao_reatribui_as_os",
+            f"{_AOE}test_dlt01_alterar_papel_segue_a_precedencia_da_autorizacao",
+            "aplicacao/test_servico_de_usuarios.py::test_alterar_o_cargo_muda_as_permissoes_mas_nao_o_papel",
+            f"{_CMP}test_dlt01_retirar_apontar_reparo_tira_o_tecnico_da_lista_no_legado_e_nao_nos_servicos",
+            f"{_CMP}test_dlt01_conceder_apontar_reparo_ao_gestor_o_torna_atribuivel_no_legado_e_nao_nos_servicos",
+            f"{_CMP}test_dlt01_mudar_o_cargo_move_o_usuario_no_legado_e_so_as_permissoes_nos_servicos",
+            f"{_CMP}test_dlt01_o_que_nao_depende_do_papel_e_igual_nos_dois",
+            f"{_ADD}test_dlt01_retirar_apontar_reparo_destitui_o_tecnico_no_legado_e_nao_no_dominio",
+        ),
+        "A identidade (quem é) e a autorização (o que pode) deixam de se confundir: editar uma "
+        "permissão não pode destituir um técnico nem promover um gestor (AUD-20).",
+        "domain",
+        (
+            f"{_ATR}test_tecnico_deixa_de_ser_atribuivel_se_perder_a_permissao_apontar_reparo",
+            f"{_PRM}test_usuario_sem_nenhuma_permissao_nao_opera_nada",
+            f"{_CAD}test_alterar_o_cargo_move_o_usuario_entre_tecnicos_e_gestores",
+            f"{_LEG}test_aud20_conceder_apontar_reparo_ao_gestor_o_transforma_em_tecnico_atribuivel",
+            f"{_LEG}test_aud20_retirar_apontar_reparo_dos_tecnicos_os_tira_da_lista_mas_nao_das_os",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-02",
         "D-03",
         "Atribuição a técnico Ausente",
         "O domínio aceita; só a tela da CLI pede confirmação.",
-        "Recusada por padrão (conflito de regra); aceita com confirmação explícita validada na "
-        "camada de aplicação; o histórico registra a atribuição a técnico ausente.",
+        "Recusada por padrão (conflito de regra); aceita com confirmação explícita, dado da "
+        "operação validado no caso de uso e só de quem pode atribuir; o histórico registra a "
+        "atribuição (e a reatribuição) a técnico ausente.",
         ("CAR-17", "CAR-89"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt02_atribuir_a_tecnico_ausente_sem_confirmacao_e_recusado_sem_alterar_a_os",
+            f"{_DOM}test_dlt02_com_confirmacao_a_atribuicao_e_aceita_e_o_historico_registra_a_ausencia",
+            f"{_DOM}test_dlt02_a_reatribuicao_a_tecnico_ausente_segue_a_mesma_regra",
+            f"{_DOM}test_dlt02_a_confirmacao_nao_substitui_a_permissao_de_atribuir",
+            f"{_AOE}test_dlt02_atribuir_a_tecnico_ausente_sem_confirmacao_e_recusado_sem_mutacao",
+            f"{_AOE}test_dlt02_com_confirmacao_explicita_a_atribuicao_e_aceita_e_registrada",
+            f"{_AOE}test_dlt02_a_reatribuicao_a_tecnico_ausente_segue_a_mesma_regra",
+            f"{_AOE}test_dlt02_a_confirmacao_nao_e_aceita_de_quem_nao_pode_atribuir",
+            f"{_CMP}test_dlt02_atribuir_a_tecnico_ausente_o_legado_aceita_e_os_servicos_recusam",
+            f"{_CMP}test_dlt02_com_confirmacao_os_servicos_aceitam_e_registram_a_ausencia_no_historico",
+            f"{_CMP}test_dlt02_tecnico_presente_e_igual_nos_dois",
+        ),
+        "Uma chamada direta à API não pode contornar a regra só por não haver a tela de "
+        "confirmação (AUD-09): a recusa e a confirmação pertencem ao caso de uso.",
+        "domain",
+        (
+            f"{_ATR}test_atribuir_a_tecnico_ausente_e_aceito_pelo_dominio",
+            f"{_ATR}test_reatribuir_a_tecnico_ausente_tambem_e_aceito",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-03",
         "D-04",
         "Observação em OS Concluída ou Cancelada",
         "Aceita de qualquer usuário com registrar_apontamento; o histórico encerrado cresce.",
-        "Recusada (OS encerrada é imutável); observação não é diagnóstico nem reparo.",
+        "Recusada (OS encerrada é imutável), de qualquer usuário; a OS e o histórico não "
+        "mudam. Observação não é diagnóstico nem reparo.",
         ("CAR-79",),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt03_observacao_em_os_concluida_ou_cancelada_e_recusada_para_todos",
+            f"{_ORD}test_observacao_em_os_encerrada_e_recusada",
+            f"{_AOE}test_dlt03_observacao_em_os_concluida_ou_cancelada_e_recusada_pelo_servico",
+            f"{_CMP}test_dlt03_observacao_em_os_encerrada_o_legado_aceita_e_os_servicos_recusam",
+        ),
+        "Um histórico encerrado deixa de ser confiável se continua a receber registros (AUD-11).",
+        "domain",
+        (
+            f"{_LEG}test_aud11_observacao_e_aceita_em_os_encerrada_de_qualquer_usuario_com_permissao",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-04",
         "D-04",
         "Quem pode registrar observação em OS ativa",
         "Qualquer usuário com registrar_apontamento, sem vínculo com a OS.",
-        "Gestor, técnico responsável e quem abriu a OS; técnico que não é responsável nem autor "
-        "da abertura é recusado (salvo se também for Gestor autorizado).",
+        "Gestor, técnico responsável e quem abriu a OS (todos com registrar_apontamento); "
+        "terceiro é recusado por falta de vínculo, antes de olhar o estado. O autor da abertura "
+        "não ganha capacidade técnica e a observação nunca muda o status.",
         ("CAR-39", "CAR-79"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt04_gestor_responsavel_e_autor_da_abertura_observam_em_os_ativa",
+            f"{_DOM}test_dlt04_tecnico_sem_vinculo_com_a_os_e_recusado_mesmo_em_os_encerrada",
+            f"{_DOM}test_dlt04_a_permissao_registrar_apontamento_continua_exigida",
+            f"{_DOM}test_dlt04_o_autor_da_abertura_nao_ganha_capacidade_tecnica",
+            f"{_AOE}test_dlt04_gestor_responsavel_e_autor_da_abertura_observam_e_o_status_nao_muda",
+            f"{_AOE}test_dlt04_quem_nao_tem_vinculo_com_a_os_e_recusado_sem_mutacao",
+            f"{_AOE}test_dlt04_o_autor_da_abertura_nao_executa_operacoes_tecnicas",
+            f"{_CMP}test_dlt04_observacao_de_terceiro_o_legado_aceita_e_os_servicos_recusam",
+            f"{_CMP}test_dlt04_gestor_responsavel_e_autor_da_abertura_observam_igual_nos_dois",
+        ),
+        "Observar é um ato de acompanhamento de quem tem relação com a OS; ampliar direitos além "
+        "do aprovado daria capacidade técnica a quem só abriu o chamado.",
+        "domain",
+        (f"{_OBS}test_observacao_de_quem_nao_e_responsavel_nem_abriu_a_os_e_aceita",),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-05",
@@ -102,10 +216,43 @@ DELTAS: tuple[Delta, ...] = (
         "Disponibilidade dos técnicos",
         "Valor armazenado, só atualizado pela rotina da interface; consultas logo após uma "
         "transição devolvem o valor antigo.",
-        "Derivada das OS (só Em Execução caracteriza atendimento) a cada consulta, sem rotina; "
-        "ausência manual prevalece.",
-        ("CAR-43", "CAR-47", "CAR-48", "CAR-49", "CAR-50", "CAR-51", "CAR-81"),
+        "Derivada das OS a cada consulta, sem rotina nem gravação: só Em Execução caracteriza "
+        "atendimento (Aguardando Peça não) e a ausência manual prevalece.",
+        ("CAR-43", "CAR-47", "CAR-48", "CAR-49", "CAR-50", "CAR-51", "CAR-52", "CAR-81"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt05_a_ausencia_manual_prevalece_e_so_em_execucao_caracteriza_atendimento",
+            f"{_AOE}test_dlt05_01_sem_os_ativas_e_nao_ausente_o_tecnico_esta_disponivel",
+            f"{_AOE}test_dlt05_02_uma_os_atribuida_nao_caracteriza_atendimento",
+            f"{_AOE}test_dlt05_03_uma_os_em_execucao_caracteriza_atendimento_sem_rotina",
+            f"{_AOE}test_dlt05_04_uma_os_aguardando_peca_sozinha_nao_caracteriza_atendimento",
+            f"{_AOE}test_dlt05_05_em_execucao_e_aguardando_peca_juntas_caracterizam_atendimento",
+            f"{_AOE}test_dlt05_06_a_ausencia_manual_prevalece_sobre_o_estado_derivado",
+            f"{_AOE}test_dlt05_07_removida_a_ausencia_o_valor_e_recalculado_sem_acao_extra",
+            f"{_AOE}test_dlt05_08_ao_finalizar_o_reparo_o_tecnico_fica_disponivel_sem_rotina",
+            f"{_AOE}test_dlt05_09_a_reatribuicao_reflete_nos_dois_tecnicos_imediatamente",
+            f"{_AOE}test_dlt05_10_a_consulta_logo_apos_a_transicao_ja_traz_o_valor_correto",
+            f"{_AOE}test_dlt05_a_derivacao_nao_grava_nada_nem_depende_de_rotina",
+            f"{_AOE}test_dlt05_a_autorizacao_para_alterar_a_ausencia_de_terceiros_e_a_do_dlt15",
+            f"{_CMP}test_dlt05_o_legado_so_atualiza_apos_a_rotina_e_os_servicos_derivam_na_hora",
+            f"{_CMP}test_dlt05_depois_da_rotina_do_legado_os_dois_mostram_o_mesmo_valor",
+            f"{_ADS}test_dlt05_a_disponibilidade_so_se_atualiza_apos_a_rotina_no_legado_e_na_hora_nos_servicos",
+        ),
+        "Um valor gravado por rotina da interface fica desatualizado e acoplado a ela (AUD-13); "
+        "derivar das OS mantém a regra da Entrega 1 sem depender de processo algum.",
+        "application",
+        (
+            f"{_DSP}test_d05_03_os_em_execucao_so_vira_em_atendimento_apos_a_rotina",
+            f"{_DSP}test_d05_07_remover_a_ausencia_so_recalcula_apos_a_rotina",
+            f"{_DSP}test_d05_08_reparo_finalizado_so_libera_o_tecnico_apos_a_rotina",
+            f"{_DSP}test_d05_09_reatribuicao_so_se_reflete_nos_dois_tecnicos_apos_a_rotina",
+            f"{_DSP}test_d05_10_consulta_logo_apos_uma_transicao_devolve_valor_desatualizado",
+            f"{_DSP}test_rotina_sobrescreve_disponibilidade_manual_exceto_ausente",
+            f"{_DSP}test_rotina_so_recalcula_tecnicos_e_nunca_altera_o_gestor",
+            f"{_LEG}test_aud13_reproducao_do_apendice_e_da_auditoria",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-06",
@@ -114,9 +261,35 @@ DELTAS: tuple[Delta, ...] = (
         "Finalizar exige só intervenção; sem diagnóstico, conclusão e diagnóstico ficam "
         "bloqueados até voltar o status.",
         "Diagnóstico exigido antes da transição para Reparo Finalizado, com erro claro e sem "
-        "alterar status nem histórico.",
+        "alterar status nem histórico; a intervenção continua exigida (e verificada primeiro) e "
+        "as demais transições não mudam.",
         ("CAR-34", "CAR-83"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt06_finalizar_sem_diagnostico_e_recusado_sem_alterar_status_nem_historico",
+            f"{_DOM}test_dlt06_com_diagnostico_a_finalizacao_segue_exigindo_intervencao_e_funciona",
+            f"{_DOM}test_dlt06_a_falta_de_intervencao_continua_sendo_verificada_primeiro",
+            f"{_DOM}test_dlt06_o_diagnostico_nao_e_exigido_nas_demais_transicoes",
+            f"{_DOM}test_dlt06_o_fluxo_completo_e_a_volta_do_reparo_finalizado_continuam_validos",
+            f"{_ORD}test_conclusao_sem_diagnostico_e_recusada_mesmo_com_teste_reprovado",
+            f"{_AOE}test_dlt06_finalizar_sem_diagnostico_e_recusado_pelo_servico_sem_mutacao",
+            f"{_AOE}test_dlt06_com_diagnostico_a_finalizacao_e_o_fluxo_completo_funcionam",
+            f"{_AOE}test_dlt06_o_diagnostico_registrado_depois_destrava_a_finalizacao",
+            f"{_CMP}test_dlt06_finalizar_sem_diagnostico_o_legado_aceita_e_os_servicos_recusam",
+            f"{_CMP}test_dlt06_com_diagnostico_o_resultado_e_o_estado_sao_iguais_nos_dois",
+            f"{_CMP}test_dlt06_a_falta_de_intervencao_continua_com_a_mesma_recusa_nos_dois",
+            f"{_ADD}test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_no_dominio",
+            f"{_ADS}test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_nos_servicos",
+        ),
+        "Sem diagnóstico a OS chega a Reparo Finalizado e fica sem saída (a conclusão e o próprio"
+        " diagnóstico são recusados até o status voltar): AUD-21.",
+        "domain",
+        (
+            f"{_TEC}test_finalizar_reparo_sem_diagnostico_e_aceito",
+            f"{_LEG}test_aud21_finalizar_sem_diagnostico_exige_um_caminho_indireto",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-07",
@@ -143,20 +316,85 @@ DELTAS: tuple[Delta, ...] = (
         "Campos obrigatórios e valores mínimos",
         "O domínio aceita falha, intervenção, diagnóstico, motivo e nomes vazios ou só espaços "
         "e 0 hora; recusa horas negativas e peça com quantidade não positiva.",
-        "Campos obrigatórios vazios ou só espaços rejeitados; apontamento com duração menor ou "
-        "igual a zero rejeitado; quantidade de peça positiva preservada.",
+        "Campos obrigatórios vazios ou só espaços rejeitados (falha, parecer e causa-raiz do "
+        "diagnóstico, intervenção, motivos de reprovação e cancelamento, nomes de usuário e "
+        "equipamento); apontamento com duração menor ou igual a zero (ou não finita) rejeitado; "
+        "horas negativas e quantidade de peça positiva preservadas.",
         ("CAR-80",),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt08_abrir_com_falha_vazia_ou_so_espacos_e_recusado",
+            f"{_DOM}test_dlt08_o_texto_valido_e_guardado_exatamente_como_foi_informado",
+            f"{_DOM}test_dlt08_diagnostico_com_campo_vazio_e_recusado_sem_alterar_a_os",
+            f"{_DOM}test_dlt08_apontamento_com_zero_hora_e_recusado_e_a_os_continua_atribuida",
+            f"{_DOM}test_dlt08_horas_nao_numericas_ou_infinitas_sao_recusadas",
+            f"{_DOM}test_dlt08_horas_negativas_continuam_com_a_recusa_e_a_mensagem_do_legado",
+            f"{_DOM}test_dlt08_apontamento_com_intervencao_vazia_e_recusado",
+            f"{_DOM}test_dlt08_a_quantidade_de_peca_positiva_e_preservada",
+            f"{_DOM}test_dlt08_motivos_de_reprovacao_e_de_cancelamento_vazios_sao_recusados",
+            f"{_DOM}test_dlt08_a_autorizacao_e_a_regra_de_estado_vem_antes_da_validacao",
+            f"{_AOE}test_dlt08_abrir_com_falha_vazia_nao_cria_a_os_nem_consome_o_numero",
+            f"{_AOE}test_dlt08_cadastrar_usuario_ou_equipamento_sem_nome_nao_consome_identificador",
+            f"{_AOE}test_dlt08_editar_o_nome_para_vazio_e_recusado_e_o_nome_antigo_fica",
+            f"{_AOE}test_dlt08_apontamento_invalido_nao_altera_a_os_nem_inicia_a_execucao",
+            f"{_AOE}test_dlt08_peca_com_quantidade_nao_positiva_continua_recusada",
+            f"{_AOE}test_dlt08_diagnostico_reprovacao_e_cancelamento_vazios_sao_recusados",
+            f"{_AOE}test_dlt08_a_autorizacao_vem_antes_da_validacao",
+            f"{_CMP}test_dlt08_textos_vazios_e_zero_hora_o_legado_aceita_e_os_servicos_recusam",
+            f"{_CMP}test_dlt08_com_valores_validos_o_resultado_e_o_estado_sao_iguais_nos_dois",
+            f"{_CMP}test_dlt08_horas_negativas_e_quantidade_de_peca_continuam_iguais_nos_dois",
+        ),
+        "As validações só existiam na interface (AUD-12): uma API as contornaria. A regra vale no"
+        " servidor, para qualquer interface, e uma entrada inválida não cria registro algum.",
+        "domain",
+        (
+            f"{_LEG}test_aud12_abertura_aceita_falha_vazia_ou_so_espacos",
+            f"{_LEG}test_aud12_apontamento_aceita_zero_hora_e_intervencao_vazia",
+            f"{_LEG}test_aud12_demais_textos_obrigatorios_na_tela_sao_aceitos_vazios",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-09",
         "Usuário ativo/inativo",
         "Desativação de usuários",
         "Não existe o campo ativo; um usuário só pode ser excluído se não tiver histórico.",
-        "Campo ativo; usuário inativo não autentica nem opera e não é atribuível; o histórico "
-        "preserva a referência; sem reatribuição automática.",
+        "Campo ativo (todos nascem ativos); usuário inativo não opera, não é atribuível e sai "
+        "da lista de técnicos; nunca desativa a si mesmo; o histórico preserva a referência; sem "
+        "reatribuição automática das OS dele.",
         ("CAR-64", "CAR-65"),
         "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_DOM}test_dlt09_o_usuario_nasce_ativo_e_pode_ser_desativado_e_reativado",
+            f"{_DOM}test_dlt09_usuario_inativo_nao_opera_nenhuma_operacao_da_os",
+            f"{_DOM}test_dlt09_usuario_inativo_nao_tem_permissao_efetiva",
+            f"{_DOM}test_dlt09_tecnico_inativo_nao_e_atribuivel",
+            f"{_DOM}test_dlt09_o_historico_preserva_a_referencia_a_quem_foi_desativado",
+            f"{_AOE}test_dlt09_os_usuarios_nascem_ativos",
+            f"{_AOE}test_dlt09_desativar_exige_gerir_usuarios_e_a_recusa_nao_altera_nada",
+            f"{_AOE}test_dlt09_ninguem_desativa_a_si_mesmo",
+            f"{_AOE}test_dlt09_desativar_e_reativar_sao_idempotentes_e_guardados",
+            f"{_AOE}test_dlt09_usuario_inativo_nao_opera_nenhum_caso_de_uso",
+            f"{_AOE}test_dlt09_o_ator_inativo_e_recusado_antes_da_verificacao_de_permissao",
+            f"{_AOE}test_dlt09_tecnico_inativo_sai_da_lista_e_nao_recebe_os",
+            f"{_AOE}test_dlt09_desativar_preserva_o_historico_e_nao_reatribui_as_os",
+            f"{_AOE}test_dlt09_usuario_com_historico_continua_sem_poder_ser_excluido_mas_pode_ser_desativado",
+            f"{_AOE}test_dlt09_reativar_restaura_a_operacao",
+            f"{_CMP}test_dlt09_o_legado_nao_tem_o_conceito_de_ativo_e_so_exclui_quem_nao_tem_historico",
+            f"{_CMP}test_dlt09_nos_servicos_o_usuario_com_historico_e_desativado_sem_perder_a_referencia",
+            f"{_CMP}test_dlt09_sem_desativacao_as_os_sao_iguais_nos_dois",
+        ),
+        "Quem deixa a empresa não pode ser excluído (o histórico o cita), mas não deve mais "
+        "operar nem receber trabalho; o tratamento das OS dele é uma decisão futura, não "
+        "automática.",
+        "domain",
+        (
+            f"{_CAD}test_excluir_usuario_sem_historico_o_remove",
+            f"{_CAD}test_autor_de_apenas_uma_observacao_tambem_tem_historico",
+        ),
+        APROVACAO_OPERACAO_E,
     ),
     Delta(
         "DLT-10",

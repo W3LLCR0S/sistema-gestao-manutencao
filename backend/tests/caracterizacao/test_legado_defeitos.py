@@ -292,7 +292,11 @@ def test_aud12_apontamento_aceita_zero_hora_e_intervencao_vazia(f: Fachada) -> N
 
 
 @pytest.mark.cenario("CAR-80")
-def test_aud12_demais_textos_obrigatorios_na_tela_sao_aceitos_vazios(f: Fachada) -> None:
+def test_aud12_demais_textos_obrigatorios_na_tela_sao_aceitos_vazios(
+    legado: AdaptadorLegado,
+) -> None:
+    """Só o legado aceita estes textos vazios: nos serviços e no domínio vale a DLT-08."""
+    f = legado
     numero = os_atribuida(f)
     aceitar(f.registrar_diagnostico(numero, BRUNO, "", ""))
     aceitar(f.adicionar_observacao(numero, CARLA, ""))

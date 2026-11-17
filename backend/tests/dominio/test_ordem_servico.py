@@ -2,8 +2,9 @@
 
 Cada teste escreve a expectativa **por extenso**, a partir do comportamento caracterizado na
 Operação B (``tests/caracterizacao``): nada é derivado do código novo. As mudanças funcionais
-aprovadas e ainda não aplicadas (D-02 a D-06, validações, usuário ativo, IDs) não são exercitadas
-aqui; onde o legado tem um comportamento que elas mudarão, o teste diz isso.
+aprovadas e aplicadas na Operação E (D-02 a D-06, validações, usuário ativo) são exercitadas em
+``test_operacao_e.py``; onde um teste daqui já dependia do comportamento antigo, ele foi reescrito
+para o comportamento aprovado e diz isso.
 """
 
 import inspect
@@ -13,7 +14,7 @@ from datetime import datetime
 
 import pytest
 
-from manutencao.domain.enums import Criticidade, StatusOS, TipoServico
+from manutencao.domain.enums import Criticidade, Papel, StatusOS, TipoServico
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import (
     CodigoErro,
@@ -24,7 +25,6 @@ from manutencao.domain.erros import (
 )
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.peca_material import PecaMaterial
-from manutencao.domain.permissoes import Permissao
 from tests.dominio.fabrica import Mundo, instantaneo, sem_acesso
 
 S = StatusOS
@@ -62,6 +62,17 @@ def origem(m: Mundo, status: StatusOS) -> OrdemServico:
 
 def tipos(os_: OrdemServico) -> list[TipoServico]:
     return [s.tipo for s in os_.servicos]
+
+
+def com_diagnostico(m: Mundo, os_: OrdemServico) -> OrdemServico:
+    """Registra o diagnóstico onde a OS o aceita (D-06 o exige para finalizar o reparo).
+
+    Preparação das tabelas de transição: elas medem só a transição, não a falta de diagnóstico
+    (que é testada em ``test_operacao_e.py``). Onde o diagnóstico não é aceito, nada muda.
+    """
+    if os_.status in TECNICO_ATENDE and os_.esta_com(m.bruno):
+        os_.registrar_diagnostico(m.bruno, "Rolamento gasto", "Falta de graxa", quando=m.quando())
+    return os_
 
 
 # =========================================================================== abertura
@@ -231,7 +242,7 @@ def esperado_do_tecnico(origem_: StatusOS, destino: StatusOS) -> CodigoErro | No
 @pytest.mark.parametrize("origem_", TODOS_OS_STATUS)
 def test_matriz_8x8_do_tecnico(origem_: StatusOS, destino: StatusOS) -> None:
     m = Mundo()
-    os_ = origem(m, origem_)
+    os_ = com_diagnostico(m, origem(m, origem_))
     esperado = esperado_do_tecnico(origem_, destino)
 
     def chamada() -> None:
@@ -275,7 +286,7 @@ def test_todo_destino_alcancavel_por_alguma_operacao_esta_na_tabela() -> None:
             ),
         ]
         for operacao in operacoes:
-            os_ = origem(m, origem_)
+            os_ = com_diagnostico(m, origem(m, origem_))
             try:
                 operacao(m, os_)
             except DominioError:
@@ -520,14 +531,14 @@ def test_reparo_em_aguardando_peca_mantem_o_status() -> None:
     assert tipos(os_)[-1] is T.REPARO
 
 
-def test_reparo_sem_pecas_e_com_zero_hora_e_aceito_como_no_legado() -> None:
-    # Comportamento do legado (CAR-80); a validação obrigatória é o DLT-08 (Operação E).
+def test_reparo_sem_pecas_e_aceito() -> None:
+    # Zero hora e intervenção vazia eram aceitos pelo legado (CAR-80); o DLT-08 os recusa.
     m = Mundo()
     os_ = m.atribuida()
-    os_.apontar_reparo(m.bruno, 0, "", [], quando=m.quando())
+    os_.apontar_reparo(m.bruno, 0.5, "Ajuste", [], quando=m.quando())
     assert (os_.horas_trabalhadas, os_.intervencoes_realizadas, os_.pecas_utilizadas) == (
-        0.0,
-        ("",),
+        0.5,
+        ("Ajuste",),
         (),
     )
 
@@ -649,9 +660,12 @@ def test_conclusao_com_teste_reprovado_so_registra_o_teste() -> None:
 
 
 def test_conclusao_sem_diagnostico_e_recusada_mesmo_com_teste_reprovado() -> None:
+    """Invariante: com a D-06 não se chega a Reparo Finalizado sem diagnóstico, então o estado é
+    montado desfazendo o diagnóstico à mão. A conclusão continua recusando, sem alterar nada."""
     m = Mundo()
     for passou in (True, False):
-        os_ = m.reparo_finalizado(com_diagnostico=False)
+        os_ = m.reparo_finalizado()
+        os_._diagnostico = ""
         with pytest.raises(ViolacaoDeRegraError) as capturado:
             os_.concluir_tecnicamente(m.bruno, "t", passou, quando=m.quando())
         assert capturado.value.codigo is CodigoErro.SEM_DIAGNOSTICO
@@ -876,13 +890,16 @@ def test_qualquer_usuario_com_a_permissao_inclui_observacao(quem: str) -> None:
     assert os_.servicos[-1].tipo is T.APONTAMENTO
 
 
-def test_observacao_em_os_encerrada_e_aceita_como_no_legado() -> None:
-    # Comportamento do legado (CAR-79); a recusa é o DLT-03 (Operação E).
+def test_observacao_em_os_encerrada_e_recusada() -> None:
+    # O legado a aceitava (CAR-79); a D-04 (DLT-03) a recusa, sem alterar a OS.
     m = Mundo()
-    for os_ in (m.concluida(), m.cancelada()):
-        os_.adicionar_apontamento(m.bruno, "depois do fim", quando=m.quando())
-        assert os_.servicos[-1].tipo is T.APONTAMENTO
-        assert os_.encerrada
+    for os_ in (m.concluida(), m.cancelada(atribuida=True)):
+        recusa(
+            os_,
+            ConflitoDeEstadoError,
+            CodigoErro.OS_ENCERRADA,
+            lambda os_=os_: os_.adicionar_apontamento(m.bruno, "depois do fim", quando=m.quando()),  # type: ignore[misc]
+        )
 
 
 def test_observacao_exige_registrar_apontamento() -> None:
@@ -1028,11 +1045,11 @@ def test_ordem_das_verificacoes_de_cada_operacao() -> None:
 
 
 def test_atribuir_verifica_se_e_tecnico_antes_de_ja_atribuida() -> None:
-    """Só observável se o técnico perde ``apontar_reparo`` depois de atribuído (AUD-20)."""
+    """Só observável se o técnico deixa de ser técnico depois de atribuído. No legado isso
+    acontecia ao perder ``apontar_reparo`` (AUD-20); com a D-02 é a mudança explícita de papel."""
     m = Mundo()
     os_ = m.atribuida()
-    restantes = [p for p in m.tecnico.permissoes.ativas() if p is not Permissao.APONTAR_REPARO]
-    m.tecnico.permissoes.definir(restantes)
+    m.bruno.papel = Papel.GESTOR
     recusa(
         os_,
         ViolacaoDeRegraError,

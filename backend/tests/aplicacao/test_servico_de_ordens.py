@@ -285,10 +285,8 @@ RECUSAS_DE_REGRA: dict[str, tuple[Callable[[Ambiente], int], Callable[[Ambiente,
         atribuida,
         lambda a, n: a.servico_ordens.alterar_status(BRUNO, n, StatusOS.REPARO_FINALIZADO),
     ),
-    "concluir sem diagnostico": (
-        lambda a: reparo_finalizado(a, diagnostico=False),
-        lambda a, n: a.servico_ordens.concluir_tecnicamente(BRUNO, n, "t", True),
-    ),
+    # D-06 (DLT-06): "Reparo Finalizado" sem diagnóstico deixou de ser alcançável; a recusa de
+    # finalizar sem diagnóstico (sem alterar a OS) é testada em ``test_operacao_e.py``.
     "aprovar OS que nao aguarda": (
         em_execucao,
         lambda a, n: a.servico_ordens.aprovar(ANA, n),

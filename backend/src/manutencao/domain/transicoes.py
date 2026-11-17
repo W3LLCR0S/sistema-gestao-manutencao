@@ -6,8 +6,9 @@ pela tabela completa 8x8 do técnico (CAR-33) e pelos cenários de atribuição,
 reprovação e cancelamento. Ela diz **quais** mudanças existem; as pré-condições de cada operação
 (permissão, responsável, intervenção registrada, etc.) continuam em ``OrdemServico``.
 
-Nada aqui corrige comportamento do legado: por exemplo, a finalização do reparo continua sem exigir
-diagnóstico (D-06 é uma mudança da Operação E).
+Nada aqui corrige comportamento do legado: a tabela é a do legado. As pré-condições aprovadas na
+Operação E (por exemplo, o diagnóstico antes de ``Reparo Finalizado``, D-06) ficam em
+``OrdemServico``, não na tabela.
 """
 
 from collections.abc import Mapping

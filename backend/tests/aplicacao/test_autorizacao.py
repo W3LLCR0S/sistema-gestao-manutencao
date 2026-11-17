@@ -21,7 +21,7 @@ from manutencao.application.erros import (
     RegraDeAplicacaoError,
 )
 from manutencao.application.portas.repositorios import FiltroDeOrdens
-from manutencao.domain.enums import Criticidade, Disponibilidade, StatusOS
+from manutencao.domain.enums import Criticidade, Disponibilidade, Papel, StatusOS
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError, ViolacaoDeRegraError
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.permissoes import Permissao
@@ -147,7 +147,7 @@ def test_dlt12_alteracoes_que_preservam_a_autorizacao_sao_permitidas(amb: Ambien
 def test_dlt12_a_protecao_e_so_do_proprio_gestor_outros_usuarios_podem_perder_o_acesso(
     amb: Ambiente,
 ) -> None:
-    outra = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR)
+    outra = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR, papel=Papel.GESTOR)
     amb.servico_usuarios.alterar_cargo(ANA, outra.id, CARGO_TECNICO)  # Ana rebaixa a Eva
     rebaixada = amb.usuarios.obter(outra.id)
     assert rebaixada is not None
@@ -157,7 +157,7 @@ def test_dlt12_a_protecao_e_so_do_proprio_gestor_outros_usuarios_podem_perder_o_
 def test_dlt12_a_protecao_nao_depende_de_interface_nem_do_id_do_cargo(amb: Ambiente) -> None:
     """Uma gestora com outro cargo de gestão não pode esvaziá-lo estando nele."""
     _definir_permissoes(amb, CARGO_TECNICO, Permissao.GERIR_USUARIOS)
-    eva = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_TECNICO)
+    eva = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_TECNICO, papel=Papel.TECNICO)
     antes = _estado(amb)
     with pytest.raises(RegraDeAplicacaoError) as erro:
         amb.servico_usuarios.definir_permissoes_do_cargo(eva.id, CARGO_TECNICO, [Permissao.VER_OS])
@@ -191,7 +191,7 @@ def test_dlt13_gestao_de_usuarios_e_cargos_exige_gerir_usuarios(amb: Ambiente) -
     antes = _estado(amb)
     s = amb.servico_usuarios
     operacoes: tuple[Callable[[], object], ...] = (
-        lambda: s.cadastrar(BRUNO, "Diego", CARGO_TECNICO),
+        lambda: s.cadastrar(BRUNO, "Diego", CARGO_TECNICO, papel=Papel.TECNICO),
         lambda: s.atualizar_dados(BRUNO, CARLA, nome="Outro nome"),
         lambda: s.alterar_cargo(BRUNO, CARLA, CARGO_GESTOR),
         lambda: s.definir_permissoes_do_cargo(BRUNO, CARGO_TECNICO, [Permissao.VER_OS]),
@@ -203,7 +203,7 @@ def test_dlt13_gestao_de_usuarios_e_cargos_exige_gerir_usuarios(amb: Ambiente) -
 
 
 def test_dlt13_exclusao_de_usuario_exige_gerir_usuarios(amb: Ambiente) -> None:
-    novo = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO)
+    novo = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO, papel=Papel.TECNICO)
     antes = _estado(amb)
     _recusa_por_permissao(
         lambda: amb.servico_usuarios.excluir(BRUNO, novo.id), Permissao.GERIR_USUARIOS
@@ -215,12 +215,15 @@ def test_dlt13_exclusao_de_usuario_exige_gerir_usuarios(amb: Ambiente) -> None:
 def test_dlt13_a_recusa_nao_consome_identificadores(amb: Ambiente) -> None:
     proximos = (amb.usuarios.proximo_id(), amb.equipamentos.proximo_id())
     with pytest.raises(PermissaoNegadaError):
-        amb.servico_usuarios.cadastrar(BRUNO, "Diego", CARGO_TECNICO)
+        amb.servico_usuarios.cadastrar(BRUNO, "Diego", CARGO_TECNICO, papel=Papel.TECNICO)
     with pytest.raises(PermissaoNegadaError):
         amb.servico_equipamentos.cadastrar(BRUNO, "Prensa", "P1")
     assert (amb.usuarios.proximo_id(), amb.equipamentos.proximo_id()) == proximos
     # o cadastro autorizado seguinte recebe exatamente o identificador que não foi gasto
-    assert amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO).id == proximos[0]
+    assert (
+        amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO, papel=Papel.TECNICO).id
+        == proximos[0]
+    )
     assert amb.servico_equipamentos.cadastrar(ANA, "Prensa", "P1").id == proximos[1]
 
 
@@ -230,7 +233,7 @@ def test_dlt13_com_autorizacao_valida_a_gestao_e_permitida(amb: Ambiente) -> Non
     amb.servico_equipamentos.inativar(ANA, equipamento.id)
     amb.servico_equipamentos.reativar(ANA, equipamento.id)
     amb.servico_equipamentos.excluir(ANA, equipamento.id)
-    usuario = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO)
+    usuario = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO, papel=Papel.TECNICO)
     amb.servico_usuarios.atualizar_dados(ANA, usuario.id, nome="Diego Silva")
     amb.servico_usuarios.alterar_cargo(ANA, usuario.id, CARGO_GESTOR)
     amb.servico_usuarios.excluir(ANA, usuario.id)
@@ -491,7 +494,10 @@ def test_dlt16_sem_permissao_e_recurso_inexistente_a_recusa_e_por_autorizacao(
         (lambda: u.atualizar_dados(BRUNO, INEXISTENTE, nome="x"), Permissao.GERIR_USUARIOS),
         (lambda: u.alterar_cargo(BRUNO, INEXISTENTE, CARGO_GESTOR), Permissao.GERIR_USUARIOS),
         (lambda: u.alterar_cargo(BRUNO, CARLA, INEXISTENTE), Permissao.GERIR_USUARIOS),
-        (lambda: u.cadastrar(BRUNO, "x", INEXISTENTE), Permissao.GERIR_USUARIOS),
+        (
+            lambda: u.cadastrar(BRUNO, "x", INEXISTENTE, papel=Papel.TECNICO),
+            Permissao.GERIR_USUARIOS,
+        ),
         (lambda: u.definir_permissoes_do_cargo(BRUNO, INEXISTENTE, []), Permissao.GERIR_USUARIOS),
         (lambda: u.consultar(BRUNO, INEXISTENTE), Permissao.GERIR_USUARIOS),
         (lambda: e.excluir(BRUNO, INEXISTENTE), Permissao.GERIR_EQUIPAMENTOS),
@@ -637,7 +643,7 @@ def _todas_as_operacoes_com_ator(amb: Ambiente) -> list[tuple[str, Callable[[int
         ("user.consultar", lambda a: u.consultar(a, BRUNO)),
         ("user.listar", lambda a: u.listar(a)),
         ("user.listar_cargos", lambda a: u.listar_cargos(a)),
-        ("user.cadastrar", lambda a: u.cadastrar(a, "Diego", CARGO_TECNICO)),
+        ("user.cadastrar", lambda a: u.cadastrar(a, "Diego", CARGO_TECNICO, papel=Papel.TECNICO)),
         ("user.atualizar", lambda a: u.atualizar_dados(a, BRUNO, nome="x")),
         ("user.cargo", lambda a: u.alterar_cargo(a, BRUNO, CARGO_GESTOR)),
         ("user.disp", lambda a: u.definir_disponibilidade(a, BRUNO, Disponibilidade.AUSENTE)),
@@ -693,7 +699,7 @@ def test_dlt17_o_ator_inexistente_nao_vira_administrador(amb: Ambiente) -> None:
     antes = _estado(amb)
     for ator in (INEXISTENTE, 0, -1, amb.usuarios.proximo_id()):
         with pytest.raises(NaoEncontradoError):
-            amb.servico_usuarios.cadastrar(ator, "Intruso", CARGO_GESTOR)
+            amb.servico_usuarios.cadastrar(ator, "Intruso", CARGO_GESTOR, papel=Papel.GESTOR)
         with pytest.raises(NaoEncontradoError):
             amb.servico_equipamentos.excluir(ator, COMPRESSOR)
     assert _estado(amb) == antes

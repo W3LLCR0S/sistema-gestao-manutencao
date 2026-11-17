@@ -21,5 +21,10 @@ def carregar_ator(usuarios: UsuarioRepository, ator_id: int) -> Usuario:
 
     Cada caso de uso carrega o ator de novo: uma permissão alterada vale na chamada seguinte.
     Quem é o ator (autenticação) é da borda; aqui só se confia no identificador recebido.
+
+    Um ator inexistente é ``NaoEncontradoError`` (DLT-17); um ator **inativo** não opera (DLT-09) e
+    é recusado antes de qualquer verificação de permissão.
     """
-    return exigir_encontrado("Usuário", ator_id, usuarios.obter(ator_id))
+    ator = exigir_encontrado("Usuário", ator_id, usuarios.obter(ator_id))
+    ator.exigir_ativo()
+    return ator

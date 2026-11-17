@@ -7,7 +7,7 @@ from manutencao.application.erros import (
     NaoEncontradoError,
     RegraDeAplicacaoError,
 )
-from manutencao.domain.enums import Criticidade, Disponibilidade
+from manutencao.domain.enums import Criticidade, Disponibilidade, Papel
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError, ViolacaoDeRegraError
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.permissoes import Permissao, Permissoes
@@ -51,7 +51,9 @@ def _os_com_historico(
 
 
 def test_cadastrar_cria_usuario_disponivel_com_o_proximo_id(amb: Ambiente) -> None:
-    novo = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO, "d@e.com", "Seg")
+    novo = amb.servico_usuarios.cadastrar(
+        ANA, "Diego", CARGO_TECNICO, "d@e.com", "Seg", papel=Papel.TECNICO
+    )
     assert (novo.id, novo.nome, novo.email, novo.escala) == (4, "Diego", "d@e.com", "Seg")
     assert novo.disponibilidade is Disponibilidade.DISPONIVEL
     guardado = amb.usuarios.obter(4)
@@ -60,13 +62,13 @@ def test_cadastrar_cria_usuario_disponivel_com_o_proximo_id(amb: Ambiente) -> No
 
 
 def test_novo_gestor_nao_e_tecnico(amb: Ambiente) -> None:
-    novo = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR)
+    novo = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR, papel=Papel.GESTOR)
     assert novo.e_tecnico is False
 
 
 def test_cadastrar_com_cargo_inexistente_recusa_sem_consumir_id(amb: Ambiente) -> None:
     with pytest.raises(NaoEncontradoError) as erro:
-        amb.servico_usuarios.cadastrar(ANA, "Diego", 99)
+        amb.servico_usuarios.cadastrar(ANA, "Diego", 99, papel=Papel.TECNICO)
     assert erro.value.entidade == "Cargo"
     assert len(amb.usuarios.listar()) == 3
     assert amb.usuarios.proximo_id() == 4
@@ -80,7 +82,7 @@ def test_tecnico_nao_gere_usuarios_nem_cargos_e_nada_muda(amb: Ambiente) -> None
     usuarios_antes = amb.usuarios.listar()
     cargos_antes = [(c.id, c.permissoes.ativas()) for c in amb.cargos.listar()]
     operacoes = (
-        lambda: servico.cadastrar(BRUNO, "Diego", CARGO_TECNICO),
+        lambda: servico.cadastrar(BRUNO, "Diego", CARGO_TECNICO, papel=Papel.TECNICO),
         lambda: servico.consultar(BRUNO, ANA),
         lambda: servico.listar(BRUNO),
         lambda: servico.listar_cargos(BRUNO),
@@ -130,15 +132,18 @@ def test_atualizar_dados_de_inexistente_levanta_nao_encontrado(amb: Ambiente) ->
         amb.servico_usuarios.atualizar_dados(ANA, 99, nome="x")
 
 
-def test_alterar_o_cargo_move_o_usuario_entre_tecnicos_e_gestores(amb: Ambiente) -> None:
+def test_alterar_o_cargo_muda_as_permissoes_mas_nao_o_papel(amb: Ambiente) -> None:
+    """D-02 (DLT-01): o cargo traz as permissões; quem o usuário é (o papel) não muda com ele.
+    No legado, mudar o cargo movia o usuário entre técnicos e gestores (AUD-20)."""
     amb.servico_usuarios.alterar_cargo(ANA, CARLA, CARGO_GESTOR)
     carla = amb.usuarios.obter(CARLA)
     assert carla is not None
-    assert (carla.cargo.id, carla.e_tecnico) == (CARGO_GESTOR, False)
+    assert (carla.cargo.id, carla.papel, carla.e_tecnico) == (CARGO_GESTOR, Papel.TECNICO, True)
+    assert carla.pode(Permissao.APROVAR_OS)  # as permissões vieram do novo cargo
     amb.servico_usuarios.alterar_cargo(ANA, CARLA, CARGO_TECNICO)
     carla = amb.usuarios.obter(CARLA)
     assert carla is not None
-    assert carla.e_tecnico is True
+    assert (carla.papel, carla.e_tecnico) == (Papel.TECNICO, True)
 
 
 def test_alterar_para_cargo_inexistente_levanta_nao_encontrado(amb: Ambiente) -> None:
@@ -177,10 +182,12 @@ def test_gestor_ajusta_a_disponibilidade_de_outro_usuario(amb: Ambiente) -> None
 
 
 def test_excluir_usuario_sem_historico_o_remove_e_o_id_nao_volta(amb: Ambiente) -> None:
-    novo = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO)
+    novo = amb.servico_usuarios.cadastrar(ANA, "Diego", CARGO_TECNICO, papel=Papel.TECNICO)
     amb.servico_usuarios.excluir(ANA, novo.id)
     assert amb.usuarios.obter(novo.id) is None
-    assert amb.servico_usuarios.cadastrar(ANA, "Outro", CARGO_TECNICO).id == 5  # DLT-10
+    assert (
+        amb.servico_usuarios.cadastrar(ANA, "Outro", CARGO_TECNICO, papel=Papel.TECNICO).id == 5
+    )  # DLT-10
 
 
 def test_autoexclusao_e_recusada(amb: Ambiente) -> None:
@@ -213,7 +220,7 @@ def test_tecnico_atribuido_a_os_nao_e_excluido(amb: Ambiente) -> None:
 def test_quem_so_aparece_como_responsavel_de_um_registro_tambem_tem_historico(
     amb: Ambiente,
 ) -> None:
-    amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR)  # id 4
+    amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR, papel=Papel.GESTOR)  # id 4
     _os_com_historico(amb, tecnico=BRUNO)  # o registro de atribuição é da Ana (gestora)
     outra_gestora = amb.servico_usuarios.consultar(ANA, 4)
     with pytest.raises(RegraDeAplicacaoError) as erro:
@@ -238,7 +245,7 @@ def test_permissoes_do_cargo_valem_para_todos_os_usuarios_dele(amb: Ambiente) ->
         assert usuario is not None
         assert usuario.pode(Permissao.ABRIR_OS)
         assert not usuario.pode(Permissao.APONTAR_REPARO)
-        assert not usuario.e_tecnico  # AUD-20, preservado: técnico = apontar_reparo
+        assert usuario.e_tecnico  # D-02 (DLT-01): o papel não depende das permissões
 
 
 def test_permissoes_do_cargo_sao_tudo_ou_nada(amb: Ambiente) -> None:

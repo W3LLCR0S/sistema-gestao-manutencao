@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from manutencao.application.erros import NaoEncontradoError
 from manutencao.application.portas.repositorios import CargoRepository
-from manutencao.domain.enums import Disponibilidade
+from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.usuario import Usuario
 from manutencao.infrastructure.memoria.sequencia import SequenciaMonotonica
 
@@ -19,6 +19,8 @@ class _RegistroUsuario:
     email: str
     escala: str
     disponibilidade: Disponibilidade
+    papel: Papel
+    ativo: bool
 
 
 class UsuariosEmMemoria:
@@ -46,6 +48,8 @@ class UsuariosEmMemoria:
             usuario.email,
             usuario.escala,
             usuario.disponibilidade,
+            usuario.papel,
+            usuario.ativo,
         )
 
     def _usuario(self, registro: _RegistroUsuario) -> Usuario:
@@ -59,6 +63,8 @@ class UsuariosEmMemoria:
             registro.email,
             registro.escala,
             registro.disponibilidade,
+            papel=registro.papel,
+            ativo=registro.ativo,
         )
 
     def proximo_id(self) -> int:

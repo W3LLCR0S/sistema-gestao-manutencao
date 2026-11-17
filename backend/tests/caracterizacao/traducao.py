@@ -14,6 +14,7 @@ conhece o **domínio** e a fachada; nada de aplicação nem de infraestrutura.
 from datetime import UTC, datetime
 
 from manutencao.domain.cargo import Cargo
+from manutencao.domain.enums import Disponibilidade
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import CodigoErro
 from manutencao.domain.ordem_servico import OrdemServico
@@ -44,6 +45,12 @@ RECUSA_POR_CODIGO: dict[CodigoErro, Recusa] = {
     CodigoErro.SEM_DIAGNOSTICO: Recusa.SEM_DIAGNOSTICO,
     CodigoErro.HORAS_NEGATIVAS: Recusa.HORAS_NEGATIVAS,
     CodigoErro.QUANTIDADE_INVALIDA: Recusa.QUANTIDADE_INVALIDA,
+    # Operação E: comportamentos novos, sem equivalente no legado.
+    CodigoErro.TECNICO_AUSENTE: Recusa.TECNICO_AUSENTE,
+    CodigoErro.SEM_VINCULO_COM_A_OS: Recusa.SEM_VINCULO_COM_A_OS,
+    CodigoErro.CAMPO_OBRIGATORIO: Recusa.CAMPO_OBRIGATORIO,
+    CodigoErro.HORAS_NAO_POSITIVAS: Recusa.HORAS_NAO_POSITIVAS,
+    CodigoErro.USUARIO_INATIVO: Recusa.USUARIO_INATIVO,
     # Sem equivalente no legado: se aparecer num cenário, o teste deve falhar.
     CodigoErro.PERMISSAO_INVALIDA: Recusa.DESCONHECIDA,
     CodigoErro.INSTANTE_INVALIDO: Recusa.DESCONHECIDA,
@@ -93,7 +100,11 @@ def snap_os(o: OrdemServico) -> OsSnap:
     )
 
 
-def snap_usuario(u: Usuario, carga: int) -> UsuarioSnap:
+def snap_usuario(
+    u: Usuario, carga: int, disponibilidade: Disponibilidade | None = None
+) -> UsuarioSnap:
+    """``disponibilidade`` é a derivada das OS (D-05); sem ela, o valor guardado no usuário."""
+    efetiva = u.disponibilidade if disponibilidade is None else disponibilidade
     return UsuarioSnap(
         id=u.id,
         nome=u.nome,
@@ -101,7 +112,7 @@ def snap_usuario(u: Usuario, carga: int) -> UsuarioSnap:
         cargo=u.cargo.nome,
         email=u.email,
         escala=u.escala,
-        disponibilidade=u.disponibilidade.value,
+        disponibilidade=efetiva.value,
         carga=carga,
     )
 

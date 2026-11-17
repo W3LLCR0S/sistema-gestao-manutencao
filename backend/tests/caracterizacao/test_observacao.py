@@ -37,12 +37,13 @@ def test_observacao_cria_registro_do_tipo_apontamento_com_autor_texto_e_data(
 ) -> None:
     numero = os_aberta(f)
     relogio.avancar(hours=2)
-    aceitar(f.adicionar_observacao(numero, BRUNO, "Peça solicitada ao almoxarifado"))
+    # D-04: numa OS ativa, observa quem a abriu (Carla), o responsável ou o gestor.
+    aceitar(f.adicionar_observacao(numero, CARLA, "Peça solicitada ao almoxarifado"))
 
     registro = os_snap(f, numero).historico[-1]
     assert registro.numero == 2
     assert (registro.tipo, registro.descricao) == ("Apontamento", "Peça solicitada ao almoxarifado")
-    assert (registro.responsavel_id, registro.data) == (BRUNO, "10/03/2026 11:00")
+    assert (registro.responsavel_id, registro.data) == (CARLA, "10/03/2026 11:00")
     assert (registro.horas, registro.pecas) == (0.0, ())
 
 

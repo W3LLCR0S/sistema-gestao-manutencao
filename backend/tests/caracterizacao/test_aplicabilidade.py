@@ -278,8 +278,10 @@ def test_cenarios_substituidos_apontam_delta_implementado_e_testes_novos_existen
         assert delta.status is StatusDelta.IMPLEMENTADO, f"{delta_id} ainda não implementado"
         assert cenario in delta.cenarios, f"{delta_id} não lista {cenario}"
         assert evidencias, cenario
-        for teste in evidencias:
-            assert teste in _funcoes_de_teste(DIRETORIO_TESTES / "dominio" / "test_permissoes.py")
-        # os testes novos também constam como evidência do delta
-        for teste in evidencias:
-            assert any(e.endswith(f"::{teste}") for e in delta.evidencia), teste
+        for evidencia in evidencias:
+            # ``arquivo::teste`` (relativo a ``backend/tests``); sem arquivo, é o CAR-74 (DLT-11)
+            arquivo, separador, teste = evidencia.rpartition("::")
+            caminho = DIRETORIO_TESTES / (arquivo if separador else "dominio/test_permissoes.py")
+            assert teste in _funcoes_de_teste(caminho), evidencia
+            # os testes novos também constam como evidência do delta
+            assert any(e.endswith(f"::{teste}") for e in delta.evidencia), evidencia

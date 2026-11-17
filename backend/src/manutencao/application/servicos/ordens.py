@@ -13,8 +13,11 @@ O instante vem da porta ``Relogio``, lido **uma vez** por caso de uso e entregue
 procurar a OS, o equipamento ou o técnico (``_autorizar``); um ator inexistente é
 ``NaoEncontradoError`` (DLT-17). A posse da OS (técnico responsável) continua no domínio.
 
-Fora do escopo desta operação (Operação E): papéis explícitos (D-02), recusa de atribuição a técnico
-ausente (D-03), nova política de observações (D-04), diagnóstico obrigatório (D-06) e validações.
+**Operação E.** A atribuição a técnico ausente é recusada, salvo confirmação explícita
+(``confirmar_ausente``, D-03/DLT-02); as observações seguem a política da D-04 (DLT-03, DLT-04); o
+diagnóstico é exigido antes de ``Reparo Finalizado`` (D-06/DLT-06); campos obrigatórios e horas
+maiores que zero são validados no domínio (DLT-08); usuário inativo não opera nem é atribuível
+(DLT-09). As regras estão em ``OrdemServico``; o serviço só entrega a confirmação.
 """
 
 from collections.abc import Sequence
@@ -154,12 +157,21 @@ class ServicoDeOrdens:
         return submetida
 
     # ------------------------------------------------------------------------------- gestor
-    def atribuir(self, ator_id: int, numero: int, tecnico_id: int) -> Usuario | None:
-        """Atribui ou reatribui. Devolve o técnico anterior (``None`` na primeira atribuição)."""
+    def atribuir(
+        self, ator_id: int, numero: int, tecnico_id: int, *, confirmar_ausente: bool = False
+    ) -> Usuario | None:
+        """Atribui ou reatribui. Devolve o técnico anterior (``None`` na primeira atribuição).
+
+        Técnico ``Ausente`` só é aceito com ``confirmar_ausente=True`` (D-03): a confirmação é um
+        dado da operação, que chega ao caso de uso e é verificado pela entidade (nenhuma interface
+        a dispensa), e só vale para quem tem ``atribuir_os`` (verificado antes).
+        """
         gestor = self._autorizar(ator_id, Permissao.ATRIBUIR_OS)
         ordem = self._carregar(numero)
         tecnico = exigir_encontrado("Usuário", tecnico_id, self._usuarios.obter(tecnico_id))
-        anterior = ordem.atribuir(tecnico, gestor, quando=self._relogio.agora())
+        anterior = ordem.atribuir(
+            tecnico, gestor, quando=self._relogio.agora(), confirmar_ausente=confirmar_ausente
+        )
         self._ordens.salvar(ordem)
         return anterior
 

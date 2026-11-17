@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import pytest
 
+from tests.caracterizacao.adaptador_legado import AdaptadorLegado
 from tests.caracterizacao.cenarios import (
     ANA,
     BRUNO,
@@ -279,6 +280,9 @@ def _esperado(origem: str, destino: str) -> Recusa | None:
 def test_tabela_completa_de_transicoes_do_tecnico(f: Fachada, origem: str, destino: str) -> None:
     numero = CONSTRUTORES[origem](f)
     assert os_snap(f, numero).status == origem
+    # D-06 (DLT-06): finalizar exige diagnóstico. Registra-se um, onde a OS o aceita, para que a
+    # tabela continue medindo só a transição; a ausência dele é testada à parte (DLT-06).
+    f.registrar_diagnostico(numero, BRUNO, "Rolamento gasto", "Falta de graxa")
     antes = estado_global(f)
     esperado = _esperado(origem, destino)
 
@@ -400,7 +404,11 @@ def test_apos_teste_reprovado_o_tecnico_pode_repetir_e_concluir(f: Fachada) -> N
 
 
 @pytest.mark.cenario("CAR-37")
-def test_conclusao_sem_diagnostico_e_recusada(f: Fachada) -> None:
+def test_conclusao_sem_diagnostico_e_recusada(legado: AdaptadorLegado) -> None:
+    """Só o legado chega a este estado: com a D-06 (DLT-06) a finalização exige diagnóstico, então
+    uma OS em Reparo Finalizado sem diagnóstico é inalcançável nos serviços e no domínio. A
+    verificação continua no domínio como invariante (``test_ordem_servico.py``)."""
+    f = legado
     numero = os_atribuida(f)
     aceitar(f.apontar_reparo(numero, BRUNO, 1.0, "troca"))
     aceitar(f.alterar_status(numero, BRUNO, STATUS_REPARO_FINALIZADO))

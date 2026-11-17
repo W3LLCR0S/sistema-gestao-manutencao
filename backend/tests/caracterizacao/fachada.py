@@ -43,6 +43,12 @@ class Recusa(StrEnum):
     AUTOEXCLUSAO = "autoexclusao"
     AUTOREMOCAO_DE_ACESSO_DE_GESTAO = "autoremocao_de_acesso_de_gestao"  # DLT-12 (só nos serviços)
     NAO_ENCONTRADO = "nao_encontrado"  # objeto ou ator inexistente, DLT-17 (só nos serviços)
+    # Operação E: só existem nos novos comportamentos (domínio e serviços), nunca no legado.
+    TECNICO_AUSENTE = "tecnico_ausente"  # DLT-02
+    SEM_VINCULO_COM_A_OS = "sem_vinculo_com_a_os"  # DLT-04
+    CAMPO_OBRIGATORIO = "campo_obrigatorio"  # DLT-08
+    HORAS_NAO_POSITIVAS = "horas_nao_positivas"  # DLT-08
+    USUARIO_INATIVO = "usuario_inativo"  # DLT-09
     DESCONHECIDA = "desconhecida"  # nenhuma regra conhecida: um teste que a vê deve falhar
 
 

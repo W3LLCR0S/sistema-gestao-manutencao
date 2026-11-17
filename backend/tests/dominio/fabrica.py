@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from manutencao.domain.cargo import Cargo
-from manutencao.domain.enums import Criticidade, StatusOS
+from manutencao.domain.enums import Criticidade, Papel, StatusOS
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.peca_material import PecaMaterial
@@ -28,7 +28,7 @@ class Relogio:
 
 def sem_acesso() -> Usuario:
     """Usuário cujo cargo não tem nenhuma permissão."""
-    return Usuario(9, "Visitante", Cargo(9, "Sem acesso", Permissoes()))
+    return Usuario(9, "Visitante", Cargo(9, "Sem acesso", Permissoes()), papel=Papel.TECNICO)
 
 
 @dataclass
@@ -40,9 +40,9 @@ class Mundo:
     relogio: Relogio = field(default_factory=Relogio)
 
     def __post_init__(self) -> None:
-        self.ana = Usuario(1, "Ana Souza", self.gestor)
-        self.bruno = Usuario(2, "Bruno Lima", self.tecnico)
-        self.carla = Usuario(3, "Carla Mendes", self.tecnico)
+        self.ana = Usuario(1, "Ana Souza", self.gestor, papel=Papel.GESTOR)
+        self.bruno = Usuario(2, "Bruno Lima", self.tecnico, papel=Papel.TECNICO)
+        self.carla = Usuario(3, "Carla Mendes", self.tecnico, papel=Papel.TECNICO)
         self.torno = Equipamento(1, "Torno CNC", "GL 240")
         self.compressor = Equipamento(2, "Compressor de Ar", "CSW 40")
 

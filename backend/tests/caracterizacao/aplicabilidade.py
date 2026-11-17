@@ -123,7 +123,6 @@ REGISTRO: tuple[Inaplicavel, ...] = (
     _linha("CAR-49", _DISP, "O cenário D-05 nº 9 compara antes e depois da rotina."),
     _linha("CAR-50", _DISP, "O cenário D-05 nº 10 consulta antes de qualquer rotina."),
     _linha("CAR-51", _DISP, "Os testes aplicam a rotina e conferem o que ela sobrescreve."),
-    _linha("CAR-51", _PERS, "Um dos testes grava e recarrega a base."),
     _linha("CAR-52", _DISP, "O teste confere que a rotina só recalcula técnicos."),
     _linha("CAR-54", _DISP, "O teste confere carga e lista de um técnico ausente após a rotina."),
     _linha("CAR-56", _CAD, "O teste cadastra um usuário novo do cargo."),
@@ -148,7 +147,6 @@ REGISTRO: tuple[Inaplicavel, ...] = (
     _linha(
         "CAR-79", _CAD, "O teste cadastra um usuário para registrar observação em OS encerrada."
     ),
-    _linha("CAR-80", _CAD, "Um dos testes cadastra com textos vazios (validação só na tela)."),
     _linha("CAR-81", _DISP, "O cenário reproduz o Apêndice E da auditoria, que usa a rotina."),
     _linha("CAR-84", _CLI, "Os testes executam a CLI legada em subprocesso."),
     _linha("CAR-85", _CLI, "O teste executa o login da CLI legada."),
@@ -160,13 +158,58 @@ REGISTRO: tuple[Inaplicavel, ...] = (
 
 # Cenários que o domínio responde de outro modo, por decisão aprovada JÁ implementada. O teste do
 # legado continua valendo para o adaptador do legado; para o domínio, a evidência são os testes
-# novos listados (nome do teste em ``tests/dominio``), conferidos por ``test_aplicabilidade.py``.
+# novos listados (``arquivo::teste`` relativos a ``backend/tests``; sem ``::``, o teste é de
+# ``dominio/test_permissoes.py``), conferidos por ``test_aplicabilidade.py``.
+_DOM_E = "dominio/test_operacao_e.py::"
 SUBSTITUIDOS_POR_DELTA: dict[str, tuple[str, tuple[str, ...]]] = {
     "CAR-74": (
         "DLT-11",
         (
             "test_de_nome_recusa_nome_invalido_com_erro_detectavel",
             "test_definir_recusa_texto_e_nao_altera_o_conjunto",
+        ),
+    ),
+    "CAR-17": (
+        "DLT-02",
+        (
+            f"{_DOM_E}test_dlt02_atribuir_a_tecnico_ausente_sem_confirmacao_e_recusado_sem_alterar_a_os",
+            f"{_DOM_E}test_dlt02_com_confirmacao_a_atribuicao_e_aceita_e_o_historico_registra_a_ausencia",
+        ),
+    ),
+    "CAR-18": (
+        "DLT-01",
+        (
+            f"{_DOM_E}test_dlt01_o_papel_nao_depende_das_permissoes",
+            f"{_DOM_E}test_dlt01_tecnico_sem_apontar_reparo_continua_atribuivel_e_e_negado_ao_apontar",
+        ),
+    ),
+    "CAR-34": (
+        "DLT-06",
+        (
+            f"{_DOM_E}test_dlt06_finalizar_sem_diagnostico_e_recusado_sem_alterar_status_nem_historico",
+        ),
+    ),
+    "CAR-60": ("DLT-01", (f"{_DOM_E}test_dlt01_o_papel_nao_depende_das_permissoes",)),
+    "CAR-63": ("DLT-01", (f"{_DOM_E}test_dlt01_o_papel_nao_depende_das_permissoes",)),
+    "CAR-80": (
+        "DLT-08",
+        (
+            f"{_DOM_E}test_dlt08_abrir_com_falha_vazia_ou_so_espacos_e_recusado",
+            f"{_DOM_E}test_dlt08_apontamento_com_zero_hora_e_recusado_e_a_os_continua_atribuida",
+        ),
+    ),
+    "CAR-82": (
+        "DLT-01",
+        (
+            f"{_DOM_E}test_dlt01_gestor_com_permissoes_tecnicas_nao_recebe_atribuicao",
+            f"{_DOM_E}test_dlt01_o_papel_nao_depende_das_permissoes",
+        ),
+    ),
+    "CAR-83": (
+        "DLT-06",
+        (
+            f"{_DOM_E}test_dlt06_finalizar_sem_diagnostico_e_recusado_sem_alterar_status_nem_historico",
+            "dominio/test_ordem_servico.py::test_conclusao_sem_diagnostico_e_recusada_mesmo_com_teste_reprovado",
         ),
     ),
 }
@@ -346,3 +389,128 @@ NAO_REPRODUZIDOS_PELOS_SERVICOS: dict[str, NaoReproduzido] = {
         ),
     ),
 }
+
+_AOE = "aplicacao/test_operacao_e.py::"
+_CMP = "caracterizacao/test_operacao_e_servicos.py::"
+
+
+def _e(
+    cenario: str, delta: str, justificativa: str, *evidencias: str
+) -> tuple[str, NaoReproduzido]:
+    return cenario, NaoReproduzido(cenario, delta, justificativa, evidencias)
+
+
+_DISPONIBILIDADE_DERIVADA = (
+    "Disponibilidade derivada (D-05): no legado o valor só muda pela rotina da interface e a "
+    "consulta logo após uma transição devolve o valor antigo. Os serviços derivam das OS a cada "
+    "consulta, sem rotina nem gravação, e a ausência manual prevalece."
+)
+_ROTULO_E = (
+    f"{_AOE}test_dlt05_03_uma_os_em_execucao_caracteriza_atendimento_sem_rotina",
+    f"{_CMP}test_dlt05_o_legado_so_atualiza_apos_a_rotina_e_os_servicos_derivam_na_hora",
+)
+
+NAO_REPRODUZIDOS_PELOS_SERVICOS.update(
+    dict(
+        (
+            _e(
+                "CAR-17",
+                "DLT-02",
+                "Técnico ausente (D-03): o legado aceita a atribuição (só a tela da CLI pedia "
+                "confirmação). Os serviços a recusam, salvo confirmação explícita, e registram "
+                "a atribuição a técnico ausente no histórico.",
+                f"{_AOE}test_dlt02_atribuir_a_tecnico_ausente_sem_confirmacao_e_recusado_sem_mutacao",
+                f"{_CMP}test_dlt02_atribuir_a_tecnico_ausente_o_legado_aceita_e_os_servicos_recusam",
+            ),
+            _e(
+                "CAR-18",
+                "DLT-01",
+                "Papéis explícitos (D-02): no legado ser técnico é ter a permissão apontar_reparo. "
+                "Nos serviços o papel é guardado à parte e a lista de técnicos independe das "
+                "permissões do cargo.",
+                f"{_AOE}test_dlt01_a_lista_de_tecnicos_depende_do_papel_e_nao_das_permissoes",
+                f"{_CMP}test_dlt01_retirar_apontar_reparo_tira_o_tecnico_da_lista_no_legado_e_nao_nos_servicos",
+            ),
+            _e(
+                "CAR-34",
+                "DLT-06",
+                "Diagnóstico obrigatório (D-06): o legado finaliza o reparo sem diagnóstico. Os "
+                "serviços recusam a transição para Reparo Finalizado sem diagnóstico, sem "
+                "alterar status nem histórico.",
+                f"{_AOE}test_dlt06_finalizar_sem_diagnostico_e_recusado_pelo_servico_sem_mutacao",
+                f"{_CMP}test_dlt06_finalizar_sem_diagnostico_o_legado_aceita_e_os_servicos_recusam",
+            ),
+            _e(
+                "CAR-39",
+                "DLT-04",
+                "Quem observa (D-04): o legado aceita a observação de qualquer usuário com a "
+                "permissão. Os serviços exigem vínculo com a OS (gestor, responsável ou quem a "
+                "abriu) e recusam um terceiro sem alterar nada.",
+                f"{_AOE}test_dlt04_quem_nao_tem_vinculo_com_a_os_e_recusado_sem_mutacao",
+                f"{_CMP}test_dlt04_observacao_de_terceiro_o_legado_aceita_e_os_servicos_recusam",
+            ),
+            _e("CAR-43", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-47", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-48", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-49", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-50", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-51", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-52", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e("CAR-81", "DLT-05", _DISPONIBILIDADE_DERIVADA, *_ROTULO_E),
+            _e(
+                "CAR-60",
+                "DLT-01",
+                "Papéis explícitos (D-02): no legado, sem permissões ninguém é técnico. Nos "
+                "serviços os técnicos continuam técnicos e atribuíveis, e a permissão negada "
+                "continua recusando a operação.",
+                f"{_AOE}test_dlt01_a_lista_de_tecnicos_depende_do_papel_e_nao_das_permissoes",
+                f"{_CMP}test_dlt01_retirar_apontar_reparo_tira_o_tecnico_da_lista_no_legado_e_nao_nos_servicos",
+            ),
+            _e(
+                "CAR-63",
+                "DLT-01",
+                "Papéis explícitos (D-02): no legado trocar o cargo move o usuário entre técnicos "
+                "e gestores. Nos serviços o cargo traz as permissões e o papel não muda; mudar o "
+                "papel é operação explícita.",
+                f"{_AOE}test_dlt01_o_gestor_altera_o_papel_por_uma_operacao_explicita",
+                f"{_CMP}test_dlt01_mudar_o_cargo_move_o_usuario_no_legado_e_so_as_permissoes_nos_servicos",
+            ),
+            _e(
+                "CAR-79",
+                "DLT-03",
+                "OS encerrada imutável (D-04): o legado aceita observação em OS Concluída ou "
+                "Cancelada. Os serviços a recusam de qualquer usuário, sem alterar a OS nem o "
+                "histórico.",
+                f"{_AOE}test_dlt03_observacao_em_os_concluida_ou_cancelada_e_recusada_pelo_servico",
+                f"{_CMP}test_dlt03_observacao_em_os_encerrada_o_legado_aceita_e_os_servicos_recusam",
+            ),
+            _e(
+                "CAR-80",
+                "DLT-08",
+                "Validações obrigatórias (AUD-12): o legado aceita textos vazios e zero hora (só a "
+                "tela validava). Os serviços recusam campos obrigatórios vazios e duração menor "
+                "ou igual a zero, sem criar registro algum.",
+                f"{_AOE}test_dlt08_abrir_com_falha_vazia_nao_cria_a_os_nem_consome_o_numero",
+                f"{_CMP}test_dlt08_textos_vazios_e_zero_hora_o_legado_aceita_e_os_servicos_recusam",
+            ),
+            _e(
+                "CAR-82",
+                "DLT-01",
+                "Papéis explícitos (D-02): no legado conceder apontar_reparo ao gestor o torna "
+                "técnico atribuível. Nos serviços o gestor, mesmo com permissões técnicas, não "
+                "aparece entre os técnicos nem recebe atribuição.",
+                f"{_AOE}test_dlt01_gestor_com_permissoes_tecnicas_nao_aparece_nem_recebe_atribuicao",
+                f"{_CMP}test_dlt01_conceder_apontar_reparo_ao_gestor_o_torna_atribuivel_no_legado_e_nao_nos_servicos",
+            ),
+            _e(
+                "CAR-83",
+                "DLT-06",
+                "Diagnóstico obrigatório (D-06): no legado finalizar sem diagnóstico exige um "
+                "caminho indireto para voltar. Nos serviços a finalização sem diagnóstico é "
+                "recusada e o estado problemático deixa de existir.",
+                f"{_AOE}test_dlt06_o_diagnostico_registrado_depois_destrava_a_finalizacao",
+                f"{_CMP}test_dlt06_finalizar_sem_diagnostico_o_legado_aceita_e_os_servicos_recusam",
+            ),
+        )
+    )
+)

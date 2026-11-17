@@ -7,7 +7,10 @@ texto das mensagens e a ordem do histórico), com as únicas diferenças aprovad
 * DLT-07: datas em UTC com fuso (a comparação as normaliza para o texto do legado);
 * DLT-10: identificadores monotônicos (o legado reaproveita o maior id após exclusão);
 * DLT-11: permissões tipadas (nome inválido é erro; no legado, negação silenciosa);
-* os defeitos do legado que a autorização central fecha (``NAO_REPRODUZIDOS_PELOS_SERVICOS``).
+* os defeitos do legado que a autorização central fecha (``NAO_REPRODUZIDOS_PELOS_SERVICOS``);
+* Operação E (DLT-01 a DLT-09): cada par (estado, operação) que muda por decisão aprovada está
+  **nomeado** em ``divergencias.DIVERGENCIAS_AUTORIZADAS``, e a disponibilidade derivada (DLT-05)
+  é comparada com a do legado **depois** da rotina dele (``estado_sem_disponibilidade`` antes).
 
 São testes de infraestrutura da caracterização (sem marcador ``cenario``).
 """
@@ -47,6 +50,11 @@ from tests.caracterizacao.cenarios import (
     Classe,
 )
 from tests.caracterizacao.deltas import DELTAS_POR_ID, StatusDelta
+from tests.caracterizacao.divergencias import (
+    DIVERGENCIAS_AUTORIZADAS,
+    INALCANCAVEIS_NO_NOVO,
+    estado_sem_disponibilidade,
+)
 from tests.caracterizacao.fachada import Fachada, FachadaAutorizada, Recusa, RelogioFixo
 from tests.caracterizacao.fluxos import (
     aceitar,
@@ -115,7 +123,11 @@ def test_os_cenarios_de_cadastro_exclusao_e_disponibilidade_agora_rodam_nos_serv
     }
     ainda_pulados = {i.cenario for i in REGISTRO_SERVICOS}
     passam_a_rodar = dependiam - ainda_pulados - set(NAO_REPRODUZIDOS_PELOS_SERVICOS)
-    assert len(passam_a_rodar) == 24, sorted(passam_a_rodar)
+    # 24 na Operação D; a Operação E retirou 10 que dependiam de cadastro, exclusão ou rotina de
+    # disponibilidade e que as decisões D-02, D-04, D-05 e as validações (DLT-01, 04, 05, 08)
+    # respondem de outro modo (NAO_REPRODUZIDOS_PELOS_SERVICOS); restam os 14 que continuam
+    # idênticos ao legado.
+    assert len(passam_a_rodar) == 14, sorted(passam_a_rodar)
     assert len(REGISTRO_SERVICOS) < len(REGISTRO)
 
 
@@ -151,6 +163,7 @@ def _testes_com_o_marcador(cenario: str) -> list[str]:
 def test_so_se_exclui_um_cenario_dos_servicos_por_delta_aprovado_vinculado_e_testado() -> None:
     """Sem exclusão genérica: cada cenário não reproduzido cita um delta que o aprova (§5)."""
     assert set(NAO_REPRODUZIDOS_PELOS_SERVICOS) == {
+        # Operação D: autorização (DLT-12 a DLT-17), IDs monotônicos e permissões tipadas
         "CAR-71",
         "CAR-72",
         "CAR-73",
@@ -159,6 +172,25 @@ def test_so_se_exclui_um_cenario_dos_servicos_por_delta_aprovado_vinculado_e_tes
         "CAR-91",
         "CAR-92",
         "CAR-93",
+        # Operação E: papéis, ausência, observações, disponibilidade, diagnóstico e validações
+        "CAR-17",
+        "CAR-18",
+        "CAR-34",
+        "CAR-39",
+        "CAR-43",
+        "CAR-47",
+        "CAR-48",
+        "CAR-49",
+        "CAR-50",
+        "CAR-51",
+        "CAR-52",
+        "CAR-60",
+        "CAR-63",
+        "CAR-79",
+        "CAR-80",
+        "CAR-81",
+        "CAR-82",
+        "CAR-83",
     }
     registrados = {i.cenario for i in REGISTRO_SERVICOS}
     for cenario, item in NAO_REPRODUZIDOS_PELOS_SERVICOS.items():
@@ -323,11 +355,15 @@ def test_a_base_inicial_dos_servicos_e_a_do_legado(par: Par) -> None:
 # ------------------------------------------------------- roteiros em todos os estados
 
 
-@pytest.mark.parametrize("construtor", CONSTRUTORES)
+COMPARAVEIS = [c for c in CONSTRUTORES if c not in INALCANCAVEIS_NO_NOVO]
+
+
+@pytest.mark.parametrize("construtor", COMPARAVEIS)
 def test_toda_operacao_em_cada_estado_tem_o_mesmo_resultado_e_o_mesmo_estado(
     construtor: str, caminho_base: Path, relogio: RelogioFixo
 ) -> None:
     comparadas = 0
+    divergentes: set[tuple[str, str]] = set()
     for nome, operacao in OPERACOES.items():
         legado = AdaptadorLegado(caminho_base.with_name(f"{comparadas}.json"), relogio)
         servicos = AdaptadorServicos(relogio)
@@ -335,20 +371,52 @@ def test_toda_operacao_em_cada_estado_tem_o_mesmo_resultado_e_o_mesmo_estado(
             numero_legado = CONSTRUTORES[construtor](legado)
             numero_servicos = CONSTRUTORES[construtor](servicos)
             assert numero_legado == numero_servicos
-            assert estado(legado) == estado(servicos), f"{construtor}: estados diferem antes"
+            # antes da rotina do legado só a disponibilidade difere (DLT-05: derivada, não gravada)
+            assert estado_sem_disponibilidade(estado(legado)) == estado_sem_disponibilidade(
+                estado(servicos)
+            ), f"{construtor}: estados diferem antes"
+            legado.atualizar_disponibilidades()
+            servicos.atualizar_disponibilidades()  # sem efeito nos serviços (sem rotina)
+            assert estado(legado) == estado(servicos), f"{construtor}: disponibilidade difere"
             relogio.avancar(minutes=7)  # a operação acontece em outro instante
+            antes = estado(servicos)
             do_legado = operacao(legado, numero_legado)
             do_servicos = operacao(servicos, numero_servicos)
-            assert observavel(do_legado) == observavel(do_servicos), f"{construtor} / {nome}"
-            assert estado(legado) == estado(servicos), f"{construtor} / {nome}: estados diferem"
-            # a rotina de disponibilidade também produz o mesmo resultado nos dois
-            legado.atualizar_disponibilidades()
-            servicos.atualizar_disponibilidades()
-            assert estado(legado) == estado(servicos), f"{construtor} / {nome}: após a rotina"
+            autorizada = DIVERGENCIAS_AUTORIZADAS.get((construtor, nome))
+            if autorizada is None:
+                assert observavel(do_legado) == observavel(do_servicos), f"{construtor} / {nome}"
+                assert estado_sem_disponibilidade(estado(legado)) == estado_sem_disponibilidade(
+                    estado(servicos)
+                ), f"{construtor} / {nome}: estados diferem"
+                # depois da rotina do legado, a disponibilidade também é a mesma (DLT-05)
+                legado.atualizar_disponibilidades()
+                servicos.atualizar_disponibilidades()
+                assert estado(legado) == estado(servicos), f"{construtor} / {nome}: após a rotina"
+            else:  # diferença aprovada: o legado aceita, os serviços recusam sem alterar nada
+                delta, recusa = autorizada
+                assert do_legado.aceito, f"{delta}: {construtor} / {nome}"
+                assert (do_servicos.aceito, do_servicos.recusa) == (False, recusa), delta
+                assert estado(servicos) == antes, f"{delta}: a recusa alterou o estado"
+                divergentes.add((construtor, nome))
             comparadas += 1
         finally:
             legado.fechar()
     assert comparadas == len(OPERACOES)
+    assert divergentes == {par for par in DIVERGENCIAS_AUTORIZADAS if par[0] == construtor}
+
+
+@pytest.mark.parametrize("construtor", INALCANCAVEIS_NO_NOVO)
+def test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_nos_servicos(
+    construtor: str, caminho_base: Path, relogio: RelogioFixo
+) -> None:
+    legado = AdaptadorLegado(caminho_base, relogio)
+    try:
+        numero = CONSTRUTORES[construtor](legado)
+        assert legado.os(numero) is not None  # o legado chega a Reparo Finalizado sem diagnóstico
+        with pytest.raises(AssertionError, match="sem_diagnostico"):
+            CONSTRUTORES[construtor](AdaptadorServicos(relogio))
+    finally:
+        legado.fechar()
 
 
 # ------------------------------------------------------------- cadastros e exclusões
@@ -374,7 +442,7 @@ def _roteiro_de_cadastros(f: Fachada) -> list[tuple[object, ...]]:
     vistos.append(observavel(f.remover_equipamento(TORNO)))  # com OS
     vistos.append(observavel(f.remover_equipamento(prensa)))  # sem OS
     vistos.append(observavel(f.remover_usuario(diego, ANA)))  # sem histórico
-    vistos.append((numero, f.tecnicos(), f.ordens_do_equipamento(TORNO)))
+    vistos.append((numero, f.ordens_do_equipamento(TORNO)))
     return vistos
 
 
@@ -382,7 +450,13 @@ def test_cadastros_edicoes_e_exclusoes_dao_o_mesmo_resultado_e_o_mesmo_estado(pa
     do_legado = _roteiro_de_cadastros(par.legado)
     do_servicos = _roteiro_de_cadastros(par.servicos)
     assert do_legado == do_servicos
-    assert estado(par.legado) == estado(par.servicos)
+    # DLT-01 (D-02): no legado, trocar o cargo da Eva (gestora) para Técnico a torna técnica
+    # (AUD-20); nos serviços o papel não muda com o cargo. É a única diferença, e só na lista de
+    # técnicos: o resto do estado é idêntico.
+    eva = 5
+    assert par.legado.tecnicos() == (BRUNO, CARLA, eva)
+    assert par.servicos.tecnicos() == (BRUNO, CARLA)
+    assert estado(par.legado)[:-1] == estado(par.servicos)[:-1]
     assert par.servicos.usuario(4) is None  # Diego foi excluído
     assert par.servicos.equipamento(4) is None  # a prensa foi excluída
 
@@ -422,10 +496,15 @@ def test_a_numeracao_das_os_e_sequencial_e_recusa_nao_consome_numero_nos_dois(pa
 # ------------------------------------------------------------------- disponibilidade
 
 
-def test_disponibilidade_antes_e_depois_da_rotina_e_igual_ao_legado(par: Par) -> None:
+def test_dlt05_a_disponibilidade_so_se_atualiza_apos_a_rotina_no_legado_e_na_hora_nos_servicos(
+    par: Par,
+) -> None:
+    """O legado mostra o valor antigo até a rotina (AUD-13); os serviços derivam na leitura e,
+    depois da rotina do legado, os dois mostram exatamente o mesmo (D-05)."""
     for f in (par.legado, par.servicos):
         numero = os_em_execucao(f, tecnico=BRUNO)
-        assert f.usuario(BRUNO).disponibilidade == "Disponível"  # type: ignore[union-attr]
+        esperado_antes = "Disponível" if f is par.legado else "Em atendimento"
+        assert f.usuario(BRUNO).disponibilidade == esperado_antes  # type: ignore[union-attr]
         f.atualizar_disponibilidades()
         assert f.usuario(BRUNO).disponibilidade == "Em atendimento"  # type: ignore[union-attr]
         aceitar(f.definir_disponibilidade(BRUNO, "Ausente", solicitante=BRUNO))

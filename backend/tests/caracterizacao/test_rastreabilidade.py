@@ -22,6 +22,7 @@ SEM_CENARIO = {
     "test_adaptador_dominio.py",
     "test_adaptador_servicos.py",
     "test_autorizacao_servicos.py",
+    "test_operacao_e_servicos.py",
 }
 FORMATO_ID = re.compile(r"^(CAR|NV)-\d{2}$")
 
@@ -149,19 +150,19 @@ def test_referencias_aud_existem_na_auditoria_e_d_nas_decisoes() -> None:
 
 
 # O estado esperado de CADA delta: DLT-07 e DLT-11 (Operação C), DLT-10 (IDs monotônicos, Operação
-# D) e DLT-12 a DLT-17 (autorização nos serviços, regularização da Operação D) estão implementados;
-# os demais são da Operação E. Ao implementar um delta, este dicionário muda no mesmo commit que o
-# código, os testes e a evidência.
+# D), DLT-12 a DLT-17 (autorização nos serviços, regularização da Operação D) e DLT-01 a DLT-06,
+# DLT-08 e DLT-09 (regras de negócio, Operação E) estão implementados. Ao implementar um delta, este
+# dicionário muda no mesmo commit que o código, os testes e a evidência.
 ESTADO_ESPERADO: dict[str, StatusDelta] = {
-    "DLT-01": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-02": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-03": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-04": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-05": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-06": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-01": StatusDelta.IMPLEMENTADO,
+    "DLT-02": StatusDelta.IMPLEMENTADO,
+    "DLT-03": StatusDelta.IMPLEMENTADO,
+    "DLT-04": StatusDelta.IMPLEMENTADO,
+    "DLT-05": StatusDelta.IMPLEMENTADO,
+    "DLT-06": StatusDelta.IMPLEMENTADO,
     "DLT-07": StatusDelta.IMPLEMENTADO,
-    "DLT-08": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-09": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-08": StatusDelta.IMPLEMENTADO,
+    "DLT-09": StatusDelta.IMPLEMENTADO,
     "DLT-10": StatusDelta.IMPLEMENTADO,
     "DLT-11": StatusDelta.IMPLEMENTADO,
     "DLT-12": StatusDelta.IMPLEMENTADO,
@@ -172,6 +173,7 @@ ESTADO_ESPERADO: dict[str, StatusDelta] = {
     "DLT-17": StatusDelta.IMPLEMENTADO,
 }
 DELTAS_DA_REGULARIZACAO_D = tuple(f"DLT-{n}" for n in range(12, 18))
+DELTAS_DA_OPERACAO_E = tuple(f"DLT-0{n}" for n in (1, 2, 3, 4, 5, 6, 8, 9))
 OPERACAO_ESPERADA = {
     "DLT-07": "C",
     "DLT-10": "D",
@@ -227,6 +229,9 @@ def test_delta_implementado_tem_evidencia_existente_e_nao_implementado_nao_tem()
                 exigidos: tuple[str, ...] = ("dominio/",)
             elif delta.id in DELTAS_DA_REGULARIZACAO_D:
                 exigidos = ("aplicacao/",)
+            elif delta.id in DELTAS_DA_OPERACAO_E:
+                # regra de negócio: o domínio, os serviços e a comparação com o legado
+                exigidos = ("dominio/", "aplicacao/")
             else:
                 exigidos = ("contrato/", "aplicacao/")
             for prefixo in exigidos:
@@ -319,14 +324,16 @@ def test_delta_da_regularizacao_tem_testes_novos_na_aplicacao_e_na_comparacao_co
     assert all(e.partition("::")[2].startswith(prefixo) for e in evidencia), delta_id
 
 
-def test_os_deltas_anteriores_nao_foram_renumerados_nem_alterados_de_estado() -> None:
+def test_os_deltas_nao_foram_renumerados_e_a_operacao_e_implementou_os_que_faltavam() -> None:
     ids = [d.id for d in DELTAS]
     assert ids == [f"DLT-{n:02d}" for n in range(1, 18)]
-    # DLT-01 a DLT-06, 08 e 09 seguem pendentes (Operação E); DLT-07, 10 e 11 seguem implementados.
+    # a Operação E implementou DLT-01 a DLT-06, 08 e 09; nenhum delta ficou pendente
     pendentes = {i for i, e in ESTADO_ESPERADO.items() if e is StatusDelta.NAO_IMPLEMENTADO}
-    assert pendentes == {f"DLT-0{n}" for n in (1, 2, 3, 4, 5, 6, 8, 9)}
-    for delta_id in ("DLT-07", "DLT-10", "DLT-11"):
+    assert pendentes == set()
+    for delta_id in ("DLT-07", "DLT-10", "DLT-11", *DELTAS_DA_REGULARIZACAO_D):
         assert DELTAS_POR_ID[delta_id].status is StatusDelta.IMPLEMENTADO
+    # o DLT-07 é da Operação C e o DLT-09 nunca foi "reservado" a outra operação
+    assert "DLT-07" not in DELTAS_DA_OPERACAO_E
 
 
 def test_as_decisoes_dlt_12_a_17_constam_de_decisoes_aprovadas_e_do_adr_0006() -> None:
@@ -348,3 +355,46 @@ def test_nenhum_cenario_e_dispensado_por_marcador_generico_de_defeito() -> None:
         if arquivo.name in {"test_rastreabilidade.py", "test_adaptador_servicos.py"}:
             continue  # estes dois citam o nome só para proibi-lo
         assert "DEFEITO_CORRIGIDO" not in arquivo.read_text(encoding="utf-8"), arquivo.name
+
+
+# ------------------------------------------------------------ DLT-01 a DLT-09 (Operação E)
+
+
+@pytest.mark.parametrize("delta_id", DELTAS_DA_OPERACAO_E)
+def test_delta_da_operacao_e_registra_todos_os_campos_exigidos(delta_id: str) -> None:
+    """Como os da regularização da Operação D: legado, aprovado, justificativa, camada,
+    evidência, teste do legado, estado e a data e a referência da aprovação."""
+    delta = DELTAS_POR_ID[delta_id]
+    assert delta.status is StatusDelta.IMPLEMENTADO
+    assert delta.operacao_prevista == "E"
+    assert len(delta.legado) > 40, "comportamento do legado"
+    assert len(delta.aprovado) > 40, "comportamento aprovado"
+    assert len(delta.justificativa) > 40, "justificativa"
+    assert delta.camada in {"domain", "application"}, "camada responsável"
+    assert delta.evidencia, "evidência / testes do comportamento novo"
+    assert delta.testes_legado, "testes do comportamento legado"
+    assert "2026-11-15" in delta.aprovacao
+    assert "2026-11-17" in delta.aprovacao
+    assert "DECISOES_APROVADAS" in delta.aprovacao
+    # evidência separada por camada: domínio, serviços e comparação com o legado
+    prefixos = {e.split("/")[0] for e in delta.evidencia}
+    assert {"dominio", "aplicacao", "caracterizacao"} <= prefixos, delta_id
+
+
+@pytest.mark.parametrize("delta_id", DELTAS_DA_OPERACAO_E)
+def test_delta_da_operacao_e_tem_o_teste_do_legado_existente_e_de_cenario_do_delta(
+    delta_id: str,
+) -> None:
+    for referencia in DELTAS_POR_ID[delta_id].testes_legado:
+        arquivo, _, teste = referencia.partition("::")
+        assert teste in _funcoes_de_nivel_de_modulo(arquivo), referencia
+        assert arquivo.startswith("caracterizacao/test_"), referencia
+        ids = _testes_por_arquivo()[arquivo.removeprefix("caracterizacao/")][teste]
+        assert len(ids) == 1, referencia
+        assert ids[0] in DELTAS_POR_ID[delta_id].cenarios, (referencia, ids)
+
+
+def test_as_decisoes_dlt_01_a_09_constam_das_decisoes_aprovadas() -> None:
+    decisoes = (RAIZ_REPOSITORIO / "docs" / "DECISOES_APROVADAS.md").read_text(encoding="utf-8")
+    for delta_id in DELTAS_DA_OPERACAO_E:
+        assert f"| {delta_id} |" in decisoes, f"{delta_id} ausente de DECISOES_APROVADAS.md"

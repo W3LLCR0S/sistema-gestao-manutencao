@@ -13,6 +13,7 @@ from manutencao.application.portas.repositorios import (
 )
 from manutencao.composicao.container import Container, montar
 from manutencao.domain.cargo import Cargo
+from manutencao.domain.enums import Papel
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.permissoes import Permissoes
 from manutencao.domain.usuario import Usuario
@@ -40,12 +41,12 @@ def semear_dados_de_exemplo(
     cargos.adicionar(gestor)
     tecnico = Cargo(cargos.proximo_id(), "Técnico", Permissoes.padrao_tecnico())
     cargos.adicionar(tecnico)
-    for nome, cargo, email, escala in (
-        ("Ana Souza", gestor, "ana@empresa.com", "Seg-Sex 08h-17h"),
-        ("Bruno Lima", tecnico, "bruno@empresa.com", "Seg-Sex 07h-16h"),
-        ("Carla Mendes", tecnico, "carla@empresa.com", "Seg-Sex 13h-22h"),
+    for nome, cargo, papel, email, escala in (
+        ("Ana Souza", gestor, Papel.GESTOR, "ana@empresa.com", "Seg-Sex 08h-17h"),
+        ("Bruno Lima", tecnico, Papel.TECNICO, "bruno@empresa.com", "Seg-Sex 07h-16h"),
+        ("Carla Mendes", tecnico, Papel.TECNICO, "carla@empresa.com", "Seg-Sex 13h-22h"),
     ):
-        usuarios.adicionar(Usuario(usuarios.proximo_id(), nome, cargo, email, escala))
+        usuarios.adicionar(Usuario(usuarios.proximo_id(), nome, cargo, email, escala, papel=papel))
     for nome, modelo in (
         ("Torno CNC", "GL 240"),
         ("Compressor de Ar", "CSW 40"),

@@ -2,11 +2,13 @@
 
 Os testes de cenário rodam cada comportamento contra um adaptador de cada vez. Estes aqui rodam o
 **mesmo** roteiro nos dois, lado a lado, e exigem resultados e estados idênticos (inclusive o texto
-das mensagens e a ordem do histórico), com duas exceções que são deltas aprovados e implementados:
+das mensagens e a ordem do histórico), com as exceções que são deltas aprovados e implementados:
 
 * DLT-07: o domínio guarda instantes UTC com fuso; a comparação normaliza as datas para o texto do
   legado explicitamente (ver ``traducao.texto_legado``);
-* DLT-11: permissões tipadas; um nome inválido é erro no domínio e negação silenciosa no legado.
+* DLT-11: permissões tipadas; um nome inválido é erro no domínio e negação silenciosa no legado;
+* Operação E (DLT-01 a DLT-09): cada par (estado, operação) que muda por decisão aprovada está
+  **nomeado** em ``divergencias.DIVERGENCIAS_AUTORIZADAS`` com o delta e a recusa exata.
 
 São testes de infraestrutura da caracterização (sem marcador ``cenario``).
 """
@@ -36,6 +38,7 @@ from tests.caracterizacao.cenarios import (
     STATUS_EM_EXECUCAO,
     STATUS_REPARO_FINALIZADO,
 )
+from tests.caracterizacao.divergencias import DIVERGENCIAS_AUTORIZADAS, INALCANCAVEIS_NO_NOVO
 from tests.caracterizacao.fachada import Fachada, Peca, Recusa, RelogioFixo, Resultado
 from tests.caracterizacao.fluxos import (
     os_aberta,
@@ -158,11 +161,15 @@ OPERACOES: dict[str, Operacao] = {
 }
 
 
-@pytest.mark.parametrize("construtor", CONSTRUTORES)
+COMPARAVEIS = [c for c in CONSTRUTORES if c not in INALCANCAVEIS_NO_NOVO]
+
+
+@pytest.mark.parametrize("construtor", COMPARAVEIS)
 def test_toda_operacao_em_cada_estado_tem_o_mesmo_resultado_e_o_mesmo_estado(
     construtor: str, caminho_base: Path, relogio: RelogioFixo
 ) -> None:
     comparadas = 0
+    divergentes: set[tuple[str, str]] = set()
     for nome, operacao in OPERACOES.items():
         legado = AdaptadorLegado(caminho_base.with_name(f"{comparadas}.json"), relogio)
         dominio = AdaptadorDominio(relogio, numeracao=nova_numeracao())
@@ -172,27 +179,56 @@ def test_toda_operacao_em_cada_estado_tem_o_mesmo_resultado_e_o_mesmo_estado(
             assert numero_legado == numero_dominio
             assert estado(legado) == estado(dominio), f"{construtor}: estados diferem antes"
             relogio.avancar(minutes=7)  # a operação acontece em outro instante
+            antes = estado(dominio)
             do_legado = operacao(legado, numero_legado)
             do_dominio = operacao(dominio, numero_dominio)
-            assert observavel(do_legado) == observavel(do_dominio), f"{construtor} / {nome}"
-            assert estado(legado) == estado(dominio), f"{construtor} / {nome}: estados diferem"
+            autorizada = DIVERGENCIAS_AUTORIZADAS.get((construtor, nome))
+            if autorizada is None:
+                assert observavel(do_legado) == observavel(do_dominio), f"{construtor} / {nome}"
+                assert estado(legado) == estado(dominio), f"{construtor} / {nome}: estados diferem"
+            else:  # diferença aprovada: o legado aceita, o novo recusa sem alterar nada
+                delta, recusa = autorizada
+                assert do_legado.aceito, f"{delta}: {construtor} / {nome}"
+                assert (do_dominio.aceito, do_dominio.recusa) == (False, recusa), delta
+                assert estado(dominio) == antes, f"{delta}: a recusa alterou o estado"
+                divergentes.add((construtor, nome))
             comparadas += 1
         finally:
             legado.fechar()
     assert comparadas == len(OPERACOES)
+    # a tabela de divergências não admite entrada sobrando: cada par declarado diverge de fato
+    assert divergentes == {par for par in DIVERGENCIAS_AUTORIZADAS if par[0] == construtor}
 
 
-def test_nao_ser_tecnico_vence_ja_atribuida_igual_ao_legado(par: Par) -> None:
-    """Só aparece quando o técnico perde a permissão depois de atribuído (AUD-20)."""
+@pytest.mark.parametrize("construtor", INALCANCAVEIS_NO_NOVO)
+def test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_no_dominio(
+    construtor: str, caminho_base: Path, relogio: RelogioFixo
+) -> None:
+    legado = AdaptadorLegado(caminho_base, relogio)
+    try:
+        numero = CONSTRUTORES[construtor](legado)
+        assert legado.os(numero) is not None  # o legado chega a Reparo Finalizado sem diagnóstico
+        with pytest.raises(AssertionError, match="sem_diagnostico"):
+            CONSTRUTORES[construtor](AdaptadorDominio(relogio, numeracao=nova_numeracao()))
+    finally:
+        legado.fechar()
+
+
+def test_dlt01_retirar_apontar_reparo_destitui_o_tecnico_no_legado_e_nao_no_dominio(
+    par: Par,
+) -> None:
+    """AUD-20 no legado: o técnico que perde a permissão deixa de ser técnico e a verificação de
+    técnico vence "já atribuída". Com a D-02 (DLT-01) o papel não muda, e a recusa é a de sempre
+    para quem já é o responsável. A precedência (técnico antes de "já atribuída") está em
+    ``test_ordem_servico.py::test_atribuir_verifica_se_e_tecnico_antes_de_ja_atribuida``."""
     permissoes = tuple(p for p in PERMISSOES_DO_SISTEMA[:9] if p != "apontar_reparo")
     resultados: list[tuple[object, ...]] = []
     for adaptador in (par.legado, par.dominio):
         numero = os_atribuida(adaptador)
         adaptador.definir_permissoes_cargo(CARGO_TECNICO, permissoes)
         resultados.append(observavel(adaptador.atribuir(numero, BRUNO, ANA)))
-    assert resultados[0] == resultados[1]
-    assert resultados[0][1] is Recusa.NAO_E_TECNICO
-    assert estado(par.legado) == estado(par.dominio)
+    assert resultados[0][1] is Recusa.NAO_E_TECNICO  # legado
+    assert resultados[1][1] is Recusa.JA_ATRIBUIDA  # domínio: Bruno continua técnico e responsável
 
 
 # ------------------------------------------------------------------------------------- DLT-07
@@ -303,4 +339,7 @@ def test_permissoes_tipadas_so_divergem_do_legado_nos_nomes_invalidos(par: Par) 
     par.legado.definir_permissoes_cargo(CARGO_TECNICO, ("ver_os", "abrir_os"))
     par.dominio.definir_permissoes_cargo(CARGO_TECNICO, ("ver_os", "abrir_os"))
     assert par.legado.cargos() == par.dominio.cargos()
-    assert par.legado.tecnicos() == par.dominio.tecnicos() == ()
+    # sem a permissão apontar_reparo o legado não tem técnicos (AUD-20); o domínio os mantém
+    # (DLT-01)
+    assert par.legado.tecnicos() == ()
+    assert par.dominio.tecnicos() == (BRUNO, CARLA)

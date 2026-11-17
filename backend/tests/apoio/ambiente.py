@@ -68,5 +68,5 @@ def criar_ambiente() -> Ambiente:
         servico_usuarios=ServicoDeUsuarios(usuarios, cargos, ordens),
         servico_ordens=ServicoDeOrdens(ordens, usuarios, equipamentos, fixo),
         projecoes=projecoes,
-        servico_disponibilidade=ServicoDeDisponibilidade(usuarios, ordens, projecoes),
+        servico_disponibilidade=ServicoDeDisponibilidade(usuarios, projecoes),
     )

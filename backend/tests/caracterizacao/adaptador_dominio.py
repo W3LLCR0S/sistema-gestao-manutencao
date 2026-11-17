@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from typing import Any, NoReturn, Protocol, TypeVar
 
 from manutencao.domain.cargo import Cargo
-from manutencao.domain.enums import Criticidade, Disponibilidade, StatusOS
+from manutencao.domain.enums import Criticidade, Disponibilidade, Papel, StatusOS
 from manutencao.domain.equipamento import Equipamento
 from manutencao.domain.erros import DominioError
 from manutencao.domain.ordem_servico import OrdemServico
@@ -89,9 +89,25 @@ class AdaptadorDominio:
         tecnico = Cargo(2, "Técnico", Permissoes.padrao_tecnico())
         self._cargos = [gestor, tecnico]
         self._usuarios = [
-            Usuario(1, "Ana Souza", gestor, "ana@empresa.com", "Seg-Sex 08h-17h"),
-            Usuario(2, "Bruno Lima", tecnico, "bruno@empresa.com", "Seg-Sex 07h-16h"),
-            Usuario(3, "Carla Mendes", tecnico, "carla@empresa.com", "Seg-Sex 13h-22h"),
+            Usuario(
+                1, "Ana Souza", gestor, "ana@empresa.com", "Seg-Sex 08h-17h", papel=Papel.GESTOR
+            ),
+            Usuario(
+                2,
+                "Bruno Lima",
+                tecnico,
+                "bruno@empresa.com",
+                "Seg-Sex 07h-16h",
+                papel=Papel.TECNICO,
+            ),
+            Usuario(
+                3,
+                "Carla Mendes",
+                tecnico,
+                "carla@empresa.com",
+                "Seg-Sex 13h-22h",
+                papel=Papel.TECNICO,
+            ),
         ]
         self._equipamentos = [
             Equipamento(1, "Torno CNC", "GL 240"),
@@ -309,7 +325,7 @@ class AdaptadorDominio:
         return tuple(snap_usuario(u, self._carga(u)) for u in self._usuarios)
 
     def tecnicos(self) -> tuple[int, ...]:
-        return tuple(u.id for u in self._usuarios if u.e_tecnico)
+        return tuple(u.id for u in self._usuarios if u.atribuivel)
 
     def equipamento(self, id: int) -> EquipamentoSnap | None:
         achado = next((e for e in self._equipamentos if e.id == id), None)

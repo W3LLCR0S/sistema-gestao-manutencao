@@ -21,6 +21,13 @@ class Criticidade(StrEnum):
     CRITICA = "Crítica"
 
 
+class Papel(StrEnum):
+    """Quem o usuário é no sistema (D-02). Independe das permissões do cargo."""
+
+    GESTOR = "Gestor"
+    TECNICO = "Técnico"
+
+
 class Disponibilidade(StrEnum):
     DISPONIVEL = "Disponível"
     EM_ATENDIMENTO = "Em atendimento"

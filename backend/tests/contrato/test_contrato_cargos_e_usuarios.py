@@ -4,7 +4,7 @@ import pytest
 
 from manutencao.application.erros import NaoEncontradoError
 from manutencao.domain.cargo import Cargo
-from manutencao.domain.enums import Disponibilidade
+from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.permissoes import Permissao, Permissoes
 from manutencao.domain.usuario import Usuario
 from tests.contrato.implementacoes import Repositorios
@@ -18,7 +18,9 @@ def _cargos(repos: Repositorios) -> None:
 def _usuario(repos: Repositorios, id: int = 1, cargo: int = 2) -> Usuario:
     achado = repos.cargos.obter(cargo)
     assert achado is not None
-    return Usuario(id, f"Usuário {id}", achado, f"u{id}@empresa.com", "Seg-Sex 08h-17h")
+    return Usuario(
+        id, f"Usuário {id}", achado, f"u{id}@empresa.com", "Seg-Sex 08h-17h", papel=Papel.TECNICO
+    )
 
 
 # ------------------------------------------------------------------------------------- cargos
@@ -124,7 +126,34 @@ def test_mudar_o_cargo_do_usuario_e_salvar(repos: Repositorios) -> None:
     repos.usuarios.salvar(usuario)
     salvo = repos.usuarios.obter(1)
     assert salvo is not None
-    assert (salvo.cargo.id, salvo.e_tecnico) == (1, False)
+    # o papel é guardado à parte: mudar o cargo não o altera (D-02, DLT-01)
+    assert (salvo.cargo.id, salvo.papel) == (1, Papel.TECNICO)
+
+
+def test_papel_e_situacao_do_usuario_sao_guardados_e_devolvidos(repos: Repositorios) -> None:
+    """D-02 e DLT-09: o papel e o ``ativo`` são dados do usuário, não derivados de nada."""
+    _cargos(repos)
+    ana = Usuario(
+        1, "Ana", repos.cargos.obter(1) or Cargo(1, "x", Permissoes()), papel=Papel.GESTOR
+    )
+    repos.usuarios.adicionar(ana)
+    repos.usuarios.adicionar(_usuario(repos, id=2))
+    assert [(u.papel, u.ativo) for u in repos.usuarios.listar()] == [
+        (Papel.GESTOR, True),
+        (Papel.TECNICO, True),
+    ]
+    bruno = repos.usuarios.obter(2)
+    assert bruno is not None
+    bruno.papel = Papel.GESTOR
+    bruno.desativar()
+    assert repos.usuarios.obter(2).ativo is True  # type: ignore[union-attr]  # só ``salvar`` grava
+    repos.usuarios.salvar(bruno)
+    salvo = repos.usuarios.obter(2)
+    assert salvo is not None
+    assert (salvo.papel, salvo.ativo) == (Papel.GESTOR, False)
+    # a permissão do cargo não muda o papel guardado
+    repos.cargos.obter(2).permissoes.definir([])  # type: ignore[union-attr]
+    assert repos.usuarios.obter(1).papel is Papel.GESTOR  # type: ignore[union-attr]
 
 
 def test_permissoes_do_cargo_valem_para_todos_os_usuarios_na_leitura_seguinte(
@@ -146,13 +175,15 @@ def test_adicionar_ou_salvar_com_cargo_inexistente_levanta_nao_encontrado(
     repos: Repositorios,
 ) -> None:
     _cargos(repos)
-    sem_cargo = Usuario(1, "Órfão", Cargo(9, "Inexistente", Permissoes()))
+    sem_cargo = Usuario(1, "Órfão", Cargo(9, "Inexistente", Permissoes()), papel=Papel.TECNICO)
     with pytest.raises(NaoEncontradoError):
         repos.usuarios.adicionar(sem_cargo)
     assert repos.usuarios.listar() == ()
     repos.usuarios.adicionar(_usuario(repos))
     with pytest.raises(NaoEncontradoError):
-        repos.usuarios.salvar(Usuario(1, "Órfão", Cargo(9, "Inexistente", Permissoes())))
+        repos.usuarios.salvar(
+            Usuario(1, "Órfão", Cargo(9, "Inexistente", Permissoes()), papel=Papel.TECNICO)
+        )
     achado = repos.usuarios.obter(1)
     assert achado is not None
     assert achado.cargo.id == 2  # a recusa não alterou o armazenado
