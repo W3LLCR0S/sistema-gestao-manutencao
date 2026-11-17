@@ -14,8 +14,10 @@ from manutencao.application.portas.repositorios import (
     OrdemServicoRepository,
     UsuarioRepository,
 )
+from manutencao.application.servicos.disponibilidade import ServicoDeDisponibilidade
 from manutencao.application.servicos.equipamentos import ServicoDeEquipamentos
 from manutencao.application.servicos.ordens import ServicoDeOrdens
+from manutencao.application.servicos.projecoes import Projecoes
 from manutencao.application.servicos.usuarios import ServicoDeUsuarios
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.equipamento import Equipamento
@@ -46,6 +48,8 @@ class Ambiente:
     servico_equipamentos: ServicoDeEquipamentos
     servico_usuarios: ServicoDeUsuarios
     servico_ordens: ServicoDeOrdens
+    projecoes: Projecoes
+    servico_disponibilidade: ServicoDeDisponibilidade
 
 
 def semear(
@@ -79,6 +83,7 @@ def criar_ambiente() -> Ambiente:
     cargos = CargosEmMemoria()
     usuarios = UsuariosEmMemoria(cargos)
     ordens = OrdensEmMemoria()
+    projecoes = Projecoes(usuarios, ordens)
     semear(equipamentos, cargos, usuarios)
     return Ambiente(
         relogio=fixo,
@@ -89,4 +94,6 @@ def criar_ambiente() -> Ambiente:
         servico_equipamentos=ServicoDeEquipamentos(equipamentos, usuarios, ordens),
         servico_usuarios=ServicoDeUsuarios(usuarios, cargos, ordens),
         servico_ordens=ServicoDeOrdens(ordens, usuarios, equipamentos, fixo),
+        projecoes=projecoes,
+        servico_disponibilidade=ServicoDeDisponibilidade(usuarios, ordens, projecoes),
     )
