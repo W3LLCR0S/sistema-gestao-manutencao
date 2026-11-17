@@ -256,3 +256,105 @@ Nenhuma é considerada aprovada. As recomendações abaixo continuam sendo **pro
 Nenhuma decisão pendente bloqueia a Fase 02. A D-10, que era a dependência imediata, foi aprovada para o planejamento
 (seção 4): CLI e legado preservados, sem nova CLI nem adaptador JSON. D-07 é aditiva e as demais pertencem a fases
 posteriores.
+
+## 7. Deltas técnicos de autorização (DLT-12 a DLT-17)
+
+Aprovados por autorização expressa do usuário em **2026-11-17** (regularização da Operação D, alternativa B:
+*preservar as correções de autorização já implementadas, formalizá-las como deltas e corrigir a rastreabilidade e a
+caracterização*). Esta seção **não altera** as decisões D-01 a D-15 e **não renumera** os deltas anteriores.
+
+**Convenção.** As decisões de produto e de arquitetura têm identificadores `D-nn` (seções 2 a 6). As diferenças
+técnicas entre o legado e o novo backend têm identificadores `DLT-nn`, registrados no código em
+`backend/tests/caracterizacao/deltas.py` (fonte de verificação automática) e descritos no
+[ADR-0006](adr/0006-estrategia-de-testes.md). Os DLT-12 a DLT-17 não decorrem de uma decisão `D-nn`: nascem dos achados
+AUD-02 (autorização desigual) e AUD-09 (regras só na interface) e da autorização citada acima.
+
+| ID | Tema | Origem | Camada | Estado | Aprovação |
+|----|------|--------|--------|--------|-----------|
+| DLT-12 | Autoproteção do gestor | AUD-09 (CAR-71) | Aplicação | **Implementado** | 2026-11-17 |
+| DLT-13 | Autorização para operações de gestão | AUD-02 (CAR-73) | Aplicação | **Implementado** | 2026-11-17 |
+| DLT-14 | Autorização para operações de leitura | AUD-02 (CAR-91) | Aplicação | **Implementado** | 2026-11-17 |
+| DLT-15 | Alteração manual da disponibilidade de terceiros | AUD-09 (CAR-72) | Aplicação | **Implementado** | 2026-11-17 |
+| DLT-16 | Precedência das verificações de autorização | AUD-02 (CAR-93, CAR-64, CAR-65) | Aplicação | **Implementado** | 2026-11-17 |
+| DLT-17 | Ator inexistente | AUD-02 (CAR-92) | Aplicação | **Implementado** | 2026-11-17 |
+
+"Implementado" significa que o comportamento existe nos serviços de aplicação da branch `refactor/arquitetura` (local,
+sem merge nem push) e tem os testes citados em cada delta. O legado (`models/`, `ui/`, `persistencia/`) **não** foi
+alterado e continua com o comportamento antigo, que segue caracterizado por testes.
+
+Em todos os deltas: a autorização é verificada **no serviço, antes de qualquer mutação**; uma operação recusada **não
+altera repositórios nem consome identificadores**; **nenhuma permissão nova** foi criada; **não** foi implementada
+autenticação (D-01 segue pendente), papéis explícitos (D-02), bloqueio de técnico ausente (D-03), política de
+observações (D-04), disponibilidade derivada (D-05), diagnóstico obrigatório (D-06), validações obrigatórias nem
+usuário ativo/inativo: continuam reservados à Operação E.
+
+### DLT-12 — Autoproteção do gestor (CAR-71)
+
+- **Legado:** o gestor pode trocar o próprio cargo por um sem gestão, remover do próprio cargo `gerir_usuarios` ou
+  reduzir as permissões do próprio cargo; só a tela da CLI o impedia (AUD-09).
+- **Aprovado:** o serviço recusa essas três ações com `AUTOREMOCAO_DE_ACESSO_DE_GESTAO`, sem alterar o estado. Alterações
+  que preservam `gerir_usuarios` são permitidas. A proteção é da camada de aplicação e independe da interface.
+- **Justificativa:** evita deixar o sistema sem quem gerencie usuários por engano.
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt12_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt12_*`.
+- **Teste do comportamento legado:** `caracterizacao/test_legado_defeitos.py::test_aud09_dominio_aceita_o_gestor_remover_o_proprio_acesso_de_gestao`.
+
+### DLT-13 — Autorização para operações de gestão (CAR-73)
+
+- **Legado:** equipamentos e exclusão de usuário eram operados sem identidade nem permissão; só o menu da CLI exigia
+  `gerir_equipamentos` e `gerir_usuarios`.
+- **Aprovado:** o serviço exige `gerir_equipamentos` (gestão de equipamentos) e `gerir_usuarios` (usuários e cargos),
+  antes de qualquer mutação.
+- **Justificativa:** preserva a permissão efetiva da CLI e a impõe no servidor (ADR-0003).
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt13_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt13_*`.
+- **Teste do comportamento legado:** `test_aud02_equipamentos_sao_geridos_sem_identidade_nem_permissao` e
+  `test_aud02_exclusao_de_usuario_nao_confere_a_permissao_do_solicitante` (`test_legado_defeitos.py`).
+
+### DLT-14 — Autorização para operações de leitura (CAR-91)
+
+- **Legado:** nenhuma consulta verificava permissão; só o menu escondia as telas.
+- **Aprovado:** `ver_equipamentos`, `ver_os` e `ver_disponibilidade` nas consultas correspondentes; `gerir_usuarios` nas
+  consultas de usuários e cargos (como na CLI). Sem ampliar permissões nem criar regras de visibilidade.
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt14_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt14_*`.
+- **Teste do comportamento legado:** `test_aud02_consultas_nao_exigem_permissao_de_leitura_no_legado`.
+
+### DLT-15 — Alteração de disponibilidade de terceiros (CAR-72)
+
+- **Legado:** qualquer usuário altera a disponibilidade de qualquer outro (a tela só mostrava "minha disponibilidade").
+- **Aprovado:** o usuário altera a própria; quem tem `gerir_usuarios` altera a de outro; quem não tem é recusado sem
+  mutação. Trata só de **quem pode** alterar o valor manual: a disponibilidade derivada (D-05) **não** foi implementada.
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt15_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt15_*`.
+- **Teste do comportamento legado:** `test_aud09_qualquer_usuario_altera_a_disponibilidade_de_qualquer_outro` e
+  `test_aud09_o_proprio_usuario_e_o_gestor_tambem_alteram_a_disponibilidade`.
+
+### DLT-16 — Precedência das verificações (CAR-93; CAR-64 e CAR-65 preservados)
+
+- **Legado:** a exclusão de usuário conferia autoexclusão e histórico sem olhar a permissão.
+- **Aprovado:** a autorização é a **primeira** verificação funcional dos casos de uso protegidos, antes de procurar o
+  recurso e antes de autoexclusão e histórico. A ordem interna das regras de domínio **não muda** (autoexclusão antes
+  do histórico, CAR-64).
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt16_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt16_*`.
+- **Teste do comportamento legado:** `test_aud02_exclusao_confere_autoexclusao_e_historico_sem_olhar_a_permissao`.
+
+### DLT-17 — Ator inexistente (CAR-92)
+
+- **Legado:** as operações de gestão não recebiam nem consultavam o solicitante.
+- **Aprovado:** os serviços recusam a operação quando o ator não existe, com o erro tipado `NaoEncontradoError`
+  (entidade "Usuário"). Não há administrador padrão nem criação automática de usuário. Não é autenticação (D-01).
+- **Evidência:** `aplicacao/test_autorizacao.py::test_dlt17_*`; `caracterizacao/test_autorizacao_servicos.py::test_dlt17_*`.
+- **Teste do comportamento legado:** `test_aud02_operacoes_de_gestao_ignoram_quem_pede_inclusive_um_inexistente`.
+
+### Categoria `DEFEITO_CORRIGIDO` eliminada
+
+A categoria `DEFEITO_CORRIGIDO` foi introduzida na Operação D sem estar vinculada a uma decisão aprovada e **deixou de
+existir**. Um cenário só é excluído da comparação com os serviços quando há um delta aprovado e implementado que o
+liste, o comportamento antigo continua testado no legado, o novo tem teste específico e a divergência é exatamente a
+autorizada (verificado por `caracterizacao/test_adaptador_servicos.py`). CAR-71, CAR-72 e CAR-73 passaram de "defeito do
+legado" a "modificar por decisão aprovada" (DLT-12, DLT-15, DLT-13), assim como CAR-74 (DLT-11).
+
+### CAR-65 — solicitante da exclusão
+
+O teste da regra `USUARIO_COM_HISTORICO` passou a usar uma segunda gestora (Eva) como solicitante da exclusão da Ana,
+porque o técnico Bruno é agora recusado por falta de permissão antes da regra de histórico (DLT-13, DLT-16). O resultado
+esperado da regra não mudou. A tentativa do técnico continua documentada e testada: o legado a aceita até a regra de
+histórico e os serviços a recusam por permissão
+(`test_car65_o_legado_permite_a_tentativa_do_tecnico_e_os_servicos_recusam_por_permissao`).

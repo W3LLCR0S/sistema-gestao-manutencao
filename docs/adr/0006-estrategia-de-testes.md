@@ -101,6 +101,28 @@ caracterização), comportamento novo (com o teste substituto), decisão que a a
 | Datas | Texto sem fuso | Instante com fuso em UTC | D-11 |
 | Usuário inativo | Inexistente | Não autentica nem opera | Desativação |
 
+**Registro dos deltas.** Cada delta tem um identificador `DLT-nn` em `backend/tests/caracterizacao/deltas.py`, com o
+comportamento do legado, o aprovado, os cenários CAR-nn que caracterizam o antigo, o estado e as evidências
+(`arquivo::teste`); `test_rastreabilidade.py` confere o estado esperado de cada um e a existência das evidências.
+`DLT-01` a `DLT-09` correspondem, em outra ordem, às linhas da lista inicial acima; `DLT-10` (IDs monotônicos) e `DLT-11` (permissões tipadas) foram acrescentados nas Operações C e D. Os implementados até aqui são `DLT-07`, `DLT-10` e `DLT-11` (e os de autorização abaixo).
+
+**Deltas de autorização (regularização da Operação D, aprovados em 2026-11-17).** Detalhados na
+[seção 7 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md); todos da camada de aplicação e **implementados**:
+
+| Delta | Anterior (legado) | Novo (serviços) | Cenários do legado |
+|-------|-------------------|-----------------|--------------------|
+| DLT-12 | Gestor retira de si o próprio acesso de gestão | Recusado (autoproteção), sem mutação | CAR-71 |
+| DLT-13 | Gestão de equipamentos, usuários e cargos sem permissão | Exige `gerir_equipamentos` / `gerir_usuarios` antes de mutar | CAR-73 |
+| DLT-14 | Consultas sem permissão | Exige `ver_equipamentos`, `ver_os`, `ver_disponibilidade` (e `gerir_usuarios` para usuários e cargos) | CAR-91 |
+| DLT-15 | Qualquer um altera a disponibilidade de qualquer um | Própria: livre; de outro: só com `gerir_usuarios` | CAR-72 |
+| DLT-16 | Autoexclusão e histórico conferidos sem olhar a permissão | Autorização é a primeira verificação | CAR-93, CAR-64, CAR-65 |
+| DLT-17 | Solicitante inexistente é indiferente | Recusado com `NaoEncontradoError`; sem administrador padrão | CAR-92 |
+
+**Regra de exclusão da comparação.** Um cenário só deixa de ser executado contra os serviços (`NAO_REPRODUZIDOS_PELOS_SERVICOS`)
+quando (1) há um delta aprovado e implementado; (2) o cenário está vinculado a ele; (3) o comportamento antigo continua
+testado no legado; (4) o novo comportamento tem teste específico; e (5) a divergência é exatamente a autorizada.
+Não existe exclusão genérica por "defeito do legado".
+
 ### 4. Evidências de LSP, ISP e DIP (futuras, nenhuma existe hoje)
 
 Estes princípios **não estão demonstrados** no baseline. As evidências concretas que serão exigidas, a partir da
