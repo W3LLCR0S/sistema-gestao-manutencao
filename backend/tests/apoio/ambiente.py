@@ -15,6 +15,7 @@ from manutencao.application.portas.repositorios import (
     UsuarioRepository,
 )
 from manutencao.application.servicos.equipamentos import ServicoDeEquipamentos
+from manutencao.application.servicos.ordens import ServicoDeOrdens
 from manutencao.application.servicos.usuarios import ServicoDeUsuarios
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.equipamento import Equipamento
@@ -44,6 +45,7 @@ class Ambiente:
     ordens: OrdemServicoRepository
     servico_equipamentos: ServicoDeEquipamentos
     servico_usuarios: ServicoDeUsuarios
+    servico_ordens: ServicoDeOrdens
 
 
 def semear(
@@ -86,4 +88,5 @@ def criar_ambiente() -> Ambiente:
         ordens=ordens,
         servico_equipamentos=ServicoDeEquipamentos(equipamentos, usuarios, ordens),
         servico_usuarios=ServicoDeUsuarios(usuarios, cargos, ordens),
+        servico_ordens=ServicoDeOrdens(ordens, usuarios, equipamentos, fixo),
     )
