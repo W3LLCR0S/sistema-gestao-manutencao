@@ -6,6 +6,8 @@ ambiente de caracterização é seguro e determinístico.
 
 import importlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +24,7 @@ from tests.caracterizacao.cenarios import (
     PERMISSOES_PADRAO_GESTOR,
     PERMISSOES_PADRAO_TECNICO,
 )
+from tests.caracterizacao.cli_isolada import LANCADOR
 from tests.caracterizacao.fachada import Fachada, Recusa, RelogioFixo
 from tests.caracterizacao.fluxos import os_aberta
 from tests.guardas_ambiente import DIRETORIO_DADOS, RAIZ_REPOSITORIO
@@ -103,3 +106,27 @@ def test_arquivo_json_isolado_e_independente_do_real(adaptador: AdaptadorLegado)
 )
 def test_categorizacao_das_recusas_por_mensagem(mensagem: str, categoria: Recusa) -> None:
     assert categorizar(mensagem) is categoria
+
+
+def test_lancador_da_cli_bloqueia_a_rede_antes_de_rodar_o_legado() -> None:
+    """O bloqueio é instalado no preâmbulo do lançador; nenhum tráfego real é gerado."""
+    preambulo = LANCADOR.split("raiz = ")[0]
+    sondagem = os.linesep.join(
+        [
+            "try:",
+            "    socket.getaddrinfo('example.com', 80)",
+            "except RuntimeError as erro:",
+            "    print('bloqueado:', erro)",
+            "else:",
+            "    raise SystemExit('a rede nao foi bloqueada')",
+        ]
+    )
+    processo = subprocess.run(
+        [sys.executable, "-I", "-B", "-c", preambulo + os.linesep + sondagem],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert processo.returncode == 0, processo.stderr
+    assert "bloqueado: rede bloqueada" in processo.stdout
