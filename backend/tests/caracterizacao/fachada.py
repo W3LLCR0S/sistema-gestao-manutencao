@@ -41,6 +41,8 @@ class Recusa(StrEnum):
     EQUIPAMENTO_COM_OS = "equipamento_com_os"
     USUARIO_COM_HISTORICO = "usuario_com_historico"
     AUTOEXCLUSAO = "autoexclusao"
+    AUTOREMOCAO_DE_ACESSO_DE_GESTAO = "autoremocao_de_acesso_de_gestao"  # DLT-12 (só nos serviços)
+    NAO_ENCONTRADO = "nao_encontrado"  # objeto ou ator inexistente, DLT-17 (só nos serviços)
     DESCONHECIDA = "desconhecida"  # nenhuma regra conhecida: um teste que a vê deve falhar
 
 
@@ -200,7 +202,9 @@ class Fachada(Protocol):
     # -- disponibilidade
     def atualizar_disponibilidades(self) -> None: ...
 
-    def definir_disponibilidade(self, usuario: int, valor: str) -> None: ...
+    def definir_disponibilidade(
+        self, usuario: int, valor: str, *, solicitante: int
+    ) -> Resultado: ...
 
     # -- cadastros
     def cadastrar_usuario(
@@ -257,3 +261,48 @@ class Fachada(Protocol):
 
     # -- persistência (o novo sistema pode implementar como no-op)
     def salvar_e_recarregar(self) -> None: ...
+
+
+class FachadaAutorizada(Protocol):
+    """Operações com o **solicitante explícito** e com resultado (aceita ou recusada).
+
+    Servem aos cenários de autorização (DLT-12 a DLT-17): quem pede é sempre informado e nunca é
+    deduzido do alvo nem trocado por um administrador. O legado não conhece solicitante nas
+    operações de gestão e consulta (``Repositorio`` e ``Equipamento`` não recebem usuário): o
+    adaptador do legado executa direto e devolve ``Resultado(True)``, e é isso que os testes de
+    comparação caracterizam. Só os adaptadores do legado e dos serviços as implementam.
+    """
+
+    def cadastrar_equipamento_por(self, solicitante: int, nome: str, modelo: str) -> Resultado: ...
+
+    def editar_equipamento_por(
+        self, solicitante: int, equipamento: int, nome: str, modelo: str
+    ) -> Resultado: ...
+
+    def inativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado: ...
+
+    def reativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado: ...
+
+    def remover_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado: ...
+
+    def cadastrar_usuario_por(self, solicitante: int, nome: str, cargo: int) -> Resultado: ...
+
+    def editar_usuario_por(self, solicitante: int, usuario: int, nome: str) -> Resultado: ...
+
+    def alterar_cargo_por(self, solicitante: int, usuario: int, cargo: int) -> Resultado: ...
+
+    def definir_permissoes_cargo_por(
+        self, solicitante: int, cargo: int, permissoes: tuple[str, ...]
+    ) -> Resultado: ...
+
+    def consultar_equipamentos_por(self, solicitante: int) -> Resultado: ...
+
+    def consultar_os_por(self, solicitante: int, numero: int) -> Resultado: ...
+
+    def listar_os_por(self, solicitante: int) -> Resultado: ...
+
+    def consultar_disponibilidade_por(self, solicitante: int) -> Resultado: ...
+
+    def consultar_usuarios_por(self, solicitante: int) -> Resultado: ...
+
+    def listar_cargos_por(self, solicitante: int) -> Resultado: ...

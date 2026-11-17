@@ -83,7 +83,7 @@ def test_d05_05_em_execucao_e_aguardando_peca_juntas_contam_como_atendimento(f: 
 @pytest.mark.cenario("CAR-46")
 def test_d05_06_ausencia_manual_prevalece_sobre_os_em_execucao(f: Fachada) -> None:
     os_em_execucao(f)
-    f.definir_disponibilidade(BRUNO, AUSENTE)
+    aceitar(f.definir_disponibilidade(BRUNO, AUSENTE, solicitante=BRUNO))
     f.atualizar_disponibilidades()
     assert disp(f, BRUNO) == AUSENTE
 
@@ -91,9 +91,9 @@ def test_d05_06_ausencia_manual_prevalece_sobre_os_em_execucao(f: Fachada) -> No
 @pytest.mark.cenario("CAR-47")
 def test_d05_07_remover_a_ausencia_so_recalcula_apos_a_rotina(f: Fachada) -> None:
     os_em_execucao(f)
-    f.definir_disponibilidade(BRUNO, AUSENTE)
+    aceitar(f.definir_disponibilidade(BRUNO, AUSENTE, solicitante=BRUNO))
     f.atualizar_disponibilidades()
-    f.definir_disponibilidade(BRUNO, DISPONIVEL)  # ausência removida
+    aceitar(f.definir_disponibilidade(BRUNO, DISPONIVEL, solicitante=BRUNO))  # ausência removida
     assert disp(f, BRUNO) == DISPONIVEL  # a OS em execução ainda não foi considerada
     f.atualizar_disponibilidades()
     assert disp(f, BRUNO) == EM_ATENDIMENTO
@@ -143,14 +143,16 @@ def test_disponibilidade_manual_e_aceita_para_qualquer_usuario_sem_permissao(
     f: Fachada, valor: str
 ) -> None:
     """Preservar/AUD-09: não há permissão nem regra de domínio para alterar a disponibilidade."""
-    f.definir_disponibilidade(CARLA, valor)
+    aceitar(f.definir_disponibilidade(CARLA, valor, solicitante=CARLA))
     assert disp(f, CARLA) == valor
 
 
 @pytest.mark.cenario("CAR-51")
 def test_rotina_sobrescreve_disponibilidade_manual_exceto_ausente(f: Fachada) -> None:
-    f.definir_disponibilidade(BRUNO, EM_ATENDIMENTO)  # sem nenhuma OS em execução
-    f.definir_disponibilidade(CARLA, AUSENTE)
+    aceitar(
+        f.definir_disponibilidade(BRUNO, EM_ATENDIMENTO, solicitante=BRUNO)
+    )  # sem nenhuma OS em execução
+    aceitar(f.definir_disponibilidade(CARLA, AUSENTE, solicitante=CARLA))
     f.atualizar_disponibilidades()
     assert disp(f, BRUNO) == DISPONIVEL
     assert disp(f, CARLA) == AUSENTE
@@ -158,7 +160,7 @@ def test_rotina_sobrescreve_disponibilidade_manual_exceto_ausente(f: Fachada) ->
 
 @pytest.mark.cenario("CAR-51")
 def test_disponibilidade_sobrevive_a_gravacao_e_recarga(f: Fachada) -> None:
-    f.definir_disponibilidade(CARLA, AUSENTE)
+    aceitar(f.definir_disponibilidade(CARLA, AUSENTE, solicitante=CARLA))
     os_em_execucao(f)
     f.atualizar_disponibilidades()
     f.salvar_e_recarregar()
@@ -167,7 +169,7 @@ def test_disponibilidade_sobrevive_a_gravacao_e_recarga(f: Fachada) -> None:
 
 @pytest.mark.cenario("CAR-52")
 def test_rotina_so_recalcula_tecnicos_e_nunca_altera_o_gestor(f: Fachada) -> None:
-    f.definir_disponibilidade(ANA, EM_ATENDIMENTO)
+    aceitar(f.definir_disponibilidade(ANA, EM_ATENDIMENTO, solicitante=ANA))
     f.atualizar_disponibilidades()
     assert disp(f, ANA) == EM_ATENDIMENTO  # gestor não é técnico: fora do recálculo
 
@@ -203,7 +205,7 @@ def test_carga_acompanha_a_reatribuicao_e_o_ciclo_da_os(f: Fachada) -> None:
 @pytest.mark.cenario("CAR-54")
 def test_tecnico_ausente_continua_listado_como_tecnico_e_com_carga(f: Fachada) -> None:
     numero = os_atribuida(f, tecnico=BRUNO)
-    f.definir_disponibilidade(BRUNO, AUSENTE)
+    aceitar(f.definir_disponibilidade(BRUNO, AUSENTE, solicitante=BRUNO))
     f.atualizar_disponibilidades()
     assert f.tecnicos() == (BRUNO, CARLA)
     bruno = f.usuario(BRUNO)

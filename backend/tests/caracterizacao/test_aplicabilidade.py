@@ -80,8 +80,9 @@ def test_o_registro_e_exatamente_o_que_os_testes_exigem() -> None:
 
 
 def test_a_analise_estatica_viu_todos_os_testes_de_regra() -> None:
-    # 173 funções de teste de regra na Operação B (uma por marcador ``cenario``).
-    assert len(exigencias_por_teste()) == 173
+    # 173 funções de teste de regra na Operação B (uma por marcador ``cenario``) + 4 da
+    # regularização da Operação D: um segundo teste do CAR-72 e os testes de CAR-91, 92 e 93.
+    assert len(exigencias_por_teste()) == 173 + 4
 
 
 def test_cenarios_inteiramente_aplicaveis_nao_estao_no_registro() -> None:

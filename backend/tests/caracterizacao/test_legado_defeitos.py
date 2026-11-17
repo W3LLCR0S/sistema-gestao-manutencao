@@ -75,12 +75,25 @@ def test_aud09_dominio_aceita_o_gestor_remover_o_proprio_acesso_de_gestao(f: Fac
 
 @pytest.mark.cenario("CAR-72")
 def test_aud09_qualquer_usuario_altera_a_disponibilidade_de_qualquer_outro(f: Fachada) -> None:
-    """A tela só mostra "minha disponibilidade"; o domínio não tem regra (nem permissão)."""
+    """A tela só mostra "minha disponibilidade"; o domínio não tem regra (nem permissão).
+
+    Três informações distintas: **quem pede** (Bruno), **de quem** é a disponibilidade (Carla) e
+    **qual** valor. Bruno não tem nenhuma permissão e nem é a Carla; o legado aceita (DLT-15 muda
+    isso nos serviços, que têm testes próprios).
+    """
     f.definir_permissoes_cargo(CARGO_TECNICO, ())
-    f.definir_disponibilidade(CARLA, "Ausente")  # nenhuma permissão e nenhum solicitante
+    resultado = f.definir_disponibilidade(CARLA, "Ausente", solicitante=BRUNO)
+    assert resultado.aceito
     carla = f.usuario(CARLA)
     assert carla is not None
     assert carla.disponibilidade == "Ausente"
+
+
+@pytest.mark.cenario("CAR-72")
+def test_aud09_o_proprio_usuario_e_o_gestor_tambem_alteram_a_disponibilidade(f: Fachada) -> None:
+    aceitar(f.definir_disponibilidade(CARLA, "Ausente", solicitante=CARLA))  # a própria
+    aceitar(f.definir_disponibilidade(BRUNO, "Ausente", solicitante=ANA))  # um gestor, de outro
+    assert [u.disponibilidade for u in f.usuarios()] == ["Disponível", "Ausente", "Ausente"]
 
 
 # ================================================= AUD-02: autorização desigual (só OS exige)
@@ -374,3 +387,69 @@ def test_aud21_finalizar_sem_diagnostico_exige_um_caminho_indireto(f: Fachada) -
     tipos = os_snap(f, numero).tipos_do_historico
     assert tipos.count("Mudança de status") == 6  # 3 a mais do que o caminho direto
     assert tipos.count("Diagnóstico") == 1
+
+
+# ============================== autorização dos serviços (DLT-14, DLT-17, DLT-16): o legado
+
+
+@pytest.mark.cenario("CAR-91")
+def test_aud02_consultas_nao_exigem_permissao_de_leitura_no_legado(
+    legado: AdaptadorLegado,
+) -> None:
+    """Quem consulta é só um parâmetro que o ``Repositorio`` nem conhece: ninguém é barrado.
+
+    Os serviços exigem ``ver_equipamentos``, ``ver_os``, ``ver_disponibilidade`` e, para usuários
+    e cargos, ``gerir_usuarios`` (DLT-14).
+    """
+    f = legado
+    numero = os_aberta(f)  # antes de retirar as permissões: abrir OS também exige uma
+    f.definir_permissoes_cargo(CARGO_TECNICO, ())
+    assert not any(f.usuario_pode(BRUNO, p) for p in PERMISSOES_PADRAO_TECNICO)
+    for resultado in (
+        f.consultar_equipamentos_por(BRUNO),
+        f.consultar_os_por(BRUNO, numero),
+        f.listar_os_por(BRUNO),
+        f.consultar_disponibilidade_por(BRUNO),
+        f.consultar_usuarios_por(BRUNO),
+        f.listar_cargos_por(BRUNO),
+    ):
+        assert resultado.aceito
+        assert resultado.valor is not None
+
+
+@pytest.mark.cenario("CAR-92")
+def test_aud02_operacoes_de_gestao_ignoram_quem_pede_inclusive_um_inexistente(
+    legado: AdaptadorLegado,
+) -> None:
+    """O legado não pergunta quem pede: nem a permissão, nem se o solicitante existe.
+
+    Os serviços recusam um ator inexistente com ``NaoEncontradoError`` (DLT-17), sem criar usuário
+    e sem alterar nada.
+    """
+    f = legado
+    inexistente = 99
+    assert f.usuario(inexistente) is None
+    antes = len(f.equipamentos())
+    resultado = f.cadastrar_equipamento_por(inexistente, "Prensa", "P1")
+    assert resultado.aceito
+    assert len(f.equipamentos()) == antes + 1
+    aceitar(f.cadastrar_usuario_por(inexistente, "Diego", CARGO_TECNICO))
+    assert f.usuario(inexistente) is None  # nenhum usuário foi criado em nome do solicitante
+    assert not f.usuario_pode(BRUNO, "gerir_equipamentos")
+    aceitar(f.inativar_equipamento_por(BRUNO, TORNO))  # um técnico, sem permissão
+
+
+@pytest.mark.cenario("CAR-93")
+def test_aud02_exclusao_confere_autoexclusao_e_historico_sem_olhar_a_permissao(
+    legado: AdaptadorLegado,
+) -> None:
+    """No legado, o técnico sem permissão recebe a recusa da regra funcional, não a de permissão.
+
+    Nos serviços a autorização é a primeira verificação (DLT-16): a mesma tentativa é recusada por
+    falta de permissão.
+    """
+    f = legado
+    assert not f.usuario_pode(BRUNO, "gerir_usuarios")
+    recusada(f.remover_usuario(BRUNO, BRUNO), Recusa.AUTOEXCLUSAO)
+    os_atribuida(f, tecnico=BRUNO)  # Carla abriu e Bruno é o técnico: ambos têm histórico
+    recusada(f.remover_usuario(CARLA, BRUNO), Recusa.USUARIO_COM_HISTORICO)

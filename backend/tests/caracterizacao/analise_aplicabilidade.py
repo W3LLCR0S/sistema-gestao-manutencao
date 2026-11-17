@@ -6,6 +6,10 @@ Lê os testes de caracterização **sem importá-los**. Para cada teste com marc
   operações ausentes do domínio puro que ele chama, direta ou **indiretamente** (por funções
   auxiliares do próprio módulo ou de ``fluxos.py``, inclusive as passadas como argumento de
   ``parametrize``);
+* se recebe ``legado`` (o adaptador do legado, sem variantes), o teste caracteriza só o
+  comportamento antigo de um cenário que os serviços respondem de outro modo por delta aprovado;
+  não exige nenhuma responsabilidade ausente (``test_adaptador_servicos.py`` confere a ligação
+  com o delta);
 * se não recebe ``f``, o teste não usa a fachada e só roda contra o legado: ``cli`` exige a
   interface de linha de comando; ``adaptador``, ``caminho_base`` e ``tmp_path`` exigem a
   persistência (instâncias do repositório sobre o arquivo JSON).
@@ -101,6 +105,10 @@ def exigencias_por_teste() -> dict[tuple[str, str], tuple[str, set[Responsabilid
             if "f" in parametros:
                 usados = _metodos_usados(funcao, auxiliares, set())
                 exigidas = {r for m, r in RESPONSABILIDADE_DO_METODO.items() if m in usados}
+            elif "legado" in parametros:
+                # Só o comportamento antigo, de um cenário que os serviços respondem de outro modo
+                # por delta (NAO_REPRODUZIDOS_PELOS_SERVICOS): nenhuma variante, nenhum skip.
+                exigidas = set()
             elif "cli" in parametros:
                 exigidas = {Responsabilidade.INTERFACE_DE_LINHA_DE_COMANDO}
             elif parametros & {"adaptador", "caminho_base", "tmp_path"}:

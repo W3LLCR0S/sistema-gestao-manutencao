@@ -194,7 +194,7 @@ def test_estados_que_impedem_atribuir_ou_reatribuir(
 @pytest.mark.cenario("CAR-17")
 def test_atribuir_a_tecnico_ausente_e_aceito_pelo_dominio(f: Fachada) -> None:
     """D-03 (AUD-09): o legado só pede confirmação na tela; o domínio aceita sem erro."""
-    f.definir_disponibilidade(BRUNO, AUSENTE)
+    aceitar(f.definir_disponibilidade(BRUNO, AUSENTE, solicitante=BRUNO))
     numero = os_aberta(f)
     resultado = aceitar(f.atribuir(numero, BRUNO, ANA))
     assert resultado.valor is None
@@ -212,7 +212,7 @@ def test_atribuir_a_tecnico_ausente_e_aceito_pelo_dominio(f: Fachada) -> None:
 @pytest.mark.cenario("CAR-17")
 def test_reatribuir_a_tecnico_ausente_tambem_e_aceito(f: Fachada) -> None:
     numero = os_atribuida(f, tecnico=BRUNO)
-    f.definir_disponibilidade(CARLA, AUSENTE)
+    aceitar(f.definir_disponibilidade(CARLA, AUSENTE, solicitante=CARLA))
     aceitar(f.atribuir(numero, CARLA, ANA))
     assert os_snap(f, numero).tecnico_id == CARLA
 

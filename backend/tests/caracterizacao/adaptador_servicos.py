@@ -4,13 +4,18 @@ Executa os cenários contra o contêiner da raiz de composição (``criar_contai
 serviços, repositórios em memória e relógio injetado), sem importar o legado nem a infraestrutura.
 Cada operação da fachada é um caso de uso; as recusas vêm dos erros de domínio e de aplicação.
 
-Três decisões de projeto do adaptador:
+Decisões de projeto do adaptador:
 
-* **Quem age.** Operações com ator na fachada (abrir, atribuir, aprovar...) usam esse ator. As que
-  não têm ator (cadastrar, editar, inativar e excluir equipamento; cadastrar e editar usuário) agem
-  como ``ADMINISTRADOR`` (Ana, a gestora da base inicial), pelos mesmos casos de uso e com a mesma
-  verificação de permissão: um cenário que tira a permissão da Ana e depois cadastra falha, e isso
-  é um **comportamento novo documentado** (``aplicabilidade.NAO_REPRODUZIDOS_PELOS_SERVICOS``).
+* **Quem age.** Operações com ator na fachada (abrir, atribuir, aprovar,
+  ``definir_disponibilidade``, ``remover_usuario``, as operações ``*_por``...) usam
+  **exatamente** o ator informado: nunca o alvo, nunca um administrador. As operações **de
+  preparação** do cenário que no legado não têm
+  ator (``PREPARACOES_COMO_ADMINISTRADOR``: cadastrar, editar, inativar e reativar equipamento;
+  cadastrar e editar usuário; remover equipamento) agem como ``ADMINISTRADOR`` (Ana, a gestora da
+  base inicial) **pelos mesmos casos de uso e com a mesma verificação de permissão**: nada é
+  concedido implicitamente. Um cenário que tira a permissão da Ana e depois prepara com ela falha,
+  e a autorização em si é testada pelas operações ``*_por``, que recebem o solicitante (DLT-12 a
+  DLT-17). Um teste impede que outro método passe a usar o administrador em silêncio.
 * **Preparação de cenário.** ``definir_permissoes_cargo`` escreve direto no repositório de cargos,
   como os outros adaptadores escrevem direto nas entidades: é a forma de montar o cenário (inclusive
   tirar a permissão da própria Ana), não um caso de uso sob teste. O caso de uso real, com as suas
@@ -58,13 +63,26 @@ from tests.caracterizacao.traducao import (
 
 ADMINISTRADOR = 1  # Ana Souza, a gestora da base inicial
 
+# Os únicos métodos que agem como ADMINISTRADOR: preparação de cenário (ver a docstring do módulo).
+PREPARACOES_COMO_ADMINISTRADOR = frozenset(
+    {
+        "cadastrar_usuario",
+        "editar_usuario",
+        "cadastrar_equipamento",
+        "editar_equipamento",
+        "inativar_equipamento",
+        "reativar_equipamento",
+        "remover_equipamento",
+    }
+)
+
 RECUSA_POR_CODIGO_DE_APLICACAO: dict[CodigoErroAplicacao, Recusa] = {
     CodigoErroAplicacao.EQUIPAMENTO_COM_OS: Recusa.EQUIPAMENTO_COM_OS,
     CodigoErroAplicacao.USUARIO_COM_HISTORICO: Recusa.USUARIO_COM_HISTORICO,
     CodigoErroAplicacao.AUTOEXCLUSAO: Recusa.AUTOEXCLUSAO,
     # Sem equivalente na fachada do legado: se aparecer num cenário, o teste deve falhar.
-    CodigoErroAplicacao.AUTOREMOCAO_DE_ACESSO_DE_GESTAO: Recusa.DESCONHECIDA,
-    CodigoErroAplicacao.NAO_ENCONTRADO: Recusa.DESCONHECIDA,
+    CodigoErroAplicacao.AUTOREMOCAO_DE_ACESSO_DE_GESTAO: Recusa.AUTOREMOCAO_DE_ACESSO_DE_GESTAO,
+    CodigoErroAplicacao.NAO_ENCONTRADO: Recusa.NAO_ENCONTRADO,
     CodigoErroAplicacao.IDENTIFICADOR_JA_EMITIDO: Recusa.DESCONHECIDA,
 }
 
@@ -109,7 +127,7 @@ class AdaptadorServicos:
         except RegraDeAplicacaoError as erro:
             return Resultado(False, RECUSA_POR_CODIGO_DE_APLICACAO[erro.codigo], erro.mensagem)
         except NaoEncontradoError as erro:
-            return Resultado(False, Recusa.DESCONHECIDA, erro.mensagem)
+            return Resultado(False, Recusa.NAO_ENCONTRADO, erro.mensagem)
         return Resultado(True, valor=valor)
 
     # --------------------------------------------------------------------- OS: abertura e gestão
@@ -175,9 +193,13 @@ class AdaptadorServicos:
     def atualizar_disponibilidades(self) -> None:
         self._c.servico_disponibilidade.atualizar_disponibilidades()
 
-    def definir_disponibilidade(self, usuario: int, valor: str) -> None:
-        self._c.servico_disponibilidade.alterar_minha_disponibilidade(
-            usuario, Disponibilidade(valor)
+    def definir_disponibilidade(self, usuario: int, valor: str, *, solicitante: int) -> Resultado:
+        """Quem pede (``solicitante``), quem tem a disponibilidade alterada (``usuario``) e o valor
+        são três informações distintas (DLT-15); o alvo nunca é o ator implícito."""
+        return self._executar(
+            lambda: self._c.servico_disponibilidade.alterar_disponibilidade(
+                solicitante, usuario, Disponibilidade(valor)
+            )
         )
 
     # ---------------------------------------------------------------------------------- cadastros
@@ -219,11 +241,106 @@ class AdaptadorServicos:
         )
 
     def definir_permissoes_cargo(self, cargo: int, permissoes: tuple[str, ...]) -> None:
-        """Preparação de cenário: direto no repositório (ver a docstring do módulo)."""
+        """Preparação de cenário: direto no repositório (ver a docstring do módulo).
+
+        Nunca substitui a operação testada: o caso de uso real (com permissão e autoproteção) é
+        ``definir_permissoes_cargo_por``.
+        """
         alvo = self._c.cargos.obter(cargo)
         assert alvo is not None, f"Cargo {cargo} inexistente na base de teste"
         alvo.permissoes.definir(Permissao.de_nome(nome) for nome in permissoes)
         self._c.cargos.salvar(alvo)
+
+    # ------------------------------------------------------- operações com solicitante explícito
+    def cadastrar_equipamento_por(self, solicitante: int, nome: str, modelo: str) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_equipamentos.cadastrar(solicitante, nome, modelo).id
+        )
+
+    def editar_equipamento_por(
+        self, solicitante: int, equipamento: int, nome: str, modelo: str
+    ) -> Resultado:
+        return self._executar(
+            lambda: (
+                self._c.servico_equipamentos.atualizar(solicitante, equipamento, nome, modelo).id
+            )
+        )
+
+    def inativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_equipamentos.inativar(solicitante, equipamento).id
+        )
+
+    def reativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_equipamentos.reativar(solicitante, equipamento).id
+        )
+
+    def remover_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_equipamentos.excluir(solicitante, equipamento)
+        )
+
+    def cadastrar_usuario_por(self, solicitante: int, nome: str, cargo: int) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_usuarios.cadastrar(solicitante, nome, cargo).id
+        )
+
+    def editar_usuario_por(self, solicitante: int, usuario: int, nome: str) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_usuarios.atualizar_dados(solicitante, usuario, nome=nome).id
+        )
+
+    def alterar_cargo_por(self, solicitante: int, usuario: int, cargo: int) -> Resultado:
+        return self._executar(
+            lambda: self._c.servico_usuarios.alterar_cargo(solicitante, usuario, cargo).id
+        )
+
+    def definir_permissoes_cargo_por(
+        self, solicitante: int, cargo: int, permissoes: tuple[str, ...]
+    ) -> Resultado:
+        return self._executar(
+            lambda: (
+                self._c.servico_usuarios.definir_permissoes_do_cargo(
+                    solicitante, cargo, [Permissao.de_nome(nome) for nome in permissoes]
+                ).id
+            )
+        )
+
+    def consultar_equipamentos_por(self, solicitante: int) -> Resultado:
+        return self._executar(
+            lambda: tuple(
+                snap_equipamento(e) for e in self._c.servico_equipamentos.listar(solicitante)
+            )
+        )
+
+    def consultar_os_por(self, solicitante: int, numero: int) -> Resultado:
+        return self._executar(
+            lambda: snap_os(self._c.servico_ordens.consultar(solicitante, numero))
+        )
+
+    def listar_os_por(self, solicitante: int) -> Resultado:
+        return self._executar(
+            lambda: tuple(snap_os(o) for o in self._c.servico_ordens.listar(solicitante))
+        )
+
+    def consultar_disponibilidade_por(self, solicitante: int) -> Resultado:
+        return self._executar(lambda: self._c.servico_disponibilidade.consultar(solicitante))
+
+    def consultar_usuarios_por(self, solicitante: int) -> Resultado:
+        return self._executar(
+            lambda: tuple(
+                snap_usuario(u, self._c.projecoes.carga_do_tecnico(u.id))
+                for u in self._c.servico_usuarios.listar(solicitante)
+            )
+        )
+
+    def listar_cargos_por(self, solicitante: int) -> Resultado:
+        return self._executar(
+            lambda: tuple(
+                snap_cargo(c) for c in self._c.servico_usuarios.listar_cargos(solicitante)
+            )
+        )
 
     # --------------------------------------------------------------------------------- permissões
     def usuario_pode(self, usuario: int, permissao: str) -> bool:

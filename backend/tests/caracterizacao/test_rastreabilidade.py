@@ -21,6 +21,7 @@ SEM_CENARIO = {
     "test_aplicabilidade.py",
     "test_adaptador_dominio.py",
     "test_adaptador_servicos.py",
+    "test_autorizacao_servicos.py",
 }
 FORMATO_ID = re.compile(r"^(CAR|NV)-\d{2}$")
 
@@ -147,9 +148,10 @@ def test_referencias_aud_existem_na_auditoria_e_d_nas_decisoes() -> None:
 # -------------------------------------------------------------------------------------- deltas
 
 
-# O estado esperado de CADA delta (Operação D): DLT-07 e DLT-11 (Operação C) e DLT-10 (IDs
-# monotônicos, Operação D) estão implementados; os demais são da Operação E. Ao implementar um
-# delta, este dicionário muda no mesmo commit que o código, os testes e a evidência.
+# O estado esperado de CADA delta: DLT-07 e DLT-11 (Operação C), DLT-10 (IDs monotônicos, Operação
+# D) e DLT-12 a DLT-17 (autorização nos serviços, regularização da Operação D) estão implementados;
+# os demais são da Operação E. Ao implementar um delta, este dicionário muda no mesmo commit que o
+# código, os testes e a evidência.
 ESTADO_ESPERADO: dict[str, StatusDelta] = {
     "DLT-01": StatusDelta.NAO_IMPLEMENTADO,
     "DLT-02": StatusDelta.NAO_IMPLEMENTADO,
@@ -162,8 +164,20 @@ ESTADO_ESPERADO: dict[str, StatusDelta] = {
     "DLT-09": StatusDelta.NAO_IMPLEMENTADO,
     "DLT-10": StatusDelta.IMPLEMENTADO,
     "DLT-11": StatusDelta.IMPLEMENTADO,
+    "DLT-12": StatusDelta.IMPLEMENTADO,
+    "DLT-13": StatusDelta.IMPLEMENTADO,
+    "DLT-14": StatusDelta.IMPLEMENTADO,
+    "DLT-15": StatusDelta.IMPLEMENTADO,
+    "DLT-16": StatusDelta.IMPLEMENTADO,
+    "DLT-17": StatusDelta.IMPLEMENTADO,
 }
-OPERACAO_ESPERADA = {"DLT-07": "C", "DLT-10": "D", "DLT-11": "C"}  # os demais: "E"
+DELTAS_DA_REGULARIZACAO_D = tuple(f"DLT-{n}" for n in range(12, 18))
+OPERACAO_ESPERADA = {
+    "DLT-07": "C",
+    "DLT-10": "D",
+    "DLT-11": "C",
+    **dict.fromkeys(DELTAS_DA_REGULARIZACAO_D, "D"),
+}  # os demais: "E"
 DIRETORIO_TESTES = DIRETORIO.parent
 
 
@@ -206,11 +220,15 @@ def test_delta_implementado_tem_evidencia_existente_e_nao_implementado_nao_tem()
     for delta in DELTAS:
         if delta.status is StatusDelta.IMPLEMENTADO:
             assert delta.evidencia, f"{delta.id} implementado sem evidência"
-            # Delta de regra de domínio (Operação C) exige teste de domínio; delta de política de
-            # repositório (Operação D) exige teste de contrato e de aplicação.
-            exigidos = (
-                ("dominio/",) if delta.operacao_prevista == "C" else ("contrato/", "aplicacao/")
-            )
+            # Delta de regra de domínio (Operação C) exige teste de domínio; de política de
+            # repositório (DLT-10) exige contrato e aplicação; de autorização nos serviços
+            # (DLT-12 a DLT-17) exige teste de aplicação.
+            if delta.operacao_prevista == "C":
+                exigidos: tuple[str, ...] = ("dominio/",)
+            elif delta.id in DELTAS_DA_REGULARIZACAO_D:
+                exigidos = ("aplicacao/",)
+            else:
+                exigidos = ("contrato/", "aplicacao/")
             for prefixo in exigidos:
                 assert any(e.startswith(prefixo) for e in delta.evidencia), (delta.id, prefixo)
             assert any(e.startswith("caracterizacao/") for e in delta.evidencia), (
@@ -253,3 +271,80 @@ def test_decisoes_dos_deltas_constam_do_registro_de_decisoes() -> None:
         primeiro = d.decisao.split(" ")[0]
         if re.fullmatch(r"D-\d{2}", primeiro):
             assert f"| {primeiro} |" in decisoes, f"{d.id}: {primeiro} ausente das decisões"
+
+
+# ------------------------------------------------- DLT-12 a DLT-17 (regularização da Operação D)
+
+
+@pytest.mark.parametrize("delta_id", DELTAS_DA_REGULARIZACAO_D)
+def test_delta_da_regularizacao_registra_todos_os_campos_exigidos(delta_id: str) -> None:
+    """Os dez itens da aprovação: id, legado, aprovado, justificativa, camada, evidência, testes
+    do legado e do novo comportamento, estado e data/referência da aprovação."""
+    delta = DELTAS_POR_ID[delta_id]
+    assert delta.id == delta_id
+    assert len(delta.legado) > 40, "comportamento do legado"
+    assert len(delta.aprovado) > 40, "comportamento aprovado"
+    assert len(delta.justificativa) > 40, "justificativa"
+    assert delta.camada == "application", "camada responsável"
+    assert delta.status is StatusDelta.IMPLEMENTADO, "estado"
+    assert delta.evidencia, "evidência / testes do comportamento novo"
+    assert delta.testes_legado, "testes do comportamento legado"
+    assert "2026-11-17" in delta.aprovacao, "data da aprovação"
+    assert "DECISOES_APROVADAS" in delta.aprovacao, "referência da aprovação"
+    assert delta.operacao_prevista == "D"
+
+
+@pytest.mark.parametrize("delta_id", DELTAS_DA_REGULARIZACAO_D)
+def test_delta_da_regularizacao_tem_teste_do_legado_existente_e_de_cenario_do_delta(
+    delta_id: str,
+) -> None:
+    for referencia in DELTAS_POR_ID[delta_id].testes_legado:
+        arquivo, _, teste = referencia.partition("::")
+        assert teste in _funcoes_de_nivel_de_modulo(arquivo), referencia
+        # o comportamento antigo está num teste de cenário (com marcador) do próprio delta
+        assert arquivo.startswith("caracterizacao/test_"), referencia
+        ids = _testes_por_arquivo()[arquivo.removeprefix("caracterizacao/")][teste]
+        assert len(ids) == 1, referencia
+        assert ids[0] in DELTAS_POR_ID[delta_id].cenarios, (referencia, ids)
+
+
+@pytest.mark.parametrize("delta_id", DELTAS_DA_REGULARIZACAO_D)
+def test_delta_da_regularizacao_tem_testes_novos_na_aplicacao_e_na_comparacao_com_o_legado(
+    delta_id: str,
+) -> None:
+    evidencia = DELTAS_POR_ID[delta_id].evidencia
+    assert any(e.startswith("aplicacao/test_autorizacao.py::") for e in evidencia)
+    assert any(e.startswith("caracterizacao/test_autorizacao_servicos.py::") for e in evidencia)
+    prefixo = "test_" + delta_id.lower().replace("-", "")
+    assert all(e.partition("::")[2].startswith(prefixo) for e in evidencia), delta_id
+
+
+def test_os_deltas_anteriores_nao_foram_renumerados_nem_alterados_de_estado() -> None:
+    ids = [d.id for d in DELTAS]
+    assert ids == [f"DLT-{n:02d}" for n in range(1, 18)]
+    # DLT-01 a DLT-06, 08 e 09 seguem pendentes (Operação E); DLT-07, 10 e 11 seguem implementados.
+    pendentes = {i for i, e in ESTADO_ESPERADO.items() if e is StatusDelta.NAO_IMPLEMENTADO}
+    assert pendentes == {f"DLT-0{n}" for n in (1, 2, 3, 4, 5, 6, 8, 9)}
+    for delta_id in ("DLT-07", "DLT-10", "DLT-11"):
+        assert DELTAS_POR_ID[delta_id].status is StatusDelta.IMPLEMENTADO
+
+
+def test_as_decisoes_dlt_12_a_17_constam_de_decisoes_aprovadas_e_do_adr_0006() -> None:
+    docs = RAIZ_REPOSITORIO / "docs"
+    decisoes = (docs / "DECISOES_APROVADAS.md").read_text(encoding="utf-8")
+    adr = (docs / "adr" / "0006-estrategia-de-testes.md").read_text(encoding="utf-8")
+    for delta_id in DELTAS_DA_REGULARIZACAO_D:
+        assert f"| {delta_id} |" in decisoes, f"{delta_id} ausente de DECISOES_APROVADAS.md"
+        assert delta_id in adr, f"{delta_id} ausente do ADR-0006"
+    # as decisões D-01 a D-15 continuam todas lá, sem renumeração
+    for numero in range(1, 16):
+        assert f"| D-{numero:02d} |" in decisoes, f"D-{numero:02d}"
+
+
+def test_nenhum_cenario_e_dispensado_por_marcador_generico_de_defeito() -> None:
+    """Só se exclui um cenário dos serviços por delta (``test_adaptador_servicos.py``); a
+    categoria ``DEFEITO_CORRIGIDO`` não existe em nenhum registro."""
+    for arquivo in DIRETORIO.glob("*.py"):
+        if arquivo.name in {"test_rastreabilidade.py", "test_adaptador_servicos.py"}:
+            continue  # estes dois citam o nome só para proibi-lo
+        assert "DEFEITO_CORRIGIDO" not in arquivo.read_text(encoding="utf-8"), arquivo.name

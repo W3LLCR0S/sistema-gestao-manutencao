@@ -14,8 +14,6 @@ São testes de infraestrutura da caracterização (sem marcador ``cenario``).
 
 import ast
 import sys
-from collections.abc import Iterator
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -23,7 +21,10 @@ import pytest
 
 from manutencao.application.erros import RegraDeAplicacaoError
 from tests.caracterizacao.adaptador_legado import AdaptadorLegado
-from tests.caracterizacao.adaptador_servicos import AdaptadorServicos
+from tests.caracterizacao.adaptador_servicos import (
+    PREPARACOES_COMO_ADMINISTRADOR,
+    AdaptadorServicos,
+)
 from tests.caracterizacao.analise_aplicabilidade import pares_esperados
 from tests.caracterizacao.aplicabilidade import (
     NAO_REPRODUZIDOS_PELOS_SERVICOS,
@@ -31,7 +32,6 @@ from tests.caracterizacao.aplicabilidade import (
     REGISTRO_SERVICOS,
     REGISTRO_SERVICOS_POR_PAR,
     RESPONSABILIDADES_AUSENTES_DOS_SERVICOS,
-    Motivo,
     Responsabilidade,
     decidir_servicos,
 )
@@ -47,36 +47,20 @@ from tests.caracterizacao.cenarios import (
     Classe,
 )
 from tests.caracterizacao.deltas import DELTAS_POR_ID, StatusDelta
-from tests.caracterizacao.fachada import Fachada, Recusa, RelogioFixo
+from tests.caracterizacao.fachada import Fachada, FachadaAutorizada, Recusa, RelogioFixo
 from tests.caracterizacao.fluxos import (
+    aceitar,
     os_aberta,
     os_aguardando_aprovacao,
     os_atribuida,
     os_em_execucao,
 )
+from tests.caracterizacao.pares import Par
 from tests.caracterizacao.test_adaptador_dominio import CONSTRUTORES, OPERACOES, estado, observavel
 from tests.guardas_ambiente import RAIZ_BACKEND
 
 DIRETORIO_TESTES = RAIZ_BACKEND / "tests"
 ARQUIVO_ADAPTADOR = DIRETORIO_TESTES / "caracterizacao" / "adaptador_servicos.py"
-
-
-@dataclass
-class Par:
-    """O mesmo roteiro, nos dois adaptadores, com o mesmo relógio fixo."""
-
-    legado: AdaptadorLegado
-    servicos: AdaptadorServicos
-    relogio: RelogioFixo
-
-
-@pytest.fixture
-def par(caminho_base: Path, relogio: RelogioFixo) -> Iterator[Par]:
-    legado = AdaptadorLegado(caminho_base, relogio)
-    try:
-        yield Par(legado, AdaptadorServicos(relogio), relogio)
-    finally:
-        legado.fechar()
 
 
 # --------------------------------------------------------------------------- o registro
@@ -143,38 +127,69 @@ def _funcoes_de_teste(arquivo: Path) -> set[str]:
     return {n.name for n in arvore.body if isinstance(n, ast.FunctionDef)}
 
 
-def test_cada_cenario_nao_reproduzido_tem_motivo_valido_e_evidencia_existente() -> None:
-    assert set(NAO_REPRODUZIDOS_PELOS_SERVICOS) == {"CAR-71", "CAR-73", "CAR-74", "CAR-75"}
+def _testes_com_o_marcador(cenario: str) -> list[str]:
+    """Nomes dos testes que carregam ``@pytest.mark.cenario(<cenario>)`` (análise estática)."""
+    encontrados: list[str] = []
+    for arquivo in sorted((DIRETORIO_TESTES / "caracterizacao").glob("test_*.py")):
+        arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+        for no in arvore.body:
+            if not isinstance(no, ast.FunctionDef):
+                continue
+            for decorador in no.decorator_list:
+                if (
+                    isinstance(decorador, ast.Call)
+                    and isinstance(decorador.func, ast.Attribute)
+                    and decorador.func.attr == "cenario"
+                    and decorador.args
+                    and isinstance(decorador.args[0], ast.Constant)
+                    and decorador.args[0].value == cenario
+                ):
+                    encontrados.append(f"{arquivo.name}::{no.name}")
+    return encontrados
+
+
+def test_so_se_exclui_um_cenario_dos_servicos_por_delta_aprovado_vinculado_e_testado() -> None:
+    """Sem exclusão genérica: cada cenário não reproduzido cita um delta que o aprova (§5)."""
+    assert set(NAO_REPRODUZIDOS_PELOS_SERVICOS) == {
+        "CAR-71",
+        "CAR-72",
+        "CAR-73",
+        "CAR-74",
+        "CAR-75",
+        "CAR-91",
+        "CAR-92",
+        "CAR-93",
+    }
     registrados = {i.cenario for i in REGISTRO_SERVICOS}
     for cenario, item in NAO_REPRODUZIDOS_PELOS_SERVICOS.items():
         assert item.cenario == cenario
-        assert cenario in CENARIOS_POR_ID
-        assert CENARIOS_POR_ID[cenario].classe is not Classe.NAO_VERIFICAVEL
+        assert CENARIOS_POR_ID[cenario].classe is Classe.MODIFICAR, cenario  # nunca "defeito"
         assert cenario not in registrados, (
             f"{cenario}: não reproduzido e inaplicável ao mesmo tempo"
         )
         assert len(item.justificativa) >= 80, cenario
-        if item.motivo is Motivo.DELTA_IMPLEMENTADO:
-            delta = DELTAS_POR_ID[item.referencia]
-            assert delta.status is StatusDelta.IMPLEMENTADO, f"{item.referencia} não implementado"
-            assert cenario in delta.cenarios
-        else:
-            assert CENARIOS_POR_ID[cenario].classe is Classe.DEFEITO_LEGADO, cenario
-            assert item.referencia.startswith("AUD-")
+        # 1. há um delta aprovado e já implementado
+        assert item.delta in DELTAS_POR_ID, f"{cenario}: {item.delta} não é um delta"
+        delta = DELTAS_POR_ID[item.delta]
+        assert delta.status is StatusDelta.IMPLEMENTADO, f"{item.delta} não implementado"
+        # 2. o cenário está vinculado ao delta
+        assert cenario in delta.cenarios, f"{cenario} não está em {item.delta}.cenarios"
+        # 3. o comportamento antigo continua testado (o teste do cenário segue no legado)
+        assert _testes_com_o_marcador(cenario), f"{cenario}: o comportamento antigo não é testado"
+        # 4. o comportamento novo tem teste específico, e todas as evidências existem
         assert item.evidencias, cenario
+        assert set(item.evidencias) & set(delta.evidencia), f"{cenario}: fora de {item.delta}"
         for evidencia in item.evidencias:
             arquivo, _, teste = evidencia.partition("::")
             assert teste in _funcoes_de_teste(DIRETORIO_TESTES / arquivo), evidencia
 
 
-def test_os_defeitos_corrigidos_sao_so_de_classe_defeito_do_legado() -> None:
-    corrigidos = {
-        c
-        for c, i in NAO_REPRODUZIDOS_PELOS_SERVICOS.items()
-        if i.motivo is Motivo.DEFEITO_CORRIGIDO
-    }
-    assert corrigidos == {"CAR-71", "CAR-73"}
-    assert all(CENARIOS_POR_ID[c].classe is Classe.DEFEITO_LEGADO for c in corrigidos)
+def test_a_categoria_defeito_corrigido_nao_existe_mais() -> None:
+    """``DEFEITO_CORRIGIDO`` foi introduzida sem decisão aprovada e não pode voltar (§5)."""
+    import tests.caracterizacao.aplicabilidade as modulo
+
+    assert not hasattr(modulo, "Motivo")
+    # a ausência do nome em todo o código é conferida em test_rastreabilidade.py
 
 
 # ------------------------------------------------------------------------- o adaptador
@@ -205,10 +220,51 @@ def test_o_adaptador_dos_servicos_so_ausenta_a_persistencia() -> None:
     assert _metodos_ausentes() == {"salvar_e_recarregar": Responsabilidade.PERSISTENCIA}
 
 
+def _metodos_que_usam_o_administrador() -> set[str]:
+    arvore = ast.parse(ARQUIVO_ADAPTADOR.read_text(encoding="utf-8"))
+    classe = next(
+        n for n in arvore.body if isinstance(n, ast.ClassDef) and n.name == "AdaptadorServicos"
+    )
+    return {
+        metodo.name
+        for metodo in classe.body
+        if isinstance(metodo, ast.FunctionDef)
+        and any(isinstance(n, ast.Name) and n.id == "ADMINISTRADOR" for n in ast.walk(metodo))
+    }
+
+
+def test_o_adaptador_dos_servicos_so_age_como_administrador_nas_preparacoes() -> None:
+    """Nenhum ator é substituído em silêncio: só a preparação de cenário usa a Ana (§9)."""
+    assert _metodos_que_usam_o_administrador() == set(PREPARACOES_COMO_ADMINISTRADOR)
+    # e as operações com solicitante explícito nunca o usam
+    assert not {m for m in _metodos_que_usam_o_administrador() if m.endswith("_por")}
+
+
+def test_o_adaptador_nao_escreve_nos_repositorios_fora_da_preparacao_de_cenario() -> None:
+    """Escrever direto num repositório só é aceitável ao montar o cenário (§9)."""
+    arvore = ast.parse(ARQUIVO_ADAPTADOR.read_text(encoding="utf-8"))
+    classe = next(
+        n for n in arvore.body if isinstance(n, ast.ClassDef) and n.name == "AdaptadorServicos"
+    )
+    escrevem = {
+        metodo.name
+        for metodo in classe.body
+        if isinstance(metodo, ast.FunctionDef)
+        for n in ast.walk(metodo)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr in {"salvar", "adicionar", "remover"}
+        and isinstance(n.func.value, ast.Attribute)
+        and n.func.value.attr in {"cargos", "usuarios", "equipamentos", "ordens"}
+    }
+    assert escrevem == {"definir_permissoes_cargo"}
+
+
 def test_o_adaptador_cobre_toda_a_fachada() -> None:
     faltando = [
         nome
-        for nome in vars(Fachada)
+        for protocolo in (Fachada, FachadaAutorizada)
+        for nome in vars(protocolo)
         if not nome.startswith("_") and not hasattr(AdaptadorServicos, nome)
     ]
     assert faltando == []
@@ -372,7 +428,7 @@ def test_disponibilidade_antes_e_depois_da_rotina_e_igual_ao_legado(par: Par) ->
         assert f.usuario(BRUNO).disponibilidade == "Disponível"  # type: ignore[union-attr]
         f.atualizar_disponibilidades()
         assert f.usuario(BRUNO).disponibilidade == "Em atendimento"  # type: ignore[union-attr]
-        f.definir_disponibilidade(BRUNO, "Ausente")
+        aceitar(f.definir_disponibilidade(BRUNO, "Ausente", solicitante=BRUNO))
         f.atualizar_disponibilidades()
         assert f.usuario(BRUNO).disponibilidade == "Ausente"  # type: ignore[union-attr]
         assert f.usuario(BRUNO).carga == 1  # type: ignore[union-attr]

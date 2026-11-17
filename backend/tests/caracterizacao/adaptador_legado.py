@@ -262,9 +262,17 @@ class AdaptadorLegado:
     def atualizar_disponibilidades(self) -> None:
         self.repo.atualizar_disponibilidades()
 
-    def definir_disponibilidade(self, usuario: int, valor: str) -> None:
-        # ui/tela_ordens.py atribui direto ao atributo: não há método de domínio.
-        self._usuario(usuario).disponibilidade = self._m().Disponibilidade(valor)
+    def definir_disponibilidade(self, usuario: int, valor: str, *, solicitante: int) -> Resultado:
+        """O legado não tem regra: ``ui/tela_ordens.py`` atribui direto ao atributo.
+
+        O ``solicitante`` é informado pelo cenário, mas o legado **não o consulta** (nem permissão,
+        nem se é o próprio usuário): qualquer um altera a disponibilidade de qualquer um (CAR-72).
+        """
+
+        def acao() -> None:
+            self._usuario(usuario).disponibilidade = self._m().Disponibilidade(valor)
+
+        return self._executar(acao)
 
     # ---------------------------------------------------------------------------------- cadastros
     def cadastrar_usuario(self, nome: str, cargo: int, email: str = "", escala: str = "") -> int:
@@ -319,6 +327,61 @@ class AdaptadorLegado:
 
     def definir_permissoes_cargo(self, cargo: int, permissoes: tuple[str, ...]) -> None:
         self._cargo(cargo).permissoes.definir(list(permissoes))
+
+    # ------------------------------------------------------- operações com solicitante explícito
+    # O legado não recebe nem consulta o solicitante nestas operações (CAR-71, CAR-73): o
+    # ``Repositorio`` e as entidades agem direto. O parâmetro existe para que o cenário diga quem
+    # pede; ignorá-lo aqui é a própria caracterização do comportamento antigo.
+    def cadastrar_equipamento_por(self, solicitante: int, nome: str, modelo: str) -> Resultado:
+        return self._executar(lambda: self.cadastrar_equipamento(nome, modelo))
+
+    def editar_equipamento_por(
+        self, solicitante: int, equipamento: int, nome: str, modelo: str
+    ) -> Resultado:
+        return self._executar(
+            lambda: self.editar_equipamento(equipamento, nome=nome, modelo=modelo)
+        )
+
+    def inativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self._executar(lambda: self.inativar_equipamento(equipamento))
+
+    def reativar_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self._executar(lambda: self.reativar_equipamento(equipamento))
+
+    def remover_equipamento_por(self, solicitante: int, equipamento: int) -> Resultado:
+        return self.remover_equipamento(equipamento)
+
+    def cadastrar_usuario_por(self, solicitante: int, nome: str, cargo: int) -> Resultado:
+        return self._executar(lambda: self.cadastrar_usuario(nome, cargo))
+
+    def editar_usuario_por(self, solicitante: int, usuario: int, nome: str) -> Resultado:
+        return self._executar(lambda: self.editar_usuario(usuario, nome=nome))
+
+    def alterar_cargo_por(self, solicitante: int, usuario: int, cargo: int) -> Resultado:
+        return self._executar(lambda: self.editar_usuario(usuario, cargo=cargo))
+
+    def definir_permissoes_cargo_por(
+        self, solicitante: int, cargo: int, permissoes: tuple[str, ...]
+    ) -> Resultado:
+        return self._executar(lambda: self.definir_permissoes_cargo(cargo, permissoes))
+
+    def consultar_equipamentos_por(self, solicitante: int) -> Resultado:
+        return Resultado(True, valor=self.equipamentos())
+
+    def consultar_os_por(self, solicitante: int, numero: int) -> Resultado:
+        return Resultado(True, valor=self.os(numero))
+
+    def listar_os_por(self, solicitante: int) -> Resultado:
+        return Resultado(True, valor=self.todas_as_os())
+
+    def consultar_disponibilidade_por(self, solicitante: int) -> Resultado:
+        return Resultado(True, valor=tuple((u, self.usuario(u)) for u in self.tecnicos()))
+
+    def consultar_usuarios_por(self, solicitante: int) -> Resultado:
+        return Resultado(True, valor=self.usuarios())
+
+    def listar_cargos_por(self, solicitante: int) -> Resultado:
+        return Resultado(True, valor=self.cargos())
 
     # --------------------------------------------------------------------------------- permissões
     def usuario_pode(self, usuario: int, permissao: str) -> bool:

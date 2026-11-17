@@ -20,6 +20,7 @@ from tests.caracterizacao.aplicabilidade import (
 from tests.caracterizacao.fachada import Fachada, RelogioFixo
 from tests.caracterizacao.integridade import impressao_digital_do_legado, pycs_do_legado
 from tests.caracterizacao.numeracao import nova_numeracao
+from tests.caracterizacao.pares import Par
 from tests.guardas_ambiente import DIRETORIO_DADOS, caminho_em_dados
 
 
@@ -55,6 +56,12 @@ def adaptador(caminho_base: Path, relogio: RelogioFixo) -> Iterator[AdaptadorLeg
         yield adaptador
     finally:
         adaptador.fechar()
+
+
+@pytest.fixture
+def legado(adaptador: AdaptadorLegado) -> AdaptadorLegado:
+    """O legado, sem variantes: para o comportamento antigo que um delta aprovado substituiu."""
+    return adaptador
 
 
 def cenarios_do_teste(item: pytest.Item) -> tuple[str, ...]:
@@ -131,3 +138,13 @@ def f(request: pytest.FixtureRequest, relogio: RelogioFixo) -> Fachada:
         )
 
     return AdaptadorDominio(relogio, diante_da_ausencia, numeracao=nova_numeracao())
+
+
+@pytest.fixture
+def par(caminho_base: Path, relogio: RelogioFixo) -> Iterator[Par]:
+    """O legado e os serviços lado a lado, com o mesmo relógio fixo e bases independentes."""
+    legado = AdaptadorLegado(caminho_base, relogio)
+    try:
+        yield Par(legado, AdaptadorServicos(relogio), relogio)
+    finally:
+        legado.fechar()

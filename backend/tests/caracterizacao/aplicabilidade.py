@@ -220,59 +220,112 @@ def decidir_servicos(
     return None
 
 
-class Motivo(StrEnum):
-    """Por que os serviços não reproduzem o comportamento que o cenário fixa no legado."""
-
-    DELTA_IMPLEMENTADO = "delta_implementado"  # decisão aprovada e já implementada
-    DEFEITO_CORRIGIDO = "defeito_corrigido"  # defeito do legado (classe D) que a nova camada fecha
-
-
 @dataclass(frozen=True)
 class NaoReproduzido:
-    """Um cenário que os serviços respondem de outro modo, com a evidência do comportamento novo.
+    """Um cenário que os serviços respondem de outro modo, **por um delta aprovado e implementado**.
 
     Não é um ``skip``: o cenário não roda contra os serviços (a variante não é gerada) porque o
-    comportamento que ele fixa deixou de existir por decisão registrada; o que vale no lugar é o
-    teste novo indicado em ``evidencias`` (``arquivo::teste``, relativos a ``backend/tests/``).
+    comportamento que ele fixa no legado deixou de existir por decisão registrada em
+    ``deltas.py``. Só pode haver exclusão quando (``test_adaptador_servicos.py`` confere cada item):
+
+    * ``delta`` é um delta aprovado, já ``IMPLEMENTADO``, e lista este cenário em ``cenarios``;
+    * o comportamento antigo continua testado (o teste do cenário segue rodando no legado);
+    * o comportamento novo tem teste específico (``evidencias``, ``arquivo::teste`` relativos a
+      ``backend/tests/``);
+    * a divergência é exatamente a autorizada: a comparação lado a lado só difere no que o delta
+      descreve.
+
+    Não existe exclusão genérica por "defeito do legado": toda exclusão cita um delta.
     """
 
     cenario: str
-    motivo: Motivo
-    referencia: str  # DLT-nn (delta implementado) ou AUD-nn (defeito corrigido)
+    delta: str  # DLT-nn
     justificativa: str
     evidencias: tuple[str, ...]
 
 
 _APLICACAO = "aplicacao/test_servico_de_"
+_AUTORIZACAO = "aplicacao/test_autorizacao.py::"
+_PAR = "caracterizacao/test_autorizacao_servicos.py::"
 
 NAO_REPRODUZIDOS_PELOS_SERVICOS: dict[str, NaoReproduzido] = {
     "CAR-71": NaoReproduzido(
         "CAR-71",
-        Motivo.DEFEITO_CORRIGIDO,
-        "AUD-09",
-        "O domínio aceita o gestor remover o próprio acesso de gestão e só a tela da CLI o "
-        "impedia. A regra passa para o caso de uso (a proteção que a interface aplicava) e vale "
-        "para qualquer interface: a permissão efetiva é a da CLI, agora imposta no servidor.",
+        "DLT-12",
+        "Autoproteção do gestor: o legado permite retirar o próprio acesso de gestão (só a tela "
+        "da CLI o impedia). Nos serviços, trocar o próprio cargo ou reduzir as permissões do "
+        "próprio cargo de modo a perder gerir_usuarios é recusado, sem alterar o estado.",
         (
-            f"{_APLICACAO}usuarios.py::test_ninguem_remove_de_si_o_acesso_de_gestao_ao_trocar_de_cargo",
-            f"{_APLICACAO}usuarios.py::test_gestor_nao_remove_do_proprio_cargo_o_acesso_de_gestao",
+            f"{_AUTORIZACAO}test_dlt12_gestor_nao_troca_o_proprio_cargo_por_um_sem_gestao",
+            f"{_AUTORIZACAO}test_dlt12_gestor_nao_remove_do_proprio_cargo_o_acesso_de_gestao",
+            f"{_PAR}test_dlt12_o_legado_permite_retirar_o_proprio_acesso_e_os_servicos_recusam",
+        ),
+    ),
+    "CAR-72": NaoReproduzido(
+        "CAR-72",
+        "DLT-15",
+        "Disponibilidade manual de terceiros: no legado qualquer um altera a de qualquer um. Nos "
+        "serviços, o usuário altera a própria; só quem tem gerir_usuarios altera a de outro; sem "
+        "essa permissão a recusa ocorre sem mutação.",
+        (
+            f"{_AUTORIZACAO}test_dlt15_usuario_altera_a_propria_disponibilidade",
+            f"{_AUTORIZACAO}test_dlt15_gestor_altera_a_disponibilidade_de_outro",
+            f"{_AUTORIZACAO}test_dlt15_sem_permissao_nao_altera_a_disponibilidade_de_terceiros",
+            f"{_PAR}test_dlt15_terceiro_sem_autorizacao_o_legado_aceita_e_os_servicos_recusam",
         ),
     ),
     "CAR-73": NaoReproduzido(
         "CAR-73",
-        Motivo.DEFEITO_CORRIGIDO,
-        "AUD-02",
-        "Equipamentos e exclusão de usuário eram operados sem identidade nem permissão; só o "
-        "menu da CLI exigia gerir_equipamentos e gerir_usuarios. A autorização central nos casos "
-        "de uso (ADR-0003) preserva a permissão efetiva da CLI e fecha o desvio do repositório.",
+        "DLT-13",
+        "Autorização de gestão: no legado equipamentos e exclusão de usuário eram operados sem "
+        "identidade nem permissão (só o menu da CLI exigia). Os serviços exigem gerir_equipamentos "
+        "e gerir_usuarios antes de qualquer mutação; a recusa não altera repositórios nem consome "
+        "identificadores.",
         (
-            f"{_APLICACAO}equipamentos.py::test_tecnico_nao_gere_equipamentos_e_nada_muda",
-            f"{_APLICACAO}usuarios.py::test_tecnico_nao_gere_usuarios_nem_cargos_e_nada_muda",
+            f"{_AUTORIZACAO}test_dlt13_gestao_de_equipamentos_exige_gerir_equipamentos",
+            f"{_AUTORIZACAO}test_dlt13_gestao_de_usuarios_e_cargos_exige_gerir_usuarios",
+            f"{_AUTORIZACAO}test_dlt13_exclusao_de_usuario_exige_gerir_usuarios",
+            f"{_PAR}test_dlt13_gestao_sem_permissao_o_legado_aceita_e_os_servicos_recusam",
+        ),
+    ),
+    "CAR-91": NaoReproduzido(
+        "CAR-91",
+        "DLT-14",
+        "Autorização de leitura: no legado nenhuma consulta verificava permissão (só o menu "
+        "escondia as telas). Os serviços exigem ver_equipamentos, ver_os, ver_disponibilidade e, "
+        "para usuários e cargos, gerir_usuarios, sem ampliar permissões.",
+        (
+            f"{_AUTORIZACAO}test_dlt14_consulta_sem_a_permissao_correspondente_e_recusada",
+            f"{_AUTORIZACAO}test_dlt14_com_a_permissao_correspondente_a_consulta_e_permitida",
+            f"{_PAR}test_dlt14_o_legado_le_sem_permissao_e_os_servicos_recusam",
+        ),
+    ),
+    "CAR-92": NaoReproduzido(
+        "CAR-92",
+        "DLT-17",
+        "Ator inexistente: o legado não recebe nem consulta o solicitante das operações de "
+        "gestão. Os serviços recusam um ator inexistente com NaoEncontradoError, sem criar "
+        "usuário nem substituí-lo por um administrador.",
+        (
+            f"{_AUTORIZACAO}test_dlt17_ator_inexistente_e_recusado_em_toda_operacao_com_o_erro_tipado",
+            f"{_AUTORIZACAO}test_dlt17_nao_cria_usuario_nem_consome_identificador",
+            f"{_PAR}test_dlt17_ator_inexistente_o_legado_ignora_e_os_servicos_recusam",
+        ),
+    ),
+    "CAR-93": NaoReproduzido(
+        "CAR-93",
+        "DLT-16",
+        "Precedência: o legado conferia autoexclusão e histórico sem olhar a permissão. Nos "
+        "serviços a autorização é a primeira verificação funcional, antes de autoexclusão, "
+        "histórico e recurso inexistente; a ordem interna das regras de domínio não muda.",
+        (
+            f"{_AUTORIZACAO}test_dlt16_sem_permissao_e_autoexclusao_a_recusa_e_por_autorizacao",
+            f"{_AUTORIZACAO}test_dlt16_sem_permissao_e_historico_a_recusa_e_por_autorizacao",
+            f"{_PAR}test_dlt16_sem_permissao_e_autoexclusao_legado_recusa_pela_regra_e_servicos_por_autorizacao",
         ),
     ),
     "CAR-74": NaoReproduzido(
         "CAR-74",
-        Motivo.DELTA_IMPLEMENTADO,
         "DLT-11",
         "Permissões tipadas: um nome inválido é erro detectável, não negação silenciosa; ao "
         "definir as permissões de um cargo, o valor inválido recusa tudo e nada muda.",
@@ -283,7 +336,6 @@ NAO_REPRODUZIDOS_PELOS_SERVICOS: dict[str, NaoReproduzido] = {
     ),
     "CAR-75": NaoReproduzido(
         "CAR-75",
-        Motivo.DELTA_IMPLEMENTADO,
         "DLT-10",
         "Identificadores monotônicos: excluir o maior id não o libera para o cadastro seguinte "
         "(o legado usava max()+1 e o reaproveitava).",

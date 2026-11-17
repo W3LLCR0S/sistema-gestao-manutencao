@@ -223,9 +223,14 @@ class AdaptadorDominio:
     def atualizar_disponibilidades(self) -> None:
         self._ausente(Responsabilidade.DISPONIBILIDADE_DERIVADA)
 
-    def definir_disponibilidade(self, usuario: int, valor: str) -> None:
-        # Como na tela do legado: atribuição direta ao atributo da entidade.
+    def definir_disponibilidade(self, usuario: int, valor: str, *, solicitante: int) -> Resultado:
+        """Como na tela do legado: atribuição direta ao atributo da entidade.
+
+        O domínio puro não tem regra sobre quem altera a disponibilidade (a política é da camada de
+        aplicação, DLT-15): o ``solicitante`` é informado, mas não consultado, como no legado.
+        """
         self._usuario(usuario).disponibilidade = Disponibilidade(valor)
+        return Resultado(True)
 
     # ---------------------------------------------------------------------------------- cadastros
     def cadastrar_usuario(self, nome: str, cargo: int, email: str = "", escala: str = "") -> int:

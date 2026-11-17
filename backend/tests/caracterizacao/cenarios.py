@@ -245,20 +245,22 @@ CENARIOS: tuple[Cenario, ...] = (
     Cenario("CAR-69", "cadastros", "Equipamento com OS não é excluído", P),
     Cenario("CAR-70", "cadastros", "Cargos fixos e persistência dos cadastros", P),
     # --- defeitos conhecidos (test_legado_defeitos.py)
+    # CAR-71, CAR-72 e CAR-73 eram classificados como defeito exclusivo do legado. Os serviços
+    # respondem de outro modo, e isso agora decorre de deltas aprovados (DLT-12, DLT-15, DLT-13).
     Cenario(
-        "CAR-71", "defeitos", "Domínio aceita o gestor remover o próprio acesso", D, ("AUD-09",)
+        "CAR-71", "defeitos", "Domínio aceita o gestor remover o próprio acesso", M, ("AUD-09",)
     ),
     Cenario(
         "CAR-72",
         "defeitos",
         "Disponibilidade de qualquer um alterável por qualquer um",
-        D,
+        M,
         ("AUD-09",),
     ),
     Cenario(
-        "CAR-73", "defeitos", "Equipamentos e exclusão de usuário sem permissão", D, ("AUD-02",)
+        "CAR-73", "defeitos", "Equipamentos e exclusão de usuário sem permissão", M, ("AUD-02",)
     ),
-    Cenario("CAR-74", "defeitos", "Permissão com nome errado: negada em silêncio", D, ("AUD-03",)),
+    Cenario("CAR-74", "defeitos", "Permissão com nome errado: negada em silêncio", M, ("AUD-03",)),
     Cenario(
         "CAR-75", "defeitos", "Ids de usuário e equipamento são reaproveitados", M, ("AUD-05",)
     ),
@@ -314,6 +316,28 @@ CENARIOS: tuple[Cenario, ...] = (
     Cenario("CAR-88", "cli", "Abrir OS pela CLI e persistir na cópia", P),
     Cenario(
         "CAR-89", "cli", "Confirmação de técnico ausente existe só na tela", M, ("AUD-09", "D-03")
+    ),
+    # --- autorização dos serviços (DLT-14, DLT-17, DLT-16): o que o legado fazia
+    Cenario(
+        "CAR-91",
+        "autorizacao",
+        "Consultas de equipamentos, OS, disponibilidade, usuários e cargos sem permissão",
+        M,
+        ("AUD-02",),
+    ),
+    Cenario(
+        "CAR-92",
+        "autorizacao",
+        "Operações de gestão ignoram quem pede, inclusive um solicitante inexistente",
+        M,
+        ("AUD-02",),
+    ),
+    Cenario(
+        "CAR-93",
+        "autorizacao",
+        "Exclusão de usuário: autoexclusão e histórico são conferidos sem olhar a permissão",
+        M,
+        ("AUD-02", "AUD-09"),
     ),
     # --- requisitos que ainda não podem ser verificados contra o legado (sem teste)
     Cenario(
