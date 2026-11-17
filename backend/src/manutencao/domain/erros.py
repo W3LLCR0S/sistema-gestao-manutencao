@@ -1,9 +1,9 @@
 """Hierarquia de erros do domínio (ADR-0003; substitui a exceção única do legado, AUD-14).
 
 Cada erro carrega um :class:`CodigoErro` estável. A camada ``api`` traduzirá a **classe** em uma
-resposta (``PermissaoNegadaError`` -> 403, ``ConflitoDeEstadoError`` -> 409, ``ViolacaoDeRegraError`` -> 422);
-o **código** identifica a regra violada sem depender do texto da mensagem. As mensagens são as do
-legado, que continuam sendo o comportamento observado.
+resposta (``PermissaoNegadaError`` -> 403, ``ConflitoDeEstadoError`` -> 409,
+``ViolacaoDeRegraError`` -> 422); o **código** identifica a regra violada sem depender do texto
+da mensagem. As mensagens são as do legado, que continuam sendo o comportamento observado.
 
 Erros que não nascem no domínio (não autenticado, não encontrado) pertencem à aplicação e à
 borda e serão introduzidos com os casos de uso (Operação D).
