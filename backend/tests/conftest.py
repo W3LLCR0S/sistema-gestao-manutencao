@@ -64,13 +64,17 @@ def raiz_repositorio() -> Path:
 
 # ------------------------------------------------------------------------------- PostgreSQL
 @pytest.fixture(scope="session")
-def url_do_banco_de_teste() -> Iterator[URL]:
-    """Um banco PostgreSQL exclusivo da sessão, já migrado (Alembic ``head``).
+def url_do_servidor_de_teste() -> Iterator[URL]:
+    """URL de administração do servidor PostgreSQL dos testes (``pgserver`` ou o informado em
+    ``MANUTENCAO_TEST_SERVER_URL``; ver ``tests/apoio/postgres.py``). Só sobe se alguém pedir."""
+    with servidor() as admin:
+        yield admin
 
-    Só é criado quando algum teste o pede. O servidor vem de ``MANUTENCAO_TEST_SERVER_URL`` ou do
-    ``pgserver`` de desenvolvimento (ver ``tests/apoio/postgres.py``).
-    """
-    with servidor() as admin, banco_temporario(admin) as url:
+
+@pytest.fixture(scope="session")
+def url_do_banco_de_teste(url_do_servidor_de_teste: URL) -> Iterator[URL]:
+    """Um banco PostgreSQL exclusivo da sessão, já migrado (Alembic ``head``)."""
+    with banco_temporario(url_do_servidor_de_teste) as url:
         aplicar(url)
         yield url
 
