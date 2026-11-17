@@ -1,7 +1,8 @@
 """Casos de uso de equipamentos (gestão e consulta).
 
 Preservam as permissões efetivas do legado: consultar exige ``ver_equipamentos`` e gerir exige
-``gerir_equipamentos`` (o menu da CLI as aplicava; aqui são verificadas no caso de uso, AUD-02).
+``gerir_equipamentos`` (o menu da CLI as aplicava; aqui são verificadas no caso de uso, AUD-02;
+DLT-13 e DLT-14), sempre antes de procurar o recurso (DLT-16); ator inexistente é recusado (DLT-17).
 Nenhuma validação nova de campos (DLT-08 é da Operação E).
 """
 

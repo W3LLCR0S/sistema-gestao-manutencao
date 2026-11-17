@@ -1,9 +1,10 @@
 """Disponibilidade dos técnicos: consulta, ajuste manual e a rotina de atualização do legado.
 
 Reproduz o comportamento **atual**: a disponibilidade é um valor armazenado que só muda por ação
-manual (``alterar_minha_disponibilidade``) ou pela rotina ``atualizar_disponibilidades``. Uma
-consulta feita antes da rotina vê o valor antigo (AUD-13). **Não** aplica a D-05 (disponibilidade
-derivada, com ``Ausente`` à parte), que é a Operação E: aqui nada recalcula sozinho.
+manual (``alterar_disponibilidade``; DLT-15: a própria ou, com ``gerir_usuarios``, a de outro) ou
+pela rotina ``atualizar_disponibilidades``. Uma consulta feita antes da rotina vê o valor antigo
+(AUD-13). **Não** aplica a D-05 (disponibilidade derivada, com ``Ausente`` à parte), que é a
+Operação E: aqui nada recalcula sozinho.
 """
 
 from manutencao.application.dto import DisponibilidadeDoTecnico
@@ -12,7 +13,7 @@ from manutencao.application.portas.repositorios import (
     OrdemServicoRepository,
     UsuarioRepository,
 )
-from manutencao.application.servicos.comum import carregar_ator
+from manutencao.application.servicos.comum import carregar_ator, exigir_encontrado
 from manutencao.application.servicos.projecoes import Projecoes
 from manutencao.domain.enums import Disponibilidade, StatusOS
 from manutencao.domain.permissoes import Permissao
@@ -39,12 +40,31 @@ class ServicoDeDisponibilidade:
         carregar_ator(self._usuarios, ator_id).exigir(Permissao.VER_DISPONIBILIDADE)
         return self._projecoes.disponibilidade_dos_tecnicos(ordenar_por_carga=ordenar_por_carga)
 
+    def alterar_disponibilidade(
+        self, ator_id: int, usuario_id: int, valor: Disponibilidade
+    ) -> Usuario:
+        """Ajuste **manual** da disponibilidade de ``usuario_id`` (DLT-15).
+
+        * O usuário altera a **própria** disponibilidade, sem exigir permissão (como no legado).
+        * Quem tem ``gerir_usuarios`` altera a de **outro** usuário.
+        * Quem não tem essa permissão não altera a de terceiros: recusa por autorização, antes de
+          procurar o alvo (DLT-16) e sem mutação.
+
+        Trata só de **quem** pode alterar o valor manual; não deriva a disponibilidade (D-05).
+        """
+        ator = carregar_ator(self._usuarios, ator_id)
+        if usuario_id == ator.id:
+            alvo = ator
+        else:
+            ator.exigir(Permissao.GERIR_USUARIOS)
+            alvo = exigir_encontrado("Usuário", usuario_id, self._usuarios.obter(usuario_id))
+        alvo.disponibilidade = valor
+        self._usuarios.salvar(alvo)
+        return alvo
+
     def alterar_minha_disponibilidade(self, ator_id: int, valor: Disponibilidade) -> Usuario:
         """Cada usuário ajusta a **própria** disponibilidade; não exige permissão (legado)."""
-        ator = carregar_ator(self._usuarios, ator_id)
-        ator.disponibilidade = valor
-        self._usuarios.salvar(ator)
-        return ator
+        return self.alterar_disponibilidade(ator_id, ator_id, valor)
 
     def atualizar_disponibilidades(self) -> None:
         """Rotina do sistema (não é ação de usuário): recalcula a disponibilidade dos técnicos.

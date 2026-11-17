@@ -4,7 +4,10 @@ Preservam as permissões efetivas do legado: tudo aqui exige ``gerir_usuarios`` 
 ``gerenciar_usuarios``/``gerenciar_cargos`` da CLI) e as proteções que só a interface aplicava
 (AUD-09) passam a ser verificadas no caso de uso: não excluir a si mesmo, não excluir quem tem
 histórico em OS e não remover do próprio cargo o acesso de gestão. Papéis explícitos (D-02),
-usuário ativo/inativo (DLT-09) e validações (DLT-08) são da Operação E; ser técnico segue sendo ter
+usuário ativo/inativo (DLT-09) e validações (DLT-08) são da Operação E. A autorização é a primeira
+verificação de cada caso de uso, antes de procurar o recurso (DLT-16); a autoproteção do gestor é
+DLT-12, a exigência de ``gerir_usuarios`` nas consultas e na gestão, DLT-13 e DLT-14, e um ator
+inexistente é ``NaoEncontradoError`` (DLT-17); ser técnico segue sendo ter
 ``apontar_reparo`` (AUD-20).
 """
 
