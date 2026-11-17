@@ -64,7 +64,8 @@ def test_fluxo_completo_da_abertura_a_aprovacao(mundo: Mundo) -> None:
         ("status", {"status": "Em Execução"}),
     ):
         r = carla.post(f"/ordens/1/{rota}", corpo)
-        assert r.status_code == 403 and r.json()["codigo"] == "nao_responsavel", rota
+        assert r.status_code == 403, rota
+        assert r.json()["codigo"] == "nao_responsavel", rota
 
     diag = bruno.post("/ordens/1/diagnostico", {"parecer": "Rolamento", "causa_raiz": "Desgaste"})
     assert diag.status_code == 200
