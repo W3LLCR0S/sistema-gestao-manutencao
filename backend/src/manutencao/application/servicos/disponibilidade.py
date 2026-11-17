@@ -5,12 +5,15 @@
 Não há rotina de atualização nem processo em segundo plano: a rotina
 ``atualizar_disponibilidades`` do legado (AUD-13) deixou de existir. O ajuste manual
 (``alterar_disponibilidade``; DLT-15: a própria ou, com ``gerir_usuarios``, a de outro) grava só o
-valor manual, de onde vem a ausência.
+valor manual, de onde vem a ausência, e só aceita ``Disponível`` e ``Ausente`` (REG-E-06).
 """
 
 from manutencao.application.dto import DisponibilidadeDoTecnico
 from manutencao.application.portas.repositorios import UsuarioRepository
-from manutencao.application.servicos.comum import carregar_ator, exigir_encontrado
+from manutencao.application.servicos.comum import carregar_ator
+from manutencao.application.servicos.politica_de_disponibilidade import (
+    alterar_disponibilidade_manual,
+)
 from manutencao.application.servicos.projecoes import Projecoes
 from manutencao.domain.enums import Disponibilidade
 from manutencao.domain.permissoes import Permissao
@@ -34,25 +37,14 @@ class ServicoDeDisponibilidade:
     def alterar_disponibilidade(
         self, ator_id: int, usuario_id: int, valor: Disponibilidade
     ) -> Usuario:
-        """Ajuste **manual** da disponibilidade de ``usuario_id`` (DLT-15).
+        """Ajuste **manual** da disponibilidade de ``usuario_id`` (DLT-15, REG-E-06).
 
-        * O usuário altera a **própria** disponibilidade, sem exigir permissão (como no legado).
-        * Quem tem ``gerir_usuarios`` altera a de **outro** usuário.
-        * Quem não tem essa permissão não altera a de terceiros: recusa por autorização, antes de
-          procurar o alvo (DLT-16) e sem mutação.
-
-        Trata de **quem** pode alterar o valor manual. A disponibilidade efetiva continua sendo a
-        derivada das OS (``consultar``), com a ausência manual prevalecendo (D-05).
+        Mesma política de ``ServicoDeUsuarios.definir_disponibilidade`` (ver
+        ``politica_de_disponibilidade``): o usuário altera a **própria**; ``gerir_usuarios`` altera
+        a de **outro**; sem essa permissão a recusa vem antes de procurar o alvo (DLT-16) e sem
+        mutação; só ``Disponível`` e ``Ausente`` são aceitos (``Em atendimento`` é derivado).
         """
-        ator = carregar_ator(self._usuarios, ator_id)
-        if usuario_id == ator.id:
-            alvo = ator
-        else:
-            ator.exigir(Permissao.GERIR_USUARIOS)
-            alvo = exigir_encontrado("Usuário", usuario_id, self._usuarios.obter(usuario_id))
-        alvo.disponibilidade = valor
-        self._usuarios.salvar(alvo)
-        return alvo
+        return alterar_disponibilidade_manual(self._usuarios, ator_id, usuario_id, valor)
 
     def alterar_minha_disponibilidade(self, ator_id: int, valor: Disponibilidade) -> Usuario:
         """Cada usuário ajusta a **própria** disponibilidade; não exige permissão (legado)."""

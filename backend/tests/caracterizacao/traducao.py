@@ -51,6 +51,7 @@ RECUSA_POR_CODIGO: dict[CodigoErro, Recusa] = {
     CodigoErro.CAMPO_OBRIGATORIO: Recusa.CAMPO_OBRIGATORIO,
     CodigoErro.HORAS_NAO_POSITIVAS: Recusa.HORAS_NAO_POSITIVAS,
     CodigoErro.USUARIO_INATIVO: Recusa.USUARIO_INATIVO,
+    CodigoErro.DISPONIBILIDADE_MANUAL_INVALIDA: Recusa.DISPONIBILIDADE_MANUAL_INVALIDA,
     # Sem equivalente no legado: se aparecer num cenário, o teste deve falhar.
     CodigoErro.PERMISSAO_INVALIDA: Recusa.DESCONHECIDA,
     CodigoErro.INSTANTE_INVALIDO: Recusa.DESCONHECIDA,

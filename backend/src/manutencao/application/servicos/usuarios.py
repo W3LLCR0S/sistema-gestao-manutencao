@@ -30,6 +30,9 @@ from manutencao.application.portas.repositorios import (
     UsuarioRepository,
 )
 from manutencao.application.servicos.comum import carregar_ator, exigir_encontrado
+from manutencao.application.servicos.politica_de_disponibilidade import (
+    alterar_disponibilidade_manual,
+)
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError
@@ -234,13 +237,10 @@ class ServicoDeUsuarios:
     def definir_disponibilidade(
         self, ator_id: int, usuario_id: int, disponibilidade: Disponibilidade
     ) -> Usuario:
-        """O gestor ajusta a disponibilidade de um usuário (o próprio usuário usa
-        ``ServicoDeDisponibilidade.alterar_minha_disponibilidade``)."""
-        self._gestor(ator_id)
-        usuario = self._carregar(usuario_id)
-        usuario.disponibilidade = disponibilidade
-        self._usuarios.salvar(usuario)
-        return usuario
+        """Ajuste manual da disponibilidade, pela **mesma política** de
+        ``ServicoDeDisponibilidade.alterar_disponibilidade`` (REG-E-06, DLT-15): o usuário altera a
+        própria; ``gerir_usuarios`` altera a de terceiros; só ``Disponível`` e ``Ausente``."""
+        return alterar_disponibilidade_manual(self._usuarios, ator_id, usuario_id, disponibilidade)
 
     def excluir(self, ator_id: int, usuario_id: int) -> None:
         """Exclui um usuário sem histórico, e nunca o próprio ator."""

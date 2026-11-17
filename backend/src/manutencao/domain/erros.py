@@ -36,6 +36,8 @@ class CodigoErro(StrEnum):
     CAMPO_OBRIGATORIO = "campo_obrigatorio"
     HORAS_NAO_POSITIVAS = "horas_nao_positivas"
     USUARIO_INATIVO = "usuario_inativo"
+    # Regularização da Operação E (REG-E-06)
+    DISPONIBILIDADE_MANUAL_INVALIDA = "disponibilidade_manual_invalida"
 
 
 class DominioError(Exception):

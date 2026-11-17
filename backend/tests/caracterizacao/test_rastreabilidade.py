@@ -23,6 +23,7 @@ SEM_CENARIO = {
     "test_adaptador_servicos.py",
     "test_autorizacao_servicos.py",
     "test_operacao_e_servicos.py",
+    "test_regularizacao_e_servicos.py",
 }
 FORMATO_ID = re.compile(r"^(CAR|NV)-\d{2}$")
 

@@ -1,6 +1,7 @@
 """Usuário: identificação, papel, cargo (de onde vêm as permissões), situação e disponibilidade."""
 
 from manutencao.domain.cargo import Cargo
+from manutencao.domain.disponibilidade import exigir_disponibilidade_manual
 from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError
 from manutencao.domain.permissoes import Permissao
@@ -90,6 +91,12 @@ class Usuario:
     def atribuivel(self) -> bool:
         """Pode receber OS: papel Técnico e usuário ativo."""
         return self.e_tecnico and self.ativo
+
+    def definir_disponibilidade_manual(self, valor: Disponibilidade) -> None:
+        """Grava a disponibilidade **manual**: só ``Disponível`` ou ``Ausente`` (REG-E-06).
+        ``Em atendimento`` é derivado das OS e recusado aqui, sem alterar o usuário."""
+        exigir_disponibilidade_manual(valor)
+        self.disponibilidade = Disponibilidade(valor)
 
     def desativar(self) -> None:
         self.ativo = False

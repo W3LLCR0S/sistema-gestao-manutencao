@@ -85,6 +85,8 @@ RECUSA_POR_CODIGO_DE_APLICACAO: dict[CodigoErroAplicacao, Recusa] = {
     # Sem equivalente na fachada do legado: se aparecer num cenário, o teste deve falhar.
     CodigoErroAplicacao.AUTOREMOCAO_DE_ACESSO_DE_GESTAO: Recusa.AUTOREMOCAO_DE_ACESSO_DE_GESTAO,
     CodigoErroAplicacao.NAO_ENCONTRADO: Recusa.NAO_ENCONTRADO,
+    CodigoErroAplicacao.ULTIMO_GESTOR: Recusa.ULTIMO_GESTOR,
+    CodigoErroAplicacao.USUARIO_COM_OS_ATIVAS: Recusa.USUARIO_COM_OS_ATIVAS,
     CodigoErroAplicacao.IDENTIFICADOR_JA_EMITIDO: Recusa.DESCONHECIDA,
 }
 

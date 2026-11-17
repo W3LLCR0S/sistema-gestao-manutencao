@@ -23,7 +23,8 @@ Mudanças funcionais aprovadas na Operação E (ver ``backend/tests/caracterizac
 * **D-04 / DLT-03, DLT-04**: observações só em OS ativa; registram Gestor, técnico responsável e
   quem abriu a OS. O autor da abertura não ganha capacidade técnica.
 * **D-06 / DLT-06**: o diagnóstico é exigido antes de ``Reparo Finalizado``.
-* **DLT-08**: campos obrigatórios e horas maiores que zero (``domain.validacao``).
+* **DLT-08**: campos obrigatórios e horas maiores que zero (``domain.validacao``); ampliado pela
+  REG-E-05 (DLT-22) ao texto da observação e à descrição da peça (``PecaMaterial``).
 * **DLT-09**: um usuário inativo não opera (``Usuario.exigir``) e não é atribuível.
 
 A posse da OS continua exigida pelos métodos como no legado. Os novos requisitos são verificados
@@ -242,7 +243,8 @@ class OrdemServico:
         """Observação da OS (D-04): comentário livre que **não altera o status**.
 
         Ordem: permissão, vínculo com a OS (quem não pode agir não aprende nada sobre o estado) e,
-        por fim, o estado: uma OS Concluída ou Cancelada é imutável (DLT-03).
+        por fim, o estado: uma OS Concluída ou Cancelada é imutável (DLT-03). O texto é obrigatório
+        (REG-E-05) e só é verificado **depois** dessas três recusas e antes de qualquer alteração.
         """
         usuario.exigir(Permissao.REGISTRAR_APONTAMENTO)
         if not self.pode_registrar_observacao(usuario):
@@ -252,6 +254,7 @@ class OrdemServico:
             )
         if self.encerrada:
             raise ConflitoDeEstadoError(CodigoErro.OS_ENCERRADA, "A OS já está encerrada.")
+        exigir_texto(texto, "o texto da observação")
         quando = garantir_utc(quando)
         self._registrar_servico(TipoServico.APONTAMENTO, texto, usuario, quando)
 

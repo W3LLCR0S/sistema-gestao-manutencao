@@ -49,6 +49,10 @@ class Recusa(StrEnum):
     CAMPO_OBRIGATORIO = "campo_obrigatorio"  # DLT-08
     HORAS_NAO_POSITIVAS = "horas_nao_positivas"  # DLT-08
     USUARIO_INATIVO = "usuario_inativo"  # DLT-09
+    # Regularização da Operação E: só nos serviços, nunca no legado.
+    ULTIMO_GESTOR = "ultimo_gestor"  # DLT-18 (REG-E-01)
+    USUARIO_COM_OS_ATIVAS = "usuario_com_os_ativas"  # DLT-21 (REG-E-04)
+    DISPONIBILIDADE_MANUAL_INVALIDA = "disponibilidade_manual_invalida"  # DLT-23 (REG-E-06)
     DESCONHECIDA = "desconhecida"  # nenhuma regra conhecida: um teste que a vê deve falhar
 
 

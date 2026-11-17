@@ -249,8 +249,13 @@ def test_dlt05_depois_da_rotina_do_legado_os_dois_mostram_o_mesmo_valor(par: Par
     for f in (par.legado, par.servicos):
         os_em_execucao(f, tecnico=BRUNO)
         os_atribuida(f, tecnico=CARLA)
-        aceitar(f.definir_disponibilidade(ANA, EM_ATENDIMENTO, solicitante=ANA))
         f.atualizar_disponibilidades()
+    # o valor manual "Em atendimento" só o legado aceita (REG-E-06, DLT-23): os serviços o recusam
+    aceitar(par.legado.definir_disponibilidade(ANA, EM_ATENDIMENTO, solicitante=ANA))
+    recusada(
+        par.servicos.definir_disponibilidade(ANA, EM_ATENDIMENTO, solicitante=ANA),
+        Recusa.DISPONIBILIDADE_MANUAL_INVALIDA,
+    )
     for tecnico in (BRUNO, CARLA):
         assert _disp(par.legado, tecnico) == _disp(par.servicos, tecnico)
     assert [_disp(par.servicos, u) for u in (BRUNO, CARLA)] == [EM_ATENDIMENTO, DISPONIVEL]
