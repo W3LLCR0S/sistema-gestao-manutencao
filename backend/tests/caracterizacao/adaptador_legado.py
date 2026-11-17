@@ -140,8 +140,12 @@ class AdaptadorLegado:
         self._ordem_mod = importlib.import_module("models.ordem_servico")
         _PatchRelogio.instalar(self.relogio, self._servico_mod, self._ordem_mod)
         self._aberto = True
-        # Caminho SEMPRE explícito: nunca o ARQUIVO_PADRAO (dados/dados.json) do construtor.
-        self.repo: Any = self._persistencia.Repositorio(str(caminho))
+        try:
+            # Caminho SEMPRE explícito: nunca o ARQUIVO_PADRAO (dados/dados.json) do construtor.
+            self.repo: Any = self._persistencia.Repositorio(str(caminho))
+        except BaseException:
+            self.fechar()  # um arquivo ilegível não pode deixar o relógio do legado trocado
+            raise
 
     def fechar(self) -> None:
         if self._aberto:
