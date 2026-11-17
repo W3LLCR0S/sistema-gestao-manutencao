@@ -20,6 +20,7 @@ SEM_CENARIO = {
     "test_rastreabilidade.py",
     "test_aplicabilidade.py",
     "test_adaptador_dominio.py",
+    "test_adaptador_servicos.py",
 }
 FORMATO_ID = re.compile(r"^(CAR|NV)-\d{2}$")
 
@@ -146,9 +147,9 @@ def test_referencias_aud_existem_na_auditoria_e_d_nas_decisoes() -> None:
 # -------------------------------------------------------------------------------------- deltas
 
 
-# O estado esperado de CADA delta (Operação C): só DLT-07 e DLT-11 estão implementados.
-# DLT-10 (IDs monotônicos) está reservado à Operação D; os demais, à Operação E. Ao implementar
-# um delta, este dicionário muda no mesmo commit que o código, os testes e a evidência.
+# O estado esperado de CADA delta (Operação D): DLT-07 e DLT-11 (Operação C) e DLT-10 (IDs
+# monotônicos, Operação D) estão implementados; os demais são da Operação E. Ao implementar um
+# delta, este dicionário muda no mesmo commit que o código, os testes e a evidência.
 ESTADO_ESPERADO: dict[str, StatusDelta] = {
     "DLT-01": StatusDelta.NAO_IMPLEMENTADO,
     "DLT-02": StatusDelta.NAO_IMPLEMENTADO,
@@ -159,7 +160,7 @@ ESTADO_ESPERADO: dict[str, StatusDelta] = {
     "DLT-07": StatusDelta.IMPLEMENTADO,
     "DLT-08": StatusDelta.NAO_IMPLEMENTADO,
     "DLT-09": StatusDelta.NAO_IMPLEMENTADO,
-    "DLT-10": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-10": StatusDelta.IMPLEMENTADO,
     "DLT-11": StatusDelta.IMPLEMENTADO,
 }
 OPERACAO_ESPERADA = {"DLT-07": "C", "DLT-10": "D", "DLT-11": "C"}  # os demais: "E"
@@ -185,13 +186,13 @@ def test_cada_delta_tem_a_operacao_prevista_esperada(delta_id: str) -> None:
     assert DELTAS_POR_ID[delta_id].operacao_prevista == OPERACAO_ESPERADA.get(delta_id, "E")
 
 
-def test_dlt_10_ids_monotonicos_continua_reservado_a_operacao_d() -> None:
+def test_dlt_10_ids_monotonicos_esta_implementado_na_operacao_d_com_evidencia() -> None:
     delta = DELTAS_POR_ID["DLT-10"]
-    assert (delta.status, delta.operacao_prevista, delta.evidencia) == (
-        StatusDelta.NAO_IMPLEMENTADO,
-        "D",
-        (),
-    )
+    assert (delta.status, delta.operacao_prevista) == (StatusDelta.IMPLEMENTADO, "D")
+    assert delta.cenarios == ("CAR-75",)
+    prefixos = {e.split("/")[0] for e in delta.evidencia}
+    # contrato (toda implementação), aplicação (serviços) e comparação com o legado
+    assert {"contrato", "aplicacao", "caracterizacao"} <= prefixos
 
 
 def _funcoes_de_nivel_de_modulo(caminho_relativo: str) -> set[str]:
@@ -205,7 +206,13 @@ def test_delta_implementado_tem_evidencia_existente_e_nao_implementado_nao_tem()
     for delta in DELTAS:
         if delta.status is StatusDelta.IMPLEMENTADO:
             assert delta.evidencia, f"{delta.id} implementado sem evidência"
-            assert any(e.startswith("dominio/") for e in delta.evidencia), delta.id
+            # Delta de regra de domínio (Operação C) exige teste de domínio; delta de política de
+            # repositório (Operação D) exige teste de contrato e de aplicação.
+            exigidos = (
+                ("dominio/",) if delta.operacao_prevista == "C" else ("contrato/", "aplicacao/")
+            )
+            for prefixo in exigidos:
+                assert any(e.startswith(prefixo) for e in delta.evidencia), (delta.id, prefixo)
             assert any(e.startswith("caracterizacao/") for e in delta.evidencia), (
                 f"{delta.id} implementado sem comparação com o legado"
             )

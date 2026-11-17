@@ -132,7 +132,8 @@ def test_autoexclusao_e_verificada_antes_do_historico(f: Fachada) -> None:
 )
 def test_usuario_com_historico_em_os_nao_pode_ser_excluido(f: Fachada, usuario: int) -> None:
     os_atribuida(f, tecnico=BRUNO)  # aberta por Carla, de Bruno, atribuída por Ana
-    solicitante = BRUNO if usuario == ANA else ANA  # ninguém pode excluir a si mesmo
+    # Ninguém pode excluir a si mesmo: para excluir a Ana, outra gestora (com permissão) pede.
+    solicitante = f.cadastrar_usuario("Eva", CARGO_GESTOR) if usuario == ANA else ANA
     antes = estado_global(f)
     resultado = recusada(f.remover_usuario(usuario, solicitante), Recusa.USUARIO_COM_HISTORICO)
     assert resultado.mensagem == "Usuário possui histórico em OS; não pode ser excluído."

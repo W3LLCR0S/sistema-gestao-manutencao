@@ -187,3 +187,110 @@ def decidir(cenarios: tuple[str, ...], responsabilidade: Responsabilidade) -> In
         if linha is not None:
             return linha
     return None
+
+
+# ====================================================================== adaptador dos serviços
+# O adaptador dos serviços de aplicação (Operação D7) responde ao que o domínio puro não respondia:
+# cadastro e identificadores, exclusão e disponibilidade. Só faltam a ele a persistência em arquivo
+# (JSON, que o novo backend não tem: D-10) e a interface de linha de comando (que a D-10 mantém
+# fora da nova arquitetura). O registro abaixo é, portanto, o **subconjunto** do registro do domínio
+# que ainda é inaplicável; as demais linhas passaram a ser executadas pelos serviços.
+
+RESPONSABILIDADES_AUSENTES_DOS_SERVICOS = frozenset(
+    {Responsabilidade.PERSISTENCIA, Responsabilidade.INTERFACE_DE_LINHA_DE_COMANDO}
+)
+
+REGISTRO_SERVICOS: tuple[Inaplicavel, ...] = tuple(
+    linha for linha in REGISTRO if linha.responsabilidade in RESPONSABILIDADES_AUSENTES_DOS_SERVICOS
+)
+
+REGISTRO_SERVICOS_POR_PAR: dict[tuple[str, Responsabilidade], Inaplicavel] = {
+    (i.cenario, i.responsabilidade): i for i in REGISTRO_SERVICOS
+}
+
+
+def decidir_servicos(
+    cenarios: tuple[str, ...], responsabilidade: Responsabilidade
+) -> Inaplicavel | None:
+    """A linha do registro dos serviços que justifica pular um teste, ou ``None`` (deve falhar)."""
+    for cenario in cenarios:
+        linha = REGISTRO_SERVICOS_POR_PAR.get((cenario, responsabilidade))
+        if linha is not None:
+            return linha
+    return None
+
+
+class Motivo(StrEnum):
+    """Por que os serviços não reproduzem o comportamento que o cenário fixa no legado."""
+
+    DELTA_IMPLEMENTADO = "delta_implementado"  # decisão aprovada e já implementada
+    DEFEITO_CORRIGIDO = "defeito_corrigido"  # defeito do legado (classe D) que a nova camada fecha
+
+
+@dataclass(frozen=True)
+class NaoReproduzido:
+    """Um cenário que os serviços respondem de outro modo, com a evidência do comportamento novo.
+
+    Não é um ``skip``: o cenário não roda contra os serviços (a variante não é gerada) porque o
+    comportamento que ele fixa deixou de existir por decisão registrada; o que vale no lugar é o
+    teste novo indicado em ``evidencias`` (``arquivo::teste``, relativos a ``backend/tests/``).
+    """
+
+    cenario: str
+    motivo: Motivo
+    referencia: str  # DLT-nn (delta implementado) ou AUD-nn (defeito corrigido)
+    justificativa: str
+    evidencias: tuple[str, ...]
+
+
+_APLICACAO = "aplicacao/test_servico_de_"
+
+NAO_REPRODUZIDOS_PELOS_SERVICOS: dict[str, NaoReproduzido] = {
+    "CAR-71": NaoReproduzido(
+        "CAR-71",
+        Motivo.DEFEITO_CORRIGIDO,
+        "AUD-09",
+        "O domínio aceita o gestor remover o próprio acesso de gestão e só a tela da CLI o "
+        "impedia. A regra passa para o caso de uso (a proteção que a interface aplicava) e vale "
+        "para qualquer interface: a permissão efetiva é a da CLI, agora imposta no servidor.",
+        (
+            f"{_APLICACAO}usuarios.py::test_ninguem_remove_de_si_o_acesso_de_gestao_ao_trocar_de_cargo",
+            f"{_APLICACAO}usuarios.py::test_gestor_nao_remove_do_proprio_cargo_o_acesso_de_gestao",
+        ),
+    ),
+    "CAR-73": NaoReproduzido(
+        "CAR-73",
+        Motivo.DEFEITO_CORRIGIDO,
+        "AUD-02",
+        "Equipamentos e exclusão de usuário eram operados sem identidade nem permissão; só o "
+        "menu da CLI exigia gerir_equipamentos e gerir_usuarios. A autorização central nos casos "
+        "de uso (ADR-0003) preserva a permissão efetiva da CLI e fecha o desvio do repositório.",
+        (
+            f"{_APLICACAO}equipamentos.py::test_tecnico_nao_gere_equipamentos_e_nada_muda",
+            f"{_APLICACAO}usuarios.py::test_tecnico_nao_gere_usuarios_nem_cargos_e_nada_muda",
+        ),
+    ),
+    "CAR-74": NaoReproduzido(
+        "CAR-74",
+        Motivo.DELTA_IMPLEMENTADO,
+        "DLT-11",
+        "Permissões tipadas: um nome inválido é erro detectável, não negação silenciosa; ao "
+        "definir as permissões de um cargo, o valor inválido recusa tudo e nada muda.",
+        (
+            f"{_APLICACAO}usuarios.py::test_permissao_com_nome_invalido_e_erro_e_nada_muda",
+            "dominio/test_permissoes.py::test_de_nome_recusa_nome_invalido_com_erro_detectavel",
+        ),
+    ),
+    "CAR-75": NaoReproduzido(
+        "CAR-75",
+        Motivo.DELTA_IMPLEMENTADO,
+        "DLT-10",
+        "Identificadores monotônicos: excluir o maior id não o libera para o cadastro seguinte "
+        "(o legado usava max()+1 e o reaproveitava).",
+        (
+            "contrato/test_contrato_identificadores.py::test_excluir_o_maior_id_nao_o_reaproveita",
+            f"{_APLICACAO}equipamentos.py::test_excluir_equipamento_sem_os_o_remove_e_o_id_nao_volta",
+            f"{_APLICACAO}usuarios.py::test_excluir_usuario_sem_historico_o_remove_e_o_id_nao_volta",
+        ),
+    ),
+}

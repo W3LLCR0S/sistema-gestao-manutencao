@@ -10,8 +10,8 @@ legado existe e (4) esta rastreabilidade aponta a ``evidencia``: ``arquivo::test
 ``backend/tests/``. ``test_rastreabilidade.py`` confere o estado esperado de **cada** delta e que a
 evidência existe.
 
-Estado atual: DLT-07 (datas UTC) e DLT-11 (permissões tipadas), da Operação C, estão
-implementados. DLT-10 (IDs monotônicos) está reservado à Operação D; os demais, à Operação E.
+Estado atual: DLT-07 (datas UTC) e DLT-11 (permissões tipadas), da Operação C, e DLT-10 (IDs
+monotônicos), da Operação D, estão implementados. Os demais são da Operação E.
 """
 
 from dataclasses import dataclass
@@ -147,6 +147,18 @@ DELTAS: tuple[Delta, ...] = (
         "Identificadores monotônicos, sem reutilização após exclusão.",
         ("CAR-75",),
         "D",
+        StatusDelta.IMPLEMENTADO,
+        (
+            "contrato/test_contrato_identificadores.py::test_excluir_o_maior_id_nao_o_reaproveita",
+            "contrato/test_contrato_identificadores.py::test_adicionar_id_de_objeto_excluido_e_recusado",
+            "contrato/test_contrato_identificadores.py::test_adicionar_id_em_uso_e_recusado_sem_colisao",
+            "contrato/test_contrato_identificadores.py::test_id_e_estavel_depois_de_atualizacoes",
+            "contrato/test_contrato_identificadores.py::test_sequencias_sao_independentes_por_tipo",
+            "aplicacao/test_servico_de_equipamentos.py::test_excluir_equipamento_sem_os_o_remove_e_o_id_nao_volta",
+            "aplicacao/test_servico_de_usuarios.py::test_excluir_usuario_sem_historico_o_remove_e_o_id_nao_volta",
+            "caracterizacao/test_adaptador_servicos.py::test_dlt10_unica_diferenca_de_ids_o_legado_reaproveita_e_os_servicos_nao",
+            "caracterizacao/test_adaptador_servicos.py::test_dlt10_excluir_um_id_do_meio_nao_o_reaproveita_nem_no_legado",
+        ),
     ),
     Delta(
         "DLT-11",
