@@ -1,8 +1,8 @@
 """Fábrica da raiz de composição: escolhe as implementações concretas.
 
-É o **único** lugar (com os testes) que importa a infraestrutura. Hoje só existe a composição em
-memória (D-10: sem JSON, sem banco); a da Fase 03 será uma segunda função aqui, sem alterar os
-serviços. Cada chamada devolve um contêiner novo, sem estado compartilhado.
+É o **único** lugar (com os testes e a administração do banco) que importa a infraestrutura. Há
+duas composições, sem que os serviços saibam qual está em uso: **em memória** (testes; D-10: sem
+JSON) e **PostgreSQL** (Fase 03). Cada chamada devolve um contêiner novo, sem estado compartilhado.
 """
 
 from manutencao.application.portas.relogio import Relogio
@@ -22,6 +22,13 @@ from manutencao.infrastructure.memoria import (
     EquipamentosEmMemoria,
     OrdensEmMemoria,
     UsuariosEmMemoria,
+)
+from manutencao.infrastructure.postgres import (
+    Banco,
+    CargosNoBanco,
+    EquipamentosNoBanco,
+    OrdensNoBanco,
+    UsuariosNoBanco,
 )
 from manutencao.infrastructure.relogio import RelogioDeSistema
 
@@ -75,4 +82,21 @@ def criar_container_em_memoria(
         cargos=cargos,
         usuarios=usuarios,
         ordens=ordens,
+    )
+
+
+def criar_container_postgres(banco: Banco, *, relogio: Relogio | None = None) -> Container:
+    """Um contêiner cujos repositórios gravam no PostgreSQL de ``banco`` (esquema já migrado).
+
+    Os dados sobrevivem ao reinício: um contêiner novo sobre o mesmo banco vê tudo o que o anterior
+    gravou, inclusive a sequência de identificadores. Nenhum dado é criado aqui (ver
+    ``demonstracao.semear_demonstracao``).
+    """
+    cargos = CargosNoBanco(banco)
+    return montar(
+        relogio=relogio if relogio is not None else RelogioDeSistema(),
+        equipamentos=EquipamentosNoBanco(banco),
+        cargos=cargos,
+        usuarios=UsuariosNoBanco(banco, cargos),
+        ordens=OrdensNoBanco(banco),
     )
