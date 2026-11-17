@@ -9,10 +9,11 @@ from tests.caracterizacao.cenarios import (
     ANA,
     BRUNO,
     CARLA,
+    STATUS_AGUARDANDO_PECA,
     STATUS_REPARO_FINALIZADO,
     TORNO,
 )
-from tests.caracterizacao.fachada import Fachada, Peca, Resultado
+from tests.caracterizacao.fachada import Fachada, OsSnap, Peca, Recusa, Resultado
 
 
 def aceitar(resultado: Resultado) -> Resultado:
@@ -60,7 +61,31 @@ def os_concluida(f: Fachada, *, tecnico: int = BRUNO) -> int:
     return numero
 
 
-def os_cancelada(f: Fachada) -> int:
-    numero = os_aberta(f)
+def os_cancelada(f: Fachada, *, atribuida: bool = False, tecnico: int = BRUNO) -> int:
+    numero = os_atribuida(f, tecnico=tecnico) if atribuida else os_aberta(f)
     aceitar(f.cancelar(numero, ANA, "Chamado indevido"))
     return numero
+
+
+def os_aguardando_peca(f: Fachada, *, tecnico: int = BRUNO) -> int:
+    numero = os_em_execucao(f, tecnico=tecnico)
+    aceitar(f.alterar_status(numero, tecnico, STATUS_AGUARDANDO_PECA))
+    return numero
+
+
+def recusada(resultado: Resultado, categoria: Recusa) -> Resultado:
+    """Afirma que a operação foi recusada com a categoria esperada (e devolve o resultado)."""
+    assert not resultado.aceito, "a operação deveria ter sido recusada"
+    assert resultado.recusa is categoria, f"{resultado.recusa}: {resultado.mensagem}"
+    return resultado
+
+
+def estado_global(f: Fachada) -> tuple[object, ...]:
+    """Tudo o que a fachada observa, para provar que uma recusa não alterou nada."""
+    return (f.todas_as_os(), f.usuarios(), f.equipamentos(), f.cargos())
+
+
+def os_snap(f: Fachada, numero: int) -> OsSnap:
+    snap = f.os(numero)
+    assert snap is not None, f"OS {numero} não existe"
+    return snap
