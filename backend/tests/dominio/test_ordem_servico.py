@@ -24,6 +24,7 @@ from manutencao.domain.erros import (
 )
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.peca_material import PecaMaterial
+from manutencao.domain.permissoes import Permissao
 from tests.dominio.fabrica import Mundo, instantaneo, sem_acesso
 
 S = StatusOS
@@ -1024,6 +1025,20 @@ def test_ordem_das_verificacoes_de_cada_operacao() -> None:
             recusa(os_, erro, codigo, chamada)
         except AssertionError as falha:  # pragma: no cover - só para nomear o caso
             raise AssertionError(f"{descricao}: {falha}") from falha
+
+
+def test_atribuir_verifica_se_e_tecnico_antes_de_ja_atribuida() -> None:
+    """Só observável se o técnico perde ``apontar_reparo`` depois de atribuído (AUD-20)."""
+    m = Mundo()
+    os_ = m.atribuida()
+    restantes = [p for p in m.tecnico.permissoes.ativas() if p is not Permissao.APONTAR_REPARO]
+    m.tecnico.permissoes.definir(restantes)
+    recusa(
+        os_,
+        ViolacaoDeRegraError,
+        CodigoErro.NAO_E_TECNICO,
+        lambda: os_.atribuir(m.bruno, m.ana, quando=m.quando()),
+    )
 
 
 # =========================================================================== recusas sem mutação
