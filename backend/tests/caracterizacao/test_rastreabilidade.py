@@ -7,13 +7,20 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+
 from tests.caracterizacao.cenarios import CENARIOS, CENARIOS_POR_ID, Classe
 from tests.caracterizacao.deltas import DELTAS, DELTAS_POR_ID, StatusDelta
 from tests.guardas_ambiente import RAIZ_REPOSITORIO
 
 DIRETORIO = Path(__file__).resolve().parent
 # Testes de infraestrutura e de meta-verificação não descrevem regras e não têm cenário.
-SEM_CENARIO = {"test_base.py", "test_rastreabilidade.py"}
+SEM_CENARIO = {
+    "test_base.py",
+    "test_rastreabilidade.py",
+    "test_aplicabilidade.py",
+    "test_adaptador_dominio.py",
+}
 FORMATO_ID = re.compile(r"^(CAR|NV)-\d{2}$")
 
 
@@ -139,10 +146,74 @@ def test_referencias_aud_existem_na_auditoria_e_d_nas_decisoes() -> None:
 # -------------------------------------------------------------------------------------- deltas
 
 
-def test_todos_os_deltas_estao_registrados_e_nenhum_foi_implementado() -> None:
+# O estado esperado de CADA delta (Operação C): só DLT-07 e DLT-11 estão implementados.
+# DLT-10 (IDs monotônicos) está reservado à Operação D; os demais, à Operação E. Ao implementar
+# um delta, este dicionário muda no mesmo commit que o código, os testes e a evidência.
+ESTADO_ESPERADO: dict[str, StatusDelta] = {
+    "DLT-01": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-02": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-03": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-04": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-05": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-06": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-07": StatusDelta.IMPLEMENTADO,
+    "DLT-08": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-09": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-10": StatusDelta.NAO_IMPLEMENTADO,
+    "DLT-11": StatusDelta.IMPLEMENTADO,
+}
+OPERACAO_ESPERADA = {"DLT-07": "C", "DLT-10": "D", "DLT-11": "C"}  # os demais: "E"
+DIRETORIO_TESTES = DIRETORIO.parent
+
+
+def test_todos_os_deltas_estao_registrados_com_ids_unicos() -> None:
     assert DELTAS
-    assert all(d.status is StatusDelta.NAO_IMPLEMENTADO for d in DELTAS)
     assert len({d.id for d in DELTAS}) == len(DELTAS) == len(DELTAS_POR_ID)
+
+
+def test_o_estado_esperado_cobre_exatamente_os_deltas_registrados() -> None:
+    assert set(ESTADO_ESPERADO) == set(DELTAS_POR_ID)
+
+
+@pytest.mark.parametrize("delta_id", sorted(ESTADO_ESPERADO))
+def test_cada_delta_esta_no_estado_esperado(delta_id: str) -> None:
+    assert DELTAS_POR_ID[delta_id].status is ESTADO_ESPERADO[delta_id], delta_id
+
+
+@pytest.mark.parametrize("delta_id", sorted(ESTADO_ESPERADO))
+def test_cada_delta_tem_a_operacao_prevista_esperada(delta_id: str) -> None:
+    assert DELTAS_POR_ID[delta_id].operacao_prevista == OPERACAO_ESPERADA.get(delta_id, "E")
+
+
+def test_dlt_10_ids_monotonicos_continua_reservado_a_operacao_d() -> None:
+    delta = DELTAS_POR_ID["DLT-10"]
+    assert (delta.status, delta.operacao_prevista, delta.evidencia) == (
+        StatusDelta.NAO_IMPLEMENTADO,
+        "D",
+        (),
+    )
+
+
+def _funcoes_de_nivel_de_modulo(caminho_relativo: str) -> set[str]:
+    arquivo = DIRETORIO_TESTES / caminho_relativo
+    assert arquivo.is_file(), f"evidência aponta arquivo inexistente: {caminho_relativo}"
+    arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+    return {n.name for n in arvore.body if isinstance(n, ast.FunctionDef)}
+
+
+def test_delta_implementado_tem_evidencia_existente_e_nao_implementado_nao_tem() -> None:
+    for delta in DELTAS:
+        if delta.status is StatusDelta.IMPLEMENTADO:
+            assert delta.evidencia, f"{delta.id} implementado sem evidência"
+            assert any(e.startswith("dominio/") for e in delta.evidencia), delta.id
+            assert any(e.startswith("caracterizacao/") for e in delta.evidencia), (
+                f"{delta.id} implementado sem comparação com o legado"
+            )
+            for evidencia in delta.evidencia:
+                arquivo, _, teste = evidencia.partition("::")
+                assert teste in _funcoes_de_nivel_de_modulo(arquivo), evidencia
+        else:
+            assert not delta.evidencia, f"{delta.id} não implementado, mas com evidência"
 
 
 def test_deltas_cobrem_as_decisoes_e_melhorias_aprovadas() -> None:

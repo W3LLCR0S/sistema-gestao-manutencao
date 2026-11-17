@@ -3,10 +3,15 @@
 Segue ADR-0006 (seção "Deltas de comportamento"): para cada mudança, o comportamento atual (com
 o(s) cenário(s) que o caracterizam), o comportamento aprovado e a decisão que o autorizou.
 
-**Nenhum delta está implementado.** O legado continua com o comportamento descrito em ``legado``;
-os cenários listados em ``cenarios`` verificam esse comportamento antigo. Quando uma mudança for
-aplicada (Operação E, uma por vez, cada uma com autorização própria), o teste correspondente é
-substituído e o ``status`` do delta passa a ``IMPLEMENTADO``, em commit próprio.
+O legado continua com o comportamento descrito em ``legado``; os cenários listados em ``cenarios``
+verificam esse comportamento antigo no adaptador do legado. Um delta só passa a ``IMPLEMENTADO``
+quando (1) o código está concluído, (2) há testes específicos aprovados, (3) a comparação com o
+legado existe e (4) esta rastreabilidade aponta a ``evidencia``: ``arquivo::teste``, relativos a
+``backend/tests/``. ``test_rastreabilidade.py`` confere o estado esperado de **cada** delta e que a
+evidência existe.
+
+Estado atual: DLT-07 (datas UTC) e DLT-11 (permissões tipadas), da Operação C, estão
+implementados. DLT-10 (IDs monotônicos) está reservado à Operação D; os demais, à Operação E.
 """
 
 from dataclasses import dataclass
@@ -28,6 +33,7 @@ class Delta:
     cenarios: tuple[str, ...]  # CAR-nn que verificam o comportamento legado
     operacao_prevista: str  # onde a FASE_02 prevê a aplicação (indicativo, sem autorização)
     status: StatusDelta = StatusDelta.NAO_IMPLEMENTADO
+    evidencia: tuple[str, ...] = ()  # "arquivo::teste" que comprovam a implementação
 
 
 DELTAS: tuple[Delta, ...] = (
@@ -102,6 +108,15 @@ DELTAS: tuple[Delta, ...] = (
         "ingênuo rejeitado; apresentação em America/Sao_Paulo (Fase 04).",
         ("CAR-90",),
         "C",
+        StatusDelta.IMPLEMENTADO,
+        (
+            "dominio/test_tempo.py::test_datetime_ingenuo_e_rejeitado",
+            "dominio/test_tempo.py::test_toda_operacao_guarda_em_utc_os_registros_que_cria",
+            "dominio/test_tempo.py::test_instante_ingenuo_e_recusado_sem_alterar_nada",
+            "dominio/test_tempo.py::test_a_recusa_funcional_vence_o_instante_ingenuo",
+            "dominio/test_tempo.py::test_nenhum_modulo_do_dominio_consulta_o_relogio_nem_converte_fusos",
+            "caracterizacao/test_adaptador_dominio.py::test_datas_do_dominio_normalizadas_batem_com_as_do_legado",
+        ),
     ),
     Delta(
         "DLT-08",
@@ -142,6 +157,13 @@ DELTAS: tuple[Delta, ...] = (
         "Permissões tipadas: nome inválido é erro detectável, não negação silenciosa.",
         ("CAR-74",),
         "C",
+        StatusDelta.IMPLEMENTADO,
+        (
+            "dominio/test_permissoes.py::test_de_nome_recusa_nome_invalido_com_erro_detectavel",
+            "dominio/test_permissoes.py::test_definir_recusa_texto_e_nao_altera_o_conjunto",
+            "dominio/test_permissoes.py::test_tem_recusa_texto_solto_mesmo_quando_o_nome_existe",
+            "caracterizacao/test_adaptador_dominio.py::test_permissoes_tipadas_so_divergem_do_legado_nos_nomes_invalidos",
+        ),
     ),
 )
 
