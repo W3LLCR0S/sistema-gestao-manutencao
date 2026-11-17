@@ -4,9 +4,11 @@ Registro das decisões funcionais e arquiteturais da Fase 01. Fonte única para 
 [auditoria](AUDITORIA_ARQUITETURAL.md), na [matriz](MATRIZ_RASTREABILIDADE.md), nos [ADRs](adr/README.md) e no
 [plano de migração](PLANO_DE_MIGRACAO.md).
 
-> **Aprovar uma decisão não é implementá-la.** Tudo o que está marcado como "aprovada" abaixo orienta fases futuras e
-> **não existe no código**. O baseline (`e6f7354`, tag `entrega-1`) continua com o comportamento descrito na coluna
-> "Baseline". Nenhum código foi alterado por esta documentação.
+> **Aprovar uma decisão não é implementá-la.** O baseline (`e6f7354`, tag `entrega-1`) e o legado (`models/`, `ui/`,
+> `persistencia/`) continuam com o comportamento descrito na coluna "Baseline". As decisões D-02 a D-06 e as melhorias
+> aprovadas (validação de entradas e usuário ativo) foram **implementadas só no novo backend** (`backend/src/manutencao/`)
+> na Operação E da Fase 02: ver a [seção 8](#8-deltas-de-regras-de-negócio-operação-e-dlt-01-a-dlt-09). O que não consta
+> da seção 8 continua sem implementação.
 
 ## 1. Como ler a classificação
 
@@ -25,11 +27,11 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 | ID | Tema | Situação | Origem | Fase de implementação |
 |----|------|----------|--------|-----------------------|
 | D-01 | Autenticação: sessão ou token, senha inicial, recuperação | **Pendente** | AUD-01 | Decidir antes da 04 |
-| D-02 | Definição de Técnico | **Aprovada** | AUD-20 | 02 |
-| D-03 | Atribuição a Técnico Ausente | **Aprovada** | AUD-09 | 02 |
-| D-04 | Apontamentos e observações em OS | **Aprovada** | AUD-11 | 02 |
-| D-05 | Disponibilidade dos técnicos | **Aprovada** | AUD-13 | 02 |
-| D-06 | Diagnóstico obrigatório antes de Reparo Finalizado | **Aprovada** | AUD-21 | 02 |
+| D-02 | Definição de Técnico | **Aprovada; implementada** (DLT-01) | AUD-20 | 02 |
+| D-03 | Atribuição a Técnico Ausente | **Aprovada; implementada** (DLT-02) | AUD-09 | 02 |
+| D-04 | Apontamentos e observações em OS | **Aprovada; implementada** (DLT-03, DLT-04) | AUD-11 | 02 |
+| D-05 | Disponibilidade dos técnicos | **Aprovada; implementada** (DLT-05) | AUD-13 | 02 |
+| D-06 | Diagnóstico obrigatório antes de Reparo Finalizado | **Aprovada; implementada** (DLT-06) | AUD-21 | 02 |
 | D-07 | Campos extras de equipamento | **Pendente** | OPC-06 | Decidir antes da 03 |
 | D-08 | Importação dos dados JSON existentes | **Pendente** | OPC-07, AUD-06 | Decidir antes da 03 |
 | D-09 | Hospedagem da API e do banco | **Pendente** | ADR-0001 | Decidir antes da 10 |
@@ -39,8 +41,8 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 | D-13 | Ferramentas de qualidade | **Aprovada** (backend) | AUD-17 | 02 |
 | D-14 | Estrutura do novo backend | **Aprovada** | ADR-0002 | 02 |
 | D-15 | OS atrasada e prazos | **Pendente** | E2-FRT-03 | Decidir antes da 08 |
-| — | Validação de entradas | **Aprovada** (melhoria) | AUD-12 | 02 (domínio), 04 (API) |
-| — | Desativação de usuários | **Aprovada** (melhoria) | AUD-10, AUD-08 | 02 (modelo), 03 (persistência), 06 (cadastro) |
+| — | Validação de entradas | **Aprovada** (melhoria); **implementada** (DLT-08) | AUD-12 | 02 (domínio), 04 (API) |
+| — | Desativação de usuários | **Aprovada** (melhoria); **implementada no modelo** (DLT-09) | AUD-10, AUD-08 | 02 (modelo), 03 (persistência), 06 (cadastro) |
 
 ## 3. Decisões funcionais aprovadas (D-02 a D-06)
 
@@ -284,9 +286,9 @@ alterado e continua com o comportamento antigo, que segue caracterizado por test
 
 Em todos os deltas: a autorização é verificada **no serviço, antes de qualquer mutação**; uma operação recusada **não
 altera repositórios nem consome identificadores**; **nenhuma permissão nova** foi criada; **não** foi implementada
-autenticação (D-01 segue pendente), papéis explícitos (D-02), bloqueio de técnico ausente (D-03), política de
-observações (D-04), disponibilidade derivada (D-05), diagnóstico obrigatório (D-06), validações obrigatórias nem
-usuário ativo/inativo: continuam reservados à Operação E.
+autenticação (D-01 segue pendente). Os papéis explícitos, o bloqueio de técnico ausente, a política de observações, a
+disponibilidade derivada, o diagnóstico obrigatório, as validações e o usuário ativo/inativo foram implementados depois,
+na Operação E (seção 8), **sem enfraquecer** nenhum dos DLT-12 a DLT-17.
 
 ### DLT-12 — Autoproteção do gestor (CAR-71)
 
@@ -358,3 +360,105 @@ porque o técnico Bruno é agora recusado por falta de permissão antes da regra
 esperado da regra não mudou. A tentativa do técnico continua documentada e testada: o legado a aceita até a regra de
 histórico e os serviços a recusam por permissão
 (`test_car65_o_legado_permite_a_tentativa_do_tecnico_e_os_servicos_recusam_por_permissao`).
+
+## 8. Deltas de regras de negócio (Operação E): DLT-01 a DLT-09
+
+Implementam as decisões D-02 a D-06 e as melhorias aprovadas (validação de entradas e usuário ativo), aprovadas em
+2026-11-15 (seções 3 e 5; [ADR-0009](adr/0009-papeis-autorizacao-e-regras-da-os.md)) e implementadas depois da autorização
+da Operação E, em 2026-11-17. Valem **só no novo backend** (`backend/src/manutencao/`, branch local `refactor/arquitetura`,
+sem merge nem push); o legado continua como estava, e o comportamento antigo segue caracterizado por testes. O DLT-07
+(datas, Operação C) é anterior e não foi alterado; os DLT-10 a DLT-17 foram preservados.
+
+| ID | Tema | Decisão | Camada | Estado | Implementação |
+|----|------|---------|--------|--------|---------------|
+| DLT-01 | Papéis Gestor e Técnico | D-02 | Domínio e aplicação | **Implementado** | 2026-11-17 |
+| DLT-02 | Atribuição a técnico ausente | D-03 | Domínio e aplicação | **Implementado** | 2026-11-17 |
+| DLT-03 | Observação em OS Concluída ou Cancelada | D-04 | Domínio | **Implementado** | 2026-11-17 |
+| DLT-04 | Quem observa uma OS ativa | D-04 | Domínio | **Implementado** | 2026-11-17 |
+| DLT-05 | Disponibilidade derivada das OS | D-05 | Domínio e aplicação | **Implementado** | 2026-11-17 |
+| DLT-06 | Diagnóstico antes de Reparo Finalizado | D-06 | Domínio | **Implementado** | 2026-11-17 |
+| DLT-08 | Campos obrigatórios e horas maiores que zero | Melhoria 5.1 (AUD-12) | Domínio e aplicação | **Implementado** | 2026-11-17 |
+| DLT-09 | Usuário ativo ou inativo | Melhoria 5.2 (AUD-10, AUD-08) | Domínio e aplicação | **Implementado** | 2026-11-17 |
+
+Cada delta está registrado em `backend/tests/caracterizacao/deltas.py` com o comportamento do legado, o aprovado, a
+justificativa, a camada, o teste do legado e as evidências **separadas por camada** (domínio, serviços e comparação com o
+legado). Em todos: a recusa não altera a OS, o histórico, os repositórios nem consome identificadores; a autorização
+continua sendo a primeira verificação (DLT-16) e um ator inexistente é recusado (DLT-17).
+
+### DLT-01 — Papéis Gestor e Técnico (D-02)
+
+- **Legado:** técnico é quem tem a permissão `apontar_reparo`; retirá-la tira o usuário da lista e da atribuição,
+  concedê-la a um gestor o torna atribuível e trocar o cargo move o usuário entre técnicos e gestores (AUD-20).
+- **Novo:** `Usuario.papel` (`Papel.GESTOR` ou `Papel.TECNICO`) é obrigatório e **não depende de permissão**. A lista de
+  técnicos, a atribuição, a carga e a disponibilidade usam o papel. Um Técnico sem `apontar_reparo` continua listado e
+  atribuível, e é negado ao apontar; um Gestor com permissões técnicas não aparece nem recebe atribuição; mudar o cargo
+  muda as permissões e não o papel.
+- **Mudar o papel:** `ServicoDeUsuarios.alterar_papel`, operação explícita que exige o **papel Gestor e** a permissão
+  `gerir_usuarios`. Ninguém deixa de ser Gestor por conta própria (mesma autoproteção do DLT-12). **Não reatribui** as OS
+  do usuário: a política para OS ativas não foi decidida (ver 8.1).
+- **Não feito:** nenhum papel novo; nenhuma autenticação.
+
+### DLT-02 — Atribuição a técnico ausente (D-03)
+
+- **Legado:** o domínio aceita; só a tela da CLI pede confirmação.
+- **Novo:** atribuir ou reatribuir a técnico `Ausente` (ausência manual) é recusado com conflito (`tecnico_ausente`),
+  salvo `confirmar_ausente=True`, **dado explícito da operação** validado no caso de uso e que só vale para quem tem
+  `atribuir_os`. O histórico registra "(técnico ausente; atribuição confirmada pelo gestor)". A ordem das verificações
+  antigas (permissão, estado, é técnico, já atribuída) é preservada; a ausência é verificada por último.
+
+### DLT-03 e DLT-04 — Observações (D-04)
+
+- **Legado:** qualquer usuário com `registrar_apontamento` observa qualquer OS, inclusive Concluída ou Cancelada.
+- **Novo:** ordem **permissão → vínculo → estado**. Em OS ativa observam o **Gestor**, o **técnico responsável** e **quem
+  abriu** a OS (todos com `registrar_apontamento`); um terceiro é recusado (`sem_vinculo_com_a_os`, 403), inclusive em OS
+  encerrada (quem não pode agir não aprende nada sobre o estado). Em OS Concluída ou Cancelada ninguém observa
+  (`os_encerrada`). A observação não altera o status e é registrada como `Apontamento` (autor, data e tipo preservados).
+  O autor da abertura **não** recebe capacidade técnica: diagnóstico, reparo, status e conclusão seguem exigindo o
+  responsável. Diagnóstico e reparo já eram restritos aos status de atendimento.
+
+### DLT-05 — Disponibilidade derivada (D-05)
+
+- **Legado:** valor armazenado, atualizado só por `atualizar_disponibilidades()` (rotina da interface).
+- **Novo:** a disponibilidade **é derivada das OS a cada consulta** (`domain/disponibilidade.py`, `Projecoes`): a ausência
+  manual prevalece; senão, uma OS `Em Execução` do técnico o põe `Em atendimento`; `Aguardando Peça` não; senão
+  `Disponível`. Não há rotina, gravação nem processo em segundo plano (`atualizar_disponibilidades` foi removida do
+  serviço). `Usuario.disponibilidade` passou a ser o valor **manual** (a ausência); a autorização para alterá-lo
+  continua sendo a do DLT-15. Os dez cenários da decisão têm teste.
+
+### DLT-06 — Diagnóstico obrigatório (D-06)
+
+- **Legado:** finalizar exige só intervenção; sem diagnóstico a OS fica sem saída (AUD-21).
+- **Novo:** `alterar_status(Reparo Finalizado)` exige diagnóstico, com erro claro (`sem_diagnostico`) e sem alterar status
+  nem histórico. A falta de **intervenção** continua sendo verificada primeiro (preserva as recusas antigas). A verificação
+  em `concluir_tecnicamente` permanece como invariante. As demais transições não mudaram.
+
+### DLT-08 — Campos obrigatórios e horas positivas (AUD-12)
+
+- **Novo, só os campos do delta:** falha da abertura; parecer e causa-raiz do diagnóstico; intervenção; motivos de
+  reprovação e de cancelamento; nomes de usuário e de equipamento. Texto vazio ou só com espaços é recusado
+  (`campo_obrigatorio`); o texto aceito é guardado **exatamente como informado**. Horas `< 0` mantêm a recusa e a mensagem do
+  legado; `0` e valores não finitos passam a ser recusados (`horas_nao_positivas`). A quantidade de peça positiva é
+  preservada. A validação vem **depois** da autorização e das regras de estado e **antes** de qualquer mutação (uma
+  apontamento recusado não inicia a execução da OS).
+
+### DLT-09 — Usuário ativo ou inativo (melhoria 5.2)
+
+- **Legado:** não há `ativo`; só se exclui quem não tem histórico.
+- **Novo:** `Usuario.ativo` (todos nascem ativos); `desativar` e `reativar` exigem `gerir_usuarios`, são idempotentes e
+  **ninguém desativa a si mesmo** (mesma autoproteção do DLT-12). Um usuário **inativo não opera** (recusado como
+  `usuario_inativo` antes de qualquer verificação de permissão; um ator inexistente continua `NaoEncontradoError`), não tem
+  permissão efetiva, sai da lista de técnicos atribuíveis e não recebe OS. O histórico e as OS que o citam são
+  preservados; **nenhuma OS é reatribuída automaticamente** e a exclusão continua recusada para quem tem histórico.
+- **Não feito:** autenticação (D-01); tratamento das OS de quem foi desativado (ver 8.1).
+
+### 8.1 Pontos sem decisão (não implementados)
+
+| Ponto | O que foi feito | O que falta decidir |
+|-------|-----------------|---------------------|
+| OS ativas de quem muda de papel ou é desativado | Nada é reatribuído; o usuário continua como responsável (um inativo não opera) | Política: gestor caso a caso, regra automática ou bloqueio |
+| `alterar_papel` exige papel **e** permissão | Mais restritivo que só a permissão (D-02: "restrita ao Gestor") | Confirmar se a permissão `gerir_usuarios` basta |
+| Autoproteção em `alterar_papel` e `desativar` | Recusa o próprio gestor, como no DLT-12 | Confirmar a extensão; não há regra para "último gestor" |
+| Textos não listados no DLT-08 | Observação, teste funcional, descrição de peça, modelo, e-mail e escala não são validados | Incluir ou não como obrigatórios |
+| "Diagnóstico" no DLT-08 | Parecer **e** causa-raiz são obrigatórios (ambos o são na interface legada) | Confirmar se a causa-raiz também é obrigatória |
+| Manual `Em atendimento` | Aceito, mas a consulta mostra o derivado | Restringir ou não os valores do ajuste manual |
+| Autenticação | Não implementada | D-01 |

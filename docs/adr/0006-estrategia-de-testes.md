@@ -104,7 +104,8 @@ caracterização), comportamento novo (com o teste substituto), decisão que a a
 **Registro dos deltas.** Cada delta tem um identificador `DLT-nn` em `backend/tests/caracterizacao/deltas.py`, com o
 comportamento do legado, o aprovado, os cenários CAR-nn que caracterizam o antigo, o estado e as evidências
 (`arquivo::teste`); `test_rastreabilidade.py` confere o estado esperado de cada um e a existência das evidências.
-`DLT-01` a `DLT-09` correspondem, em outra ordem, às linhas da lista inicial acima; `DLT-10` (IDs monotônicos) e `DLT-11` (permissões tipadas) foram acrescentados nas Operações C e D. Os implementados até aqui são `DLT-07`, `DLT-10` e `DLT-11` (e os de autorização abaixo).
+`DLT-01` a `DLT-09` correspondem, em outra ordem, às linhas da lista inicial acima; `DLT-10` (IDs monotônicos) e `DLT-11` (permissões tipadas) foram acrescentados nas Operações C e D. Todos os deltas estão **implementados**: `DLT-07`, `DLT-10` e `DLT-11` (Operações C e D), os de autorização abaixo
+(`DLT-12` a `DLT-17`) e os de regras de negócio da Operação E (`DLT-01` a `DLT-06`, `DLT-08` e `DLT-09`, tabela a seguir).
 
 **Deltas de autorização (regularização da Operação D, aprovados em 2026-11-17).** Detalhados na
 [seção 7 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md); todos da camada de aplicação e **implementados**:
@@ -117,6 +118,25 @@ comportamento do legado, o aprovado, os cenários CAR-nn que caracterizam o anti
 | DLT-15 | Qualquer um altera a disponibilidade de qualquer um | Própria: livre; de outro: só com `gerir_usuarios` | CAR-72 |
 | DLT-16 | Autoexclusão e histórico conferidos sem olhar a permissão | Autorização é a primeira verificação | CAR-93, CAR-64, CAR-65 |
 | DLT-17 | Solicitante inexistente é indiferente | Recusado com `NaoEncontradoError`; sem administrador padrão | CAR-92 |
+
+**Deltas de regras de negócio (Operação E).** Detalhados na
+[seção 8 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md#8-deltas-de-regras-de-negócio-operação-e-dlt-01-a-dlt-09);
+todos **implementados** no domínio e/ou na aplicação, com evidências separadas por camada:
+
+| Delta | Anterior (legado) | Novo | Cenários do legado |
+|-------|-------------------|------|--------------------|
+| DLT-01 | Técnico é quem tem `apontar_reparo`; o cargo move o usuário | Papel explícito; permissão não muda o papel; `alterar_papel` restrito ao Gestor | CAR-18, 60, 63, 82 |
+| DLT-02 | Atribuição a ausente aceita (só a tela confirma) | Recusada; aceita com `confirmar_ausente` e registrada no histórico | CAR-17, 89 |
+| DLT-03 | Observação em OS encerrada aceita | Recusada para todos | CAR-79 |
+| DLT-04 | Qualquer um com permissão observa | Gestor, responsável e quem abriu, em OS ativa | CAR-39, 79 |
+| DLT-05 | Disponibilidade gravada por rotina da UI | Derivada das OS a cada consulta; ausência manual prevalece | CAR-43, 47 a 52, 81 |
+| DLT-06 | Finalizar sem diagnóstico aceito | Diagnóstico exigido antes de Reparo Finalizado | CAR-34, 83 |
+| DLT-08 | Textos vazios e zero hora aceitos | Obrigatórios e horas maiores que zero | CAR-80 |
+| DLT-09 | Sem `ativo`; só se exclui sem histórico | Usuário inativo não opera nem é atribuível; histórico preservado | CAR-64, 65 |
+
+Nas comparações lado a lado (`test_adaptador_dominio.py`, `test_adaptador_servicos.py`) cada par (estado, operação) que muda
+por estes deltas está **nomeado** em `tests/caracterizacao/divergencias.py`, com o delta e a recusa exata; a tabela não admite
+entrada sobrando e todo outro par continua exigindo igualdade total.
 
 **Regra de exclusão da comparação.** Um cenário só deixa de ser executado contra os serviços (`NAO_REPRODUZIDOS_PELOS_SERVICOS`)
 quando (1) há um delta aprovado e implementado; (2) o cenário está vinculado a ele; (3) o comportamento antigo continua

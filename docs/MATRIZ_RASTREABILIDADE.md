@@ -145,21 +145,24 @@ OPC-01 e OPC-02 são **necessárias para a solução web proposta**, e não exig
 
 ## 5. Decisões aprovadas e requisitos que elas afetam
 
-Referência: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Todas **aprovadas e não implementadas**.
+Referência: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Todas **aprovadas**. D-02 a D-06, a validação de entradas e a
+desativação de usuários foram **implementadas no novo backend** na Operação E (DLT-01 a DLT-06, DLT-08 e DLT-09, seção 8
+daquele documento); as demais seguem não implementadas. A coluna "Situação" das seções 1 a 4 continua descrevendo o
+**baseline** (a CLI legada não foi alterada).
 
 | Decisão | Requisitos afetados | Fase |
 |---------|---------------------|------|
-| D-02 Papéis | E1-USR-02, E1-GES-02 | 02 |
-| D-03 Técnico Ausente | E1-GES-03, E1-OS-02 | 02 |
-| D-04 Apontamentos e observações | E1-OS-05, E1-TEC-02 | 02 |
-| D-05 Disponibilidade | E1-CMP-04, E1-OS-02 | 02 |
-| D-06 Diagnóstico | E1-TEC-04, E1-TEC-03 | 02 |
+| D-02 Papéis | E1-USR-02, E1-GES-02 | 02 (**DLT-01** implementado) |
+| D-03 Técnico Ausente | E1-GES-03, E1-OS-02 | 02 (**DLT-02** implementado) |
+| D-04 Apontamentos e observações | E1-OS-05, E1-TEC-02 | 02 (**DLT-03** e **DLT-04** implementados) |
+| D-05 Disponibilidade | E1-CMP-04, E1-OS-02 | 02 (**DLT-05** implementado) |
+| D-06 Diagnóstico | E1-TEC-04, E1-TEC-03 | 02 (**DLT-06** implementado) |
 | D-11 Datas e fuso | E1-RNF-01, E1-OS-05 | 02 |
 | D-13 Ferramentas de qualidade | E2-SOL-03, E2-SOL-04, E2-SOL-05, OPC-03 | 02 |
 | D-14 Estrutura do backend | E2-ENT-01, E2-ARQ-02 | 02 |
 | D-10 CLI e legado preservados; interface principal web | E2-ENT-01, E2-FRT-01, E1-RNF-03 | 02 (convivência) |
-| Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02, 04 |
-| Desativação de usuários | E1-GES-02, OPC-10 | 02, 03, 06 |
+| Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02 (**DLT-08** implementado no domínio e nos serviços), 04 |
+| Desativação de usuários | E1-GES-02, OPC-10 | 02 (**DLT-09** implementado no modelo e nos serviços), 03, 06 |
 
 Pendentes (sem efeito sobre a situação dos requisitos até serem decididas): D-01 (OPC-01), D-07 (OPC-06), D-08 (OPC-07),
 D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).

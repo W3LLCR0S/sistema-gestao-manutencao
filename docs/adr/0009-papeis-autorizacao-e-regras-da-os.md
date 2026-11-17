@@ -1,7 +1,8 @@
 # ADR-0009 — Papéis, autorização e regras aprovadas da OS
 
-- **Status:** Aprovada (D-02 a D-06). **Não implementada.** O baseline mantém o comportamento descrito em
-  [`AUDITORIA_ARQUITETURAL.md`](../AUDITORIA_ARQUITETURAL.md).
+- **Status:** Aprovada (D-02 a D-06); **implementada no novo backend na Operação E da Fase 02** (DLT-01 a DLT-06, DLT-08
+  e DLT-09; ver a [seção 8 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md#8-deltas-de-regras-de-negócio-operação-e-dlt-01-a-dlt-09)).
+  O baseline e o legado mantêm o comportamento descrito em [`AUDITORIA_ARQUITETURAL.md`](../AUDITORIA_ARQUITETURAL.md).
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0003; AUD-02, AUD-03, AUD-09, AUD-11, AUD-12, AUD-13, AUD-20, AUD-21;
   [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (detalhes e testes por decisão)
