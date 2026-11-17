@@ -263,6 +263,34 @@ def test_dlt18_o_gestor_apto_tambem_nao_e_excluido_quando_e_o_ultimo(amb: Ambien
     assert _gestores_aptos(amb) == [ANA]
 
 
+def test_dlt18_exclusao_do_ultimo_gestor_respeita_a_precedencia_das_recusas(
+    amb: Ambiente,
+) -> None:
+    """Autorização → existência → autoexclusão → histórico → último gestor; sem mutação."""
+    # 1. autorização: quem não gere usuários recebe a recusa de permissão, não a do último gestor
+    antes = _estado(amb)
+    with pytest.raises(PermissaoNegadaError) as sem_permissao:
+        amb.servico_usuarios.excluir(CARLA, ANA)
+    assert sem_permissao.value.codigo is CodigoErro.SEM_PERMISSAO
+    assert _estado(amb) == antes
+    admin = _administrador_nao_gestor(amb)
+    antes = _estado(amb)
+    # 2. existência
+    with pytest.raises(NaoEncontradoError):
+        amb.servico_usuarios.excluir(admin, INEXISTENTE)
+    assert _estado(amb) == antes
+    # 3. autoexclusão (a própria Ana, último gestor, é recusada como autoexclusão)
+    _recusado(amb, CodigoErroAplicacao.AUTOEXCLUSAO, lambda: amb.servico_usuarios.excluir(ANA, ANA))
+    # 4. histórico antes do último gestor: Ana tem histórico (abriu e atribuiu uma OS)
+    atribuida(amb)
+    _recusado(
+        amb,
+        CodigoErroAplicacao.USUARIO_COM_HISTORICO,
+        lambda: amb.servico_usuarios.excluir(admin, ANA),
+    )
+    assert [u.id for u in amb.usuarios.listar() if u.id == ANA] == [ANA]
+
+
 def test_dlt18_mudar_o_papel_de_outro_gestor_preserva_quem_age(amb: Ambiente) -> None:
     eva = _segundo_gestor(amb)
     amb.servico_usuarios.alterar_papel(ANA, eva, Papel.TECNICO)
