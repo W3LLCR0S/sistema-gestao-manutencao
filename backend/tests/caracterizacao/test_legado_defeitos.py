@@ -283,6 +283,10 @@ def test_aud12_abertura_aceita_falha_vazia_ou_so_espacos(f: Fachada, falha: str)
 
 @pytest.mark.cenario("CAR-80")
 def test_aud12_apontamento_aceita_zero_hora_e_intervencao_vazia(f: Fachada) -> None:
+    """O legado aceita zero hora, intervenção vazia e peça sem descrição (REG-E-08). O domínio e os
+    serviços recusam os três (DLT-08 e, para a descrição da peça, DLT-22), por isso este cenário
+    só roda contra o legado (``aplicabilidade.SUBSTITUIDOS_POR_DELTA`` e
+    ``NAO_REPRODUZIDOS_PELOS_SERVICOS``); a quantidade da peça já era validada e continua."""
     numero = os_atribuida(f)
     aceitar(f.apontar_reparo(numero, BRUNO, 0.0, "", (Peca("", 1),)))
     os_ = os_snap(f, numero)
@@ -295,7 +299,15 @@ def test_aud12_apontamento_aceita_zero_hora_e_intervencao_vazia(f: Fachada) -> N
 def test_aud12_demais_textos_obrigatorios_na_tela_sao_aceitos_vazios(
     legado: AdaptadorLegado,
 ) -> None:
-    """Só o legado aceita estes textos vazios: nos serviços e no domínio vale a DLT-08."""
+    """Só o legado aceita estes textos vazios (REG-E-08).
+
+    O teste usa o parecer e a causa-raiz do diagnóstico, o texto da observação, o motivo do
+    cancelamento, o nome do usuário e o nome do equipamento, além do modelo do equipamento, que
+    continua opcional em todos os adaptadores. No domínio e nos serviços os seis primeiros são
+    obrigatórios e recusados: o parecer, a causa-raiz, o motivo do cancelamento e os dois nomes
+    pelo DLT-08, e o texto da observação pelo DLT-22 (REG-E-05). A lista completa, dos campos
+    validados e dos que seguem opcionais, está em ``tests/apoio/campos.py`` e é conferida campo a
+    campo em ``tests/aplicacao/test_campos_obrigatorios.py``."""
     f = legado
     numero = os_atribuida(f)
     aceitar(f.registrar_diagnostico(numero, BRUNO, "", ""))

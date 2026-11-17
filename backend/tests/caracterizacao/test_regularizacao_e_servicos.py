@@ -6,18 +6,30 @@ estado** e que **o que não muda é idêntico** nos dois. Testes de infraestrutu
 (sem marcador ``cenario``); o comportamento antigo está caracterizado nos testes de cenário citados
 em ``deltas.py``.
 
+* DLT-18 (REG-E-01): o último gestor administrativamente apto não é eliminado.
+* DLT-21 (REG-E-04): OS ativas impedem desativar e deixar o papel Técnico.
 * DLT-22 (REG-E-05): observação e descrição de peça obrigatórias.
 * DLT-23 (REG-E-06): disponibilidade manual só ``Disponível`` e ``Ausente``.
 """
 
+from collections.abc import Callable
+
+import pytest
+
+from manutencao.application.erros import CodigoErroAplicacao, RegraDeAplicacaoError
+from manutencao.domain.enums import Papel
+from tests.caracterizacao.adaptador_servicos import AdaptadorServicos
 from tests.caracterizacao.cenarios import (
     ALTA,
     ANA,
     AUSENTE,
     BRUNO,
+    CARGO_GESTOR,
+    CARGO_TECNICO,
     CARLA,
     DISPONIVEL,
     EM_ATENDIMENTO,
+    PERMISSOES_PADRAO_TECNICO,
     TORNO,
 )
 from tests.caracterizacao.fachada import Fachada, Peca, Recusa
@@ -25,6 +37,7 @@ from tests.caracterizacao.fluxos import (
     aceitar,
     estado_global,
     os_atribuida,
+    os_cancelada,
     os_em_execucao,
     os_snap,
     recusada,
@@ -36,6 +49,81 @@ def _disp(f: Fachada, usuario: int) -> str:
     snap = f.usuario(usuario)
     assert snap is not None
     return snap.disponibilidade
+
+
+def _servicos(par: Par) -> AdaptadorServicos:
+    return par.servicos
+
+
+# =========================================================================================
+# DLT-18 — último gestor administrativamente apto (REG-E-01)
+# =========================================================================================
+
+
+def _dar_gestao_ao_tecnico(par: Par) -> None:
+    """Bruno passa a poder gerir usuários sem ser gestor: um solicitante que não é o alvo."""
+    for f in (par.legado, par.servicos):
+        f.definir_permissoes_cargo(CARGO_TECNICO, (*PERMISSOES_PADRAO_TECNICO, "gerir_usuarios"))
+
+
+def test_dlt18_eliminar_o_unico_gestor_o_legado_aceita_e_os_servicos_recusam(par: Par) -> None:
+    _dar_gestao_ao_tecnico(par)
+    antes = estado_global(par.servicos)
+    recusada(par.servicos.remover_usuario(ANA, solicitante=BRUNO), Recusa.ULTIMO_GESTOR)
+    recusada(
+        par.servicos.definir_permissoes_cargo_por(BRUNO, CARGO_GESTOR, ()), Recusa.ULTIMO_GESTOR
+    )
+    assert estado_global(par.servicos) == antes  # nenhuma mutação, nenhum usuário criado
+    aceitar(par.legado.definir_permissoes_cargo_por(BRUNO, CARGO_GESTOR, ()))  # o legado aceita
+    aceitar(par.legado.remover_usuario(ANA, solicitante=BRUNO))
+    assert par.legado.usuario(ANA) is None
+
+
+def test_dlt18_com_outro_gestor_apto_a_operacao_e_aceita_nos_dois(par: Par) -> None:
+    _dar_gestao_ao_tecnico(par)
+    for f in (par.legado, par.servicos):
+        f.cadastrar_usuario("Eva", CARGO_GESTOR)
+    for f in (par.legado, par.servicos):
+        aceitar(f.remover_usuario(ANA, solicitante=BRUNO))
+    assert par.legado.usuarios() == par.servicos.usuarios()
+
+
+# =========================================================================================
+# DLT-21 — OS ativas impedem desativar e deixar o papel Técnico (REG-E-04)
+# =========================================================================================
+
+
+def test_dlt21_trocar_o_tecnico_de_papel_com_os_ativa_o_legado_aceita_e_os_servicos_recusam(
+    par: Par,
+) -> None:
+    """No legado o papel é a permissão: trocar o cargo de Bruno (com OS ativa) para o de gestor o
+    tira da lista de técnicos e deixa a OS com quem já não é técnico. Nos serviços o papel é
+    explícito: a mudança é uma operação própria e, com OS ativa, é recusada; desativar também."""
+    for f in (par.legado, par.servicos):
+        os_atribuida(f, tecnico=BRUNO)
+    aceitar(par.legado.alterar_cargo_por(ANA, BRUNO, CARGO_GESTOR))
+    assert par.legado.tecnicos() == (CARLA,)  # Bruno deixou de ser técnico
+    assert os_snap(par.legado, 1).tecnico_id == BRUNO  # e a OS continua com ele
+    servicos = _servicos(par)._c
+    antes = estado_global(par.servicos)
+    operacoes: tuple[Callable[[], object], ...] = (
+        lambda: servicos.servico_usuarios.alterar_papel(ANA, BRUNO, Papel.GESTOR),
+        lambda: servicos.servico_usuarios.desativar(ANA, BRUNO),
+    )
+    for operacao in operacoes:
+        with pytest.raises(RegraDeAplicacaoError) as capturado:
+            operacao()
+        assert capturado.value.codigo is CodigoErroAplicacao.USUARIO_COM_OS_ATIVAS
+    assert estado_global(par.servicos) == antes
+    assert os_snap(par.servicos, 1).tecnico_id == BRUNO  # nada foi reatribuído nem cancelado
+
+
+def test_dlt21_com_a_os_encerrada_a_desativacao_e_aceita_nos_servicos(par: Par) -> None:
+    os_cancelada(par.servicos, atribuida=True, tecnico=BRUNO)
+    servicos = _servicos(par)._c
+    servicos.servico_usuarios.desativar(ANA, BRUNO)
+    servicos.servico_usuarios.alterar_papel(ANA, CARLA, Papel.GESTOR)
+    assert os_snap(par.servicos, 1).tecnico_id == BRUNO  # o histórico não é tocado
 
 
 # =========================================================================================

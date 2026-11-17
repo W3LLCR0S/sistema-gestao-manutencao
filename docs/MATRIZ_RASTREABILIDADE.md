@@ -141,7 +141,7 @@ OPC-01 e OPC-02 são **necessárias para a solução web proposta**, e não exig
 | OPC-07 | Opcional | Proposta da equipe, D-08 pendente | Importação dos dados JSON existentes para o banco | Não atendido | Decisão e autorização pendentes | 03 | Importação idempotente com dry-run, contagens e reversão, executada **somente com autorização específica** |
 | OPC-08 | Opcional | Proposta da equipe, D-09 pendente | Publicação em ambiente de produção | Não atendido | Hospedagem não decidida | 10 | URLs verificadas e persistência real, **somente com autorização específica** |
 | OPC-09 | Opcional (melhoria aprovada) | AUD-12 | Validação de entradas no servidor: campos obrigatórios, números válidos, duração > 0 | Não atendido | O baseline aceita entradas vazias e zero hora (executado) | 02, 04 | Entrada inválida recusada sem criar registro nem histórico, pela API e pelo domínio; delta de comportamento registrado |
-| OPC-10 | Opcional (melhoria aprovada) | AUD-08, AUD-10 | Desativação de usuários (`ativo`), sem excluir o histórico; inativos não autenticam nem operam | Não atendido | Campo inexistente; política para OS atribuídas a inativos **não decidida** | 02, 03, 06 | Usuário inativo recusado em login e operações; referências históricas preservadas; nenhuma reatribuição automática |
+| OPC-10 | Opcional (melhoria aprovada) | AUD-08, AUD-10 | Desativação de usuários (`ativo`), sem excluir o histórico; inativos não autenticam nem operam | Não atendido | Campo inexistente; política completa para OS atribuídas a inativos **não decidida** (a desativação é recusada com OS ativas: REG-E-04) | 02, 03, 06 | Usuário inativo recusado em login e operações; referências históricas preservadas; nenhuma reatribuição automática |
 
 ## 5. Decisões aprovadas e requisitos que elas afetam
 
@@ -163,6 +163,21 @@ daquele documento); as demais seguem não implementadas. A coluna "Situação" d
 | D-10 CLI e legado preservados; interface principal web | E2-ENT-01, E2-FRT-01, E1-RNF-03 | 02 (convivência) |
 | Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02 (**DLT-08** implementado no domínio e nos serviços), 04 |
 | Desativação de usuários | E1-GES-02, OPC-10 | 02 (**DLT-09** implementado no modelo e nos serviços), 03, 06 |
+| Regularização da Operação E (REG-E-01 a REG-E-08) | E1-GES-02, E1-USR-02, E1-OS-05, E1-TEC-02, OPC-09, OPC-10 | 02 (**DLT-18** a **DLT-23** implementados; ver abaixo) |
+
+**Regularização da Operação E** (aprovada em 2026-11-17; [`DECISOES_APROVADAS.md`, seção 9](DECISOES_APROVADAS.md#9-regularização-da-operação-e-reg-e-01-a-reg-e-08)).
+Só no novo backend; o legado não mudou. REG-E-07 e REG-E-08 corrigem a rastreabilidade e não mudam comportamento.
+
+| Decisão | Registro | Requisitos afetados | Efeito |
+|---------|----------|---------------------|--------|
+| REG-E-01 | DLT-18 | E1-GES-02, OPC-10 | O último gestor administrativamente apto não é desativado, excluído nem rebaixado |
+| REG-E-02 | DLT-19 | E1-USR-02, E1-GES-02 | Alterar o papel exige Gestor ativo com `gerir_usuarios` (ratificada) |
+| REG-E-03 | DLT-20 | E1-GES-02, OPC-10 | Ninguém se rebaixa de Gestor nem desativa a própria conta (ratificada) |
+| REG-E-04 | DLT-21 | E1-GES-02, E1-OS-02, OPC-10 | OS ativa impede desativar e deixar o papel Técnico |
+| REG-E-05 | DLT-22 | E1-OS-05, E1-TEC-02, OPC-09 | Observação e descrição de peça obrigatórias |
+| REG-E-06 | DLT-23 | E1-CMP-04, E1-OS-02 | Disponibilidade manual só `Disponível` e `Ausente`; política única |
+| REG-E-07 | REG-E-07 | E1-TEC-04 | Variante do CAR-37 ligada ao DLT-06 |
+| REG-E-08 | REG-E-08 | OPC-09 | Docstring e campos do CAR-80 conferidos |
 
 Pendentes (sem efeito sobre a situação dos requisitos até serem decididas): D-01 (OPC-01), D-07 (OPC-06), D-08 (OPC-07),
 D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).

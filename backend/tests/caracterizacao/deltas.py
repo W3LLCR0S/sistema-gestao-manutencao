@@ -13,12 +13,19 @@ evidência existe.
 Estado atual: DLT-07 (datas UTC) e DLT-11 (permissões tipadas), da Operação C, DLT-10 (IDs
 monotônicos), da Operação D, DLT-12 a DLT-17 (autorização nos serviços, regularização da Operação
 D) e DLT-01 a DLT-06, DLT-08 e DLT-09 (regras de negócio, Operação E) estão implementados.
+DLT-18 a DLT-23 (regularização da Operação E: REG-E-01 a REG-E-06) também; REG-E-07 e REG-E-08
+são correções de rastreabilidade, sem delta de comportamento (``REGULARIZACOES_E``).
 
 DLT-12 a DLT-17 foram **aprovados expressamente** em 2026-11-17 (``APROVACAO_REGULARIZACAO_D``) e
 registram, além dos campos de sempre, a justificativa, a camada responsável e o teste do
 comportamento legado (``testes_legado``). Os deltas da Operação E vêm de decisões aprovadas em
 2026-11-15 e foram implementados após a autorização da Operação E (``APROVACAO_OPERACAO_E``) e
 registram os mesmos campos. Os identificadores anteriores não foram alterados.
+
+Os DLT-18 a DLT-23 vêm da regularização da Operação E (``APROVACAO_REGULARIZACAO_E``) e dão a cada
+decisão ``REG-E-nn`` um registro definitivo (``Delta.regularizacao``); a tabela
+``REGULARIZACOES_E`` liga as oito decisões ao seu identificador definitivo. Nenhum identificador
+anterior foi renumerado.
 """
 
 from dataclasses import dataclass
@@ -46,6 +53,7 @@ class Delta:
     camada: str = ""  # camada responsável: domain, application, infrastructure...
     testes_legado: tuple[str, ...] = ()  # "arquivo::teste" que mostram o comportamento antigo
     aprovacao: str = ""  # data e referência da aprovação
+    regularizacao: str = ""  # REG-E-nn que o delta registra (DLT-18 a DLT-23)
 
 
 APROVACAO_REGULARIZACAO_D = (
@@ -58,6 +66,14 @@ APROVACAO_OPERACAO_E = (
     "5.1 e 5.2; docs/adr/0009); implementação da Operação E autorizada em 2026-11-17"
 )
 
+APROVACAO_REGULARIZACAO_E = (
+    "2026-11-17: autorização expressa do usuário (regularização da Operação E, REG-E-01 a "
+    "REG-E-08); docs/DECISOES_APROVADAS.md, seção 9, docs/adr/0006 e docs/adr/0009"
+)
+
+_RGA = "aplicacao/test_regularizacao_e.py::"
+_RGD = "dominio/test_regularizacao_e.py::"
+_RGC = "caracterizacao/test_regularizacao_e_servicos.py::"
 _DOM = "dominio/test_operacao_e.py::"
 _ORD = "dominio/test_ordem_servico.py::"
 _ENT = "dominio/test_entidades.py::"
@@ -609,6 +625,408 @@ DELTAS: tuple[Delta, ...] = (
         (f"{_LEG}test_aud02_operacoes_de_gestao_ignoram_quem_pede_inclusive_um_inexistente",),
         APROVACAO_REGULARIZACAO_D,
     ),
+    Delta(
+        "DLT-18",
+        "REG-E-01 (regularização da Operação E)",
+        "Proteção do último gestor administrativamente apto",
+        "Nada impede que o sistema fique sem quem administre usuários: o último gestor pode ser "
+        "excluído, ter o cargo trocado ou o cargo sem a permissão gerir_usuarios (só a "
+        "autoproteção "
+        "do próprio gestor, na tela, e o DLT-12 o impedem de agir contra si mesmo).",
+        "Gestor administrativamente apto é quem tem o papel Gestor, está ativo e tem "
+        "gerir_usuarios. "
+        "Desativar, excluir, mudar o papel, mudar o cargo ou alterar as permissões de um cargo "
+        "(considerando todos os usuários que o compartilham) é recusado, com conflito tipado "
+        "(ultimo_gestor) e sem mutação, quando eliminaria o último gestor apto. Não cria usuário, "
+        "não concede permissão e não há recuperação administrativa.",
+        ("CAR-71",),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt18_o_gestor_apto_e_papel_gestor_ativo_e_com_gerir_usuarios",
+            f"{_RGA}test_dlt18_um_unico_gestor_apto_nao_pode_ser_desativado",
+            f"{_RGA}test_dlt18_com_dois_gestores_aptos_um_deles_pode_ser_desativado",
+            f"{_RGA}test_dlt18_o_gestor_sem_gerir_usuarios_nao_conta_como_outro_gestor",
+            f"{_RGA}test_dlt18_o_gestor_inativo_nao_conta_como_outro_gestor",
+            f"{_RGA}test_dlt18_o_tecnico_com_gerir_usuarios_nao_conta_como_gestor",
+            f"{_RGA}test_dlt18_alterar_o_cargo_do_ultimo_gestor_para_um_sem_gestao_e_recusado",
+            f"{_RGA}test_dlt18_alterar_o_cargo_para_um_que_preserva_a_gestao_e_aceito",
+            f"{_RGA}test_dlt18_retirar_gerir_usuarios_de_um_cargo_compartilhado_considera_todos_os_usuarios",
+            f"{_RGA}test_dlt18_o_cargo_compartilhado_pode_perder_a_gestao_se_outro_gestor_permanece",
+            f"{_RGA}test_dlt18_alterar_permissoes_do_cargo_preservando_a_gestao_e_aceito",
+            f"{_RGA}test_dlt18_o_gestor_apto_tambem_nao_e_excluido_quando_e_o_ultimo",
+            f"{_RGA}test_dlt18_mudar_o_papel_de_outro_gestor_preserva_quem_age",
+            f"{_RGA}test_dlt18_sem_nenhum_gestor_apto_antes_a_regra_nao_impede_o_que_nao_o_elimina",
+            f"{_RGA}test_dlt18_a_recusa_nao_cria_usuario_nem_concede_permissao",
+            f"{_RGA}test_dlt18_a_autorizacao_e_a_primeira_verificacao",
+            f"{_RGD}test_dlt18_o_gestor_apto_exige_papel_gestor_ativo_e_gerir_usuarios",
+            f"{_RGD}test_dlt18_o_tecnico_com_gerir_usuarios_nao_e_gestor_administrativo",
+            f"{_RGC}test_dlt18_eliminar_o_unico_gestor_o_legado_aceita_e_os_servicos_recusam",
+            f"{_RGC}test_dlt18_com_outro_gestor_apto_a_operacao_e_aceita_nos_dois",
+        ),
+        "O sistema não pode perder, por uma operação comum, a última pessoa capaz de administrar "
+        "usuários e permissões: sem recuperação administrativa, o estado seria irreversível.",
+        "application",
+        (f"{_LEG}test_aud09_dominio_aceita_o_gestor_remover_o_proprio_acesso_de_gestao",),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-01",
+    ),
+    Delta(
+        "DLT-19",
+        "REG-E-02 (regularização da Operação E)",
+        "Alteração de papel: Gestor ativo com gerir_usuarios (ratificação)",
+        "O papel era a permissão apontar_reparo e mudava com o cargo (AUD-20); não havia operação "
+        "de alterar o papel.",
+        "Ratificada a regra do DLT-01: alterar o papel exige, ao mesmo tempo, o papel Gestor, o "
+        "usuário ativo e a permissão gerir_usuarios; uma só condição não basta. A exigência de "
+        "papel Gestor não se estende às demais operações de gestão, que dependem só de permissão. "
+        "A precedência de autorização (DLT-16, DLT-17) é preservada.",
+        ("CAR-63",),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt19_alterar_o_papel_exige_gestor_ativo_com_gerir_usuarios",
+            f"{_RGA}test_dlt19_a_exigencia_de_papel_gestor_nao_se_estende_as_outras_operacoes_de_gestao",
+            f"{_RGA}test_dlt19_a_precedencia_de_autorizacao_e_mantida",
+            f"{_AOE}test_dlt01_alterar_papel_e_restrito_ao_gestor_mesmo_com_a_permissao_de_gerir_usuarios",
+            f"{_AOE}test_dlt01_um_gestor_sem_a_permissao_de_gerir_usuarios_tambem_e_recusado",
+            f"{_DOM}test_dlt01_o_papel_nao_depende_das_permissoes",
+            f"{_CMP}test_dlt01_mudar_o_cargo_move_o_usuario_no_legado_e_so_as_permissoes_nos_servicos",
+        ),
+        "O papel é uma identidade administrativa: quem o altera precisa ser, ele próprio, um "
+        "gestor "
+        "em condições de administrar. Ratifica a regra já implementada e a delimita.",
+        "application",
+        (f"{_CAD}test_alterar_o_cargo_move_o_usuario_entre_tecnicos_e_gestores",),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-02",
+    ),
+    Delta(
+        "DLT-20",
+        "REG-E-03 (regularização da Operação E)",
+        "Autoproteção estendida: papel Gestor e conta própria (ratificação)",
+        "Só a tela impedia o gestor de excluir a si mesmo e de retirar o próprio acesso de gestão; "
+        "não havia papel nem desativação.",
+        "Ratificadas as proteções já implementadas: um gestor não retira de si mesmo o papel "
+        "Gestor e ninguém desativa a própria conta. Complementam o DLT-12, com o erro tipado "
+        "autoremocao_de_acesso_de_gestao (adequado: perder o papel ou a conta é perder o próprio "
+        "acesso) e sem mutação. Nenhuma outra restrição de autoproteção foi criada.",
+        ("CAR-71", "CAR-64"),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt20_um_gestor_nao_retira_de_si_mesmo_o_papel_gestor",
+            f"{_RGA}test_dlt20_ninguem_desativa_a_propria_conta",
+            f"{_RGA}test_dlt20_a_autoprotecao_vem_antes_do_ultimo_gestor",
+            f"{_RGA}test_dlt20_nao_ha_outras_restricoes_de_autoprotecao",
+            f"{_AOE}test_dlt01_ninguem_deixa_de_ser_gestor_por_conta_propria",
+            f"{_AOE}test_dlt09_ninguem_desativa_a_si_mesmo",
+            f"{_PAR}test_dlt12_o_legado_permite_retirar_o_proprio_acesso_e_os_servicos_recusam",
+        ),
+        "Uma conta que se desativa, ou um gestor que se rebaixa, não tem como desfazer a própria "
+        "ação sem outro gestor: a recusa evita o autobloqueio. Ratifica o comportamento existente.",
+        "application",
+        (
+            f"{_LEG}test_aud09_dominio_aceita_o_gestor_remover_o_proprio_acesso_de_gestao",
+            f"{_CAD}test_gestor_nao_pode_excluir_o_proprio_usuario",
+        ),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-03",
+    ),
+    Delta(
+        "DLT-21",
+        "REG-E-04 (regularização da Operação E)",
+        "OS ativas impedem desativar e deixar o papel Técnico",
+        "No legado o papel é a permissão: trocar o cargo do técnico o tira da lista e deixa a OS "
+        "com quem já não é técnico; não há desativação. Nenhuma regra relaciona a mudança com as "
+        "OS sob a responsabilidade do usuário.",
+        "Quem tem OS ativa (fora de Concluída e Cancelada) atribuída a si não é desativado nem "
+        "deixa o papel Técnico: conflito tipado (usuario_com_os_ativas), sem mutação, com "
+        "usuário, OS, histórico e identificadores preservados. Nada é reatribuído nem cancelado, "
+        "o histórico não é alterado e a mudança de cargo que preserva o papel Técnico não é "
+        "impedida. A política completa de transferência continua pendente.",
+        ("CAR-63",),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt21_usuario_com_os_ativa_nao_e_desativado",
+            f"{_RGA}test_dlt21_tecnico_com_os_ativa_nao_muda_de_papel",
+            f"{_RGA}test_dlt21_com_a_os_encerrada_a_desativacao_e_a_mudanca_de_papel_sao_aceitas",
+            f"{_RGA}test_dlt21_usuario_sem_os_e_desativado_e_muda_de_papel",
+            f"{_RGA}test_dlt21_so_conta_a_os_sob_responsabilidade_do_usuario",
+            f"{_RGA}test_dlt21_a_mudanca_de_cargo_que_preserva_o_papel_tecnico_nao_e_impedida",
+            f"{_RGA}test_dlt21_o_gestor_resolve_as_os_a_mao_e_entao_desativa",
+            f"{_RGA}test_dlt21_desativar_quem_ja_esta_inativo_continua_idempotente",
+            f"{_RGA}test_dlt21_a_autorizacao_vem_antes_da_regra_das_os",
+            f"{_RGA}test_dlt21_nao_cancela_nem_reatribui_automaticamente",
+            f"{_AOE}test_dlt01_mudar_o_papel_nao_reatribui_as_os",
+            f"{_AOE}test_dlt09_desativar_preserva_o_historico_e_nao_reatribui_as_os",
+            f"{_DOM}test_dlt01_o_papel_nao_depende_das_permissoes",
+            f"{_RGC}test_dlt21_trocar_o_tecnico_de_papel_com_os_ativa_o_legado_aceita_e_os_servicos_recusam",
+            f"{_RGC}test_dlt21_com_a_os_encerrada_a_desativacao_e_aceita_nos_servicos",
+        ),
+        "Desativar ou rebaixar quem tem OS em andamento deixaria a OS com um responsável que não "
+        "pode agir: o gestor deve resolver a OS antes, sem automatismos.",
+        "application",
+        (f"{_CAD}test_alterar_o_cargo_move_o_usuario_entre_tecnicos_e_gestores",),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-04",
+    ),
+    Delta(
+        "DLT-22",
+        "REG-E-05 (regularização da Operação E)",
+        "Campos obrigatórios: observação e descrição de peça",
+        "O domínio aceita texto de observação e descrição de peça vazios ou só com espaços (só a "
+        "tela os exigia).",
+        "Ampliação do DLT-08: o texto da observação de OS e a descrição da peça utilizada são "
+        "obrigatórios (texto não vazio depois de remover os espaços das extremidades). Modelo do "
+        "equipamento, teste funcional, e-mail e escala seguem opcionais. A observação é validada "
+        "depois da permissão, do vínculo e do estado; na peça, a quantidade antes da descrição; "
+        "nenhuma recusa deixa mutação parcial.",
+        ("CAR-80",),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt22_observacao_vazia_ou_so_com_espacos_e_recusada_sem_mutacao",
+            f"{_RGA}test_dlt22_observacao_valida_e_aceita_e_guardada_como_informada",
+            f"{_RGA}test_dlt22_precedencia_autorizacao_vinculo_estado_e_so_depois_o_conteudo",
+            f"{_RGA}test_dlt22_peca_com_descricao_vazia_e_recusada_e_a_os_nao_inicia_a_execucao",
+            f"{_RGA}test_dlt22_uma_peca_invalida_entre_varias_recusa_o_apontamento_inteiro",
+            f"{_RGA}test_dlt22_peca_valida_e_aceita_com_o_texto_como_informado",
+            f"{_RGA}test_dlt22_a_ordem_herdada_de_pecas_e_horas_e_preservada",
+            f"{_RGA}test_dlt22_os_campos_nao_listados_continuam_opcionais",
+            "aplicacao/test_campos_obrigatorios.py::test_a_tabela_cobre_exatamente_os_campos_documentados",
+            "aplicacao/test_campos_obrigatorios.py::test_campo_obrigatorio_vazio_ou_so_com_espacos_e_recusado_sem_mutacao",
+            "aplicacao/test_campos_obrigatorios.py::test_campo_sem_validacao_continua_aceitando_o_vazio",
+            f"{_RGD}test_dlt22_observacao_vazia_ou_so_com_espacos_e_recusada_sem_alterar_a_os",
+            f"{_RGD}test_dlt22_observacao_com_texto_e_aceita_e_guardada_exatamente_como_informada",
+            f"{_RGD}test_dlt22_precedencia_permissao_vinculo_estado_e_depois_o_conteudo",
+            f"{_RGD}test_dlt22_o_instante_invalido_nao_mascara_a_recusa_do_conteudo",
+            f"{_RGD}test_dlt22_peca_com_descricao_vazia_ou_so_com_espacos_e_recusada",
+            f"{_RGD}test_dlt22_peca_valida_guarda_a_descricao_como_informada",
+            f"{_RGD}test_dlt22_a_quantidade_e_verificada_antes_da_descricao",
+            f"{_RGD}test_dlt22_peca_invalida_nao_inicia_a_execucao_da_os",
+            f"{_RGD}test_dlt22_os_campos_do_delta_anterior_continuam_validados",
+            f"{_RGC}test_dlt22_observacao_vazia_o_legado_aceita_e_os_servicos_recusam",
+            f"{_RGC}test_dlt22_peca_sem_descricao_o_legado_aceita_e_os_servicos_recusam",
+            f"{_RGC}test_dlt22_com_texto_valido_o_resultado_e_o_estado_sao_iguais_nos_dois",
+            f"{_RGC}test_dlt22_quantidade_nao_positiva_continua_igual_nos_dois",
+        ),
+        "A interface legada já exigia estes dois textos (ui/tela_ordens.py, ui/tela_tecnico.py); "
+        "a regra deve valer no servidor, para qualquer interface, como os demais campos do DLT-08.",
+        "domain",
+        (
+            f"{_LEG}test_aud12_apontamento_aceita_zero_hora_e_intervencao_vazia",
+            f"{_LEG}test_aud12_demais_textos_obrigatorios_na_tela_sao_aceitos_vazios",
+        ),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-05",
+    ),
+    Delta(
+        "DLT-23",
+        "REG-E-06 (regularização da Operação E)",
+        "Disponibilidade manual: só Disponível e Ausente; Em atendimento é derivado",
+        "O valor manual aceita qualquer disponibilidade, inclusive Em atendimento, e a "
+        "autorização das duas vias de alteração não era única.",
+        "A disponibilidade manual aceita exclusivamente Disponível e Ausente (recusa de domínio, "
+        "sem mutação); Em atendimento é derivado das OS. ServicoDeUsuarios.definir_disponibilidade "
+        "e ServicoDeDisponibilidade.alterar_disponibilidade delegam à mesma política (DLT-15): "
+        "a própria, livre; a de terceiros, com gerir_usuarios. A ausência manual continua "
+        "prevalecendo sobre a derivada; sem rotina em segundo plano.",
+        ("CAR-51", "CAR-52"),
+        "E",
+        StatusDelta.IMPLEMENTADO,
+        (
+            f"{_RGA}test_dlt23_disponivel_e_ausente_sao_aceitos_como_valor_manual",
+            f"{_RGA}test_dlt23_em_atendimento_nao_pode_ser_gravado_manualmente",
+            f"{_RGA}test_dlt23_em_atendimento_e_exclusivamente_derivado_das_os",
+            f"{_RGA}test_dlt23_o_usuario_altera_a_propria_disponibilidade_sem_permissao_de_gestao",
+            f"{_RGA}test_dlt23_o_gestor_autorizado_altera_a_de_terceiros",
+            f"{_RGA}test_dlt23_terceiro_sem_autorizacao_e_recusado_sem_mutacao",
+            f"{_RGA}test_dlt23_ator_inexistente_e_inativo_sao_recusados",
+            f"{_RGA}test_dlt23_as_duas_vias_decidem_igual_e_deixam_o_mesmo_estado",
+            f"{_RGA}test_dlt23_as_duas_vias_delegam_a_mesma_politica_sem_duplicar_a_autorizacao",
+            f"{_RGD}test_dlt23_so_disponivel_e_ausente_sao_valores_manuais",
+            f"{_RGD}test_dlt23_em_atendimento_e_recusado_como_valor_manual",
+            f"{_RGD}test_dlt23_um_valor_desconhecido_tambem_e_recusado",
+            f"{_RGD}test_dlt23_o_usuario_grava_disponivel_e_ausente_e_recusa_em_atendimento_sem_mutacao",
+            f"{_RGD}test_dlt23_em_atendimento_continua_sendo_derivado_e_a_ausencia_prevalece",
+            f"{_RGC}test_dlt23_em_atendimento_manual_o_legado_aceita_e_os_servicos_recusam",
+            f"{_RGC}test_dlt23_disponivel_e_ausente_manuais_sao_iguais_nos_dois",
+            f"{_RGC}test_dlt23_a_ausencia_manual_prevalece_sobre_a_os_em_execucao_nos_servicos",
+        ),
+        "Gravar Em atendimento à mão contradiria a derivação das OS (D-05) e permitiria um valor "
+        "que o próximo cálculo desmente; duas implementações da autorização poderiam divergir.",
+        "domain",
+        (
+            f"{_DSP}test_disponibilidade_manual_e_aceita_para_qualquer_usuario_sem_permissao",
+            f"{_DSP}test_rotina_so_recalcula_tecnicos_e_nunca_altera_o_gestor",
+        ),
+        APROVACAO_REGULARIZACAO_E,
+        "REG-E-06",
+    ),
 )
 
 DELTAS_POR_ID: dict[str, Delta] = {d.id: d for d in DELTAS}
+
+
+@dataclass(frozen=True)
+class Regularizacao:
+    """Uma decisão de regularização da Operação E (REG-E-nn) e o seu registro definitivo.
+
+    ``registro`` é o identificador definitivo: um ``DLT-nn`` (decisões que mudam ou ratificam
+    comportamento) ou o próprio ``REG-E-nn`` (correções de rastreabilidade, sem delta). Os nove
+    itens exigidos na aprovação são: identificador, regra anterior, regra aprovada, justificativa,
+    camada responsável, testes, evidência de implementação, data e situação final.
+    """
+
+    id: str
+    titulo: str
+    registro: str
+    regra_anterior: str
+    regra_aprovada: str
+    justificativa: str
+    camada: str
+    testes: tuple[str, ...]  # ``arquivo::teste`` relativos a ``backend/tests/``
+    implementacao: tuple[str, ...]  # caminhos relativos a ``backend/``
+    data: str
+    situacao: str
+
+
+_SRC = "src/manutencao/"
+_REGULARIZACAO_DATA = "2026-11-17"
+_IMPLEMENTADA = "Implementada e testada"
+
+REGULARIZACOES_E: tuple[Regularizacao, ...] = (
+    Regularizacao(
+        "REG-E-01",
+        "Proteção do último gestor",
+        "DLT-18",
+        "Nada impedia o sistema de ficar sem gestor administrativamente apto.",
+        DELTAS_POR_ID["DLT-18"].aprovado,
+        DELTAS_POR_ID["DLT-18"].justificativa,
+        "application (com a condição de gestor apto no domínio)",
+        DELTAS_POR_ID["DLT-18"].evidencia,
+        (
+            f"{_SRC}application/servicos/usuarios.py",
+            f"{_SRC}domain/usuario.py",
+            f"{_SRC}application/erros.py",
+        ),
+        _REGULARIZACAO_DATA,
+        _IMPLEMENTADA,
+    ),
+    Regularizacao(
+        "REG-E-02",
+        "Alteração de papel (ratificação)",
+        "DLT-19",
+        "alterar_papel exigia papel Gestor e gerir_usuarios (DLT-01), sem decisão expressa.",
+        DELTAS_POR_ID["DLT-19"].aprovado,
+        DELTAS_POR_ID["DLT-19"].justificativa,
+        "application",
+        DELTAS_POR_ID["DLT-19"].evidencia,
+        (f"{_SRC}application/servicos/usuarios.py",),
+        _REGULARIZACAO_DATA,
+        "Ratificada (já implementada) e testada",
+    ),
+    Regularizacao(
+        "REG-E-03",
+        "Autoproteção estendida (ratificação)",
+        "DLT-20",
+        "Ninguém se rebaixava de Gestor nem desativava a própria conta, sem decisão expressa.",
+        DELTAS_POR_ID["DLT-20"].aprovado,
+        DELTAS_POR_ID["DLT-20"].justificativa,
+        "application",
+        DELTAS_POR_ID["DLT-20"].evidencia,
+        (f"{_SRC}application/servicos/usuarios.py",),
+        _REGULARIZACAO_DATA,
+        "Ratificada (já implementada) e testada",
+    ),
+    Regularizacao(
+        "REG-E-04",
+        "Ordens de serviço ativas",
+        "DLT-21",
+        "Desativar ou mudar o papel de quem tinha OS ativas era aceito, sem reatribuição.",
+        DELTAS_POR_ID["DLT-21"].aprovado,
+        DELTAS_POR_ID["DLT-21"].justificativa,
+        "application",
+        DELTAS_POR_ID["DLT-21"].evidencia,
+        (f"{_SRC}application/servicos/usuarios.py", f"{_SRC}application/erros.py"),
+        _REGULARIZACAO_DATA,
+        _IMPLEMENTADA,
+    ),
+    Regularizacao(
+        "REG-E-05",
+        "Campos obrigatórios (observação e peça)",
+        "DLT-22",
+        "Observação e descrição de peça vazias eram aceitas (DLT-08 não as cobria).",
+        DELTAS_POR_ID["DLT-22"].aprovado,
+        DELTAS_POR_ID["DLT-22"].justificativa,
+        "domain",
+        DELTAS_POR_ID["DLT-22"].evidencia,
+        (f"{_SRC}domain/ordem_servico.py", f"{_SRC}domain/peca_material.py"),
+        _REGULARIZACAO_DATA,
+        _IMPLEMENTADA,
+    ),
+    Regularizacao(
+        "REG-E-06",
+        "Disponibilidade manual e derivada",
+        "DLT-23",
+        "O valor manual aceitava Em atendimento e as duas vias tinham regras próprias.",
+        DELTAS_POR_ID["DLT-23"].aprovado,
+        DELTAS_POR_ID["DLT-23"].justificativa,
+        "domain e application",
+        DELTAS_POR_ID["DLT-23"].evidencia,
+        (
+            f"{_SRC}domain/disponibilidade.py",
+            f"{_SRC}domain/usuario.py",
+            f"{_SRC}application/servicos/politica_de_disponibilidade.py",
+            f"{_SRC}application/servicos/disponibilidade.py",
+            f"{_SRC}application/servicos/usuarios.py",
+        ),
+        _REGULARIZACAO_DATA,
+        _IMPLEMENTADA,
+    ),
+    Regularizacao(
+        "REG-E-07",
+        "Rastreabilidade do CAR-37",
+        "REG-E-07",
+        "O teste do CAR-37 que só roda no legado (conclusão sem diagnóstico) não tinha o vínculo "
+        "com o DLT-06 registrado, e a exclusão da variante podia ser lida como a do cenário todo.",
+        "O vínculo com o DLT-06 está registrado em VARIANTES_SOMENTE_NO_LEGADO "
+        "(aplicabilidade.py) e conferido por teste: só a variante é tratada à parte; o cenário "
+        "segue executado em todos os adaptadores e as expectativas do legado ficam intactas.",
+        "Evita que a exclusão de uma variante seja lida como divergência do cenário inteiro e "
+        "deixa explícito por que o estado não é comparável: o DLT-06 o torna inalcançável.",
+        "tests (caracterização)",
+        (
+            "caracterizacao/test_rastreabilidade.py::test_a_variante_so_no_legado_do_car_37_esta_ligada_ao_dlt_06",
+            "caracterizacao/test_rastreabilidade.py::test_o_car_37_nao_e_classificado_como_divergente_nem_excluido_por_inteiro",
+            "caracterizacao/test_rastreabilidade.py::test_toda_variante_so_no_legado_e_um_teste_do_legado_com_o_marcador_do_cenario",
+        ),
+        ("tests/caracterizacao/aplicabilidade.py", "tests/caracterizacao/test_tecnico.py"),
+        _REGULARIZACAO_DATA,
+        "Registrada e testada",
+    ),
+    Regularizacao(
+        "REG-E-08",
+        "Docstring do CAR-80",
+        "REG-E-08",
+        "O docstring do teste do legado do CAR-80 afirmava que o domínio e os serviços recusam "
+        "textos que ainda aceitavam (observação, descrição de peça).",
+        "Os docstrings e a documentação listam exatamente os campos validados e os não "
+        "validados, a partir de tests/apoio/campos.py, conferido campo a campo nos serviços.",
+        "Documentação que diz o que o código faz: o texto não pode esconder uma divergência.",
+        "tests (caracterização)",
+        (
+            "aplicacao/test_campos_obrigatorios.py::test_a_tabela_cobre_exatamente_os_campos_documentados",
+            "aplicacao/test_campos_obrigatorios.py::test_campo_obrigatorio_vazio_ou_so_com_espacos_e_recusado_sem_mutacao",
+            "aplicacao/test_campos_obrigatorios.py::test_campo_sem_validacao_continua_aceitando_o_vazio",
+            "caracterizacao/test_rastreabilidade.py::test_a_documentacao_lista_exatamente_os_campos_obrigatorios_e_os_nao_validados",
+        ),
+        ("tests/apoio/campos.py", "tests/caracterizacao/test_legado_defeitos.py"),
+        _REGULARIZACAO_DATA,
+        "Corrigido e testado",
+    ),
+)
+
+REGULARIZACOES_POR_ID: dict[str, Regularizacao] = {r.id: r for r in REGULARIZACOES_E}

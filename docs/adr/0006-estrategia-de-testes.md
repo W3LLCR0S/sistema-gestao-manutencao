@@ -105,7 +105,9 @@ caracterização), comportamento novo (com o teste substituto), decisão que a a
 comportamento do legado, o aprovado, os cenários CAR-nn que caracterizam o antigo, o estado e as evidências
 (`arquivo::teste`); `test_rastreabilidade.py` confere o estado esperado de cada um e a existência das evidências.
 `DLT-01` a `DLT-09` correspondem, em outra ordem, às linhas da lista inicial acima; `DLT-10` (IDs monotônicos) e `DLT-11` (permissões tipadas) foram acrescentados nas Operações C e D. Todos os deltas estão **implementados**: `DLT-07`, `DLT-10` e `DLT-11` (Operações C e D), os de autorização abaixo
-(`DLT-12` a `DLT-17`) e os de regras de negócio da Operação E (`DLT-01` a `DLT-06`, `DLT-08` e `DLT-09`, tabela a seguir).
+(`DLT-12` a `DLT-17`) e os de regras de negócio da Operação E (`DLT-01` a `DLT-06`, `DLT-08` e `DLT-09`, tabela a seguir). A
+**regularização da Operação E** acrescenta `DLT-18` a `DLT-23` (decisões `REG-E-01` a `REG-E-06`) sem renumerar os
+anteriores; `REG-E-07` e `REG-E-08` são correções de rastreabilidade e seu registro definitivo é o próprio identificador.
 
 **Deltas de autorização (regularização da Operação D, aprovados em 2026-11-17).** Detalhados na
 [seção 7 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md); todos da camada de aplicação e **implementados**:
@@ -134,6 +136,21 @@ todos **implementados** no domínio e/ou na aplicação, com evidências separad
 | DLT-08 | Textos vazios e zero hora aceitos | Obrigatórios e horas maiores que zero | CAR-80 |
 | DLT-09 | Sem `ativo`; só se exclui sem histórico | Usuário inativo não opera nem é atribuível; histórico preservado | CAR-64, 65 |
 
+**Regularização da Operação E (aprovada em 2026-11-17).** Detalhada na
+[seção 9 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md#9-regularização-da-operação-e-reg-e-01-a-reg-e-08);
+todos **implementados** (`REG-E-02` e `REG-E-03` ratificam regras já implementadas):
+
+| Decisão | Delta | Anterior (legado) | Novo | Cenários do legado |
+|---------|-------|-------------------|------|--------------------|
+| REG-E-01 | DLT-18 | Nada impede ficar sem gestor | Recusa que elimina o último gestor administrativamente apto (`ultimo_gestor`) | CAR-71 |
+| REG-E-02 | DLT-19 | O papel era a permissão; sem operação de papel | `alterar_papel` exige Gestor ativo com `gerir_usuarios` (ratificada) | CAR-63 |
+| REG-E-03 | DLT-20 | Só a tela impedia a autoexclusão | Ninguém se rebaixa de Gestor nem desativa a própria conta (ratificada) | CAR-71, CAR-64 |
+| REG-E-04 | DLT-21 | Mudança de cargo sem relação com as OS | OS ativa impede desativar e deixar o papel Técnico (`usuario_com_os_ativas`) | CAR-63 |
+| REG-E-05 | DLT-22 | Observação e descrição de peça vazias aceitas | Ambas obrigatórias (ampliação do DLT-08) | CAR-80 |
+| REG-E-06 | DLT-23 | `Em atendimento` manual aceito; duas políticas | Só `Disponível` e `Ausente`; política única (DLT-15) | CAR-51, CAR-52 |
+| REG-E-07 | REG-E-07 | Variante do CAR-37 sem vínculo com o DLT-06 | Registrada em `VARIANTES_SOMENTE_NO_LEGADO` | CAR-37 |
+| REG-E-08 | REG-E-08 | Docstring do CAR-80 inexato | Campos validados listados exatamente | CAR-80 |
+
 Nas comparações lado a lado (`test_adaptador_dominio.py`, `test_adaptador_servicos.py`) cada par (estado, operação) que muda
 por estes deltas está **nomeado** em `tests/caracterizacao/divergencias.py`, com o delta e a recusa exata; a tabela não admite
 entrada sobrando e todo outro par continua exigindo igualdade total.
@@ -142,6 +159,12 @@ entrada sobrando e todo outro par continua exigindo igualdade total.
 quando (1) há um delta aprovado e implementado; (2) o cenário está vinculado a ele; (3) o comportamento antigo continua
 testado no legado; (4) o novo comportamento tem teste específico; e (5) a divergência é exatamente a autorizada.
 Não existe exclusão genérica por "defeito do legado".
+
+**Variante só do legado (`REG-E-07`).** Quando é só **um teste** de um cenário que não pode rodar contra o novo código
+(o estado de partida deixou de existir por um delta), o cenário **não** é excluído nem classificado como divergente: a
+variante é registrada em `VARIANTES_SOMENTE_NO_LEGADO` (`aplicabilidade.py`) com o delta, a justificativa e as evidências
+da invariante, e `test_rastreabilidade.py` confere que o teste existe, usa a fixture `legado`, que o delta está
+implementado e que o cenário segue executado nos três adaptadores. Hoje: CAR-37 (`DLT-06`).
 
 ### 4. Evidências de LSP, ISP e DIP (futuras, nenhuma existe hoje)
 

@@ -514,3 +514,52 @@ NAO_REPRODUZIDOS_PELOS_SERVICOS.update(
         )
     )
 )
+
+
+# ============================================================ variantes só do legado (REG-E-07)
+
+
+@dataclass(frozen=True)
+class VarianteSoNoLegado:
+    """Um **teste** de um cenário que só pode rodar no legado, por um delta aprovado.
+
+    Diferente de ``SUBSTITUIDOS_POR_DELTA`` e de ``NAO_REPRODUZIDOS_PELOS_SERVICOS`` (que tiram o
+    **cenário** inteiro de um adaptador), aqui só **uma variante** do cenário não é comparável: o
+    estado de partida que ela constrói existe no legado e deixou de existir no novo código por uma
+    decisão aprovada e implementada. Os demais testes do cenário continuam sendo executados contra
+    o legado, o domínio e os serviços, e o cenário **não** é classificado como divergente.
+
+    ``test_rastreabilidade.py`` confere cada entrada: o teste existe, tem o marcador do cenário e
+    usa a fixture ``legado`` (não ``f``); o delta está implementado e lista as evidências; o
+    cenário continua sendo executado nos três adaptadores pelos seus outros testes.
+    """
+
+    cenario: str
+    arquivo: str  # relativo a ``backend/tests``
+    teste: str
+    delta: str
+    justificativa: str
+    evidencias: tuple[str, ...]  # ``arquivo::teste`` do novo comportamento e da invariante
+
+
+VARIANTES_SOMENTE_NO_LEGADO: tuple[VarianteSoNoLegado, ...] = (
+    VarianteSoNoLegado(
+        "CAR-37",
+        "caracterizacao/test_tecnico.py",
+        "test_conclusao_sem_diagnostico_e_recusada",
+        "DLT-06",
+        "O teste leva a OS a Reparo Finalizado sem diagnóstico (apontar reparo e alterar o status) "
+        "para provar que a conclusão é recusada com 'Registre o diagnóstico antes de concluir.'. "
+        "Com o DLT-06 (D-06) essa finalização é recusada (sem_diagnostico) no domínio e nos "
+        "serviços, então o estado de partida é inalcançável e a variante não pode ser comparada "
+        "diretamente. A regra continua verificada no domínio como invariante, com a mesma recusa "
+        "e a mesma mensagem, e o estado inalcançável tem teste próprio. Os outros testes do "
+        "CAR-37 (estado e responsável/permissão) rodam contra o legado, o domínio e os serviços.",
+        (
+            "dominio/test_ordem_servico.py::test_conclusao_sem_diagnostico_e_recusada_mesmo_com_teste_reprovado",
+            "aplicacao/test_operacao_e.py::test_dlt06_finalizar_sem_diagnostico_e_recusado_pelo_servico_sem_mutacao",
+            "caracterizacao/test_adaptador_dominio.py::test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_no_dominio",
+            "caracterizacao/test_adaptador_servicos.py::test_dlt06_o_estado_sem_diagnostico_existe_no_legado_e_e_inalcancavel_nos_servicos",
+        ),
+    ),
+)

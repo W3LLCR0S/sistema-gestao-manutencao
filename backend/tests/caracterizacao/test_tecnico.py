@@ -405,9 +405,14 @@ def test_apos_teste_reprovado_o_tecnico_pode_repetir_e_concluir(f: Fachada) -> N
 
 @pytest.mark.cenario("CAR-37")
 def test_conclusao_sem_diagnostico_e_recusada(legado: AdaptadorLegado) -> None:
-    """Só o legado chega a este estado: com a D-06 (DLT-06) a finalização exige diagnóstico, então
-    uma OS em Reparo Finalizado sem diagnóstico é inalcançável nos serviços e no domínio. A
-    verificação continua no domínio como invariante (``test_ordem_servico.py``)."""
+    """Variante só do legado (REG-E-07; ``aplicabilidade.VARIANTES_SOMENTE_NO_LEGADO``).
+
+    Só o legado chega a este estado: com a D-06 (DLT-06) a finalização exige diagnóstico, então
+    uma OS em Reparo Finalizado sem diagnóstico é inalcançável nos serviços e no domínio, e esta
+    variante não é comparada com eles. A verificação continua no domínio como invariante
+    (``test_ordem_servico.py::test_conclusao_sem_diagnostico_e_recusada_mesmo_com_teste_reprovado``)
+    e o estado inalcançável tem teste próprio. O CAR-37 **não** é divergente: os testes seguintes
+    (estado, responsável e permissão) rodam contra o legado, o domínio e os serviços."""
     f = legado
     numero = os_atribuida(f)
     aceitar(f.apontar_reparo(numero, BRUNO, 1.0, "troca"))

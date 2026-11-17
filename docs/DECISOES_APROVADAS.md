@@ -8,7 +8,8 @@ Registro das decisões funcionais e arquiteturais da Fase 01. Fonte única para 
 > `persistencia/`) continuam com o comportamento descrito na coluna "Baseline". As decisões D-02 a D-06 e as melhorias
 > aprovadas (validação de entradas e usuário ativo) foram **implementadas só no novo backend** (`backend/src/manutencao/`)
 > na Operação E da Fase 02: ver a [seção 8](#8-deltas-de-regras-de-negócio-operação-e-dlt-01-a-dlt-09). O que não consta
-> da seção 8 continua sem implementação.
+> da seção 8 continua sem implementação. A **regularização da Operação E** (REG-E-01 a REG-E-08, DLT-18 a DLT-23) está
+> na [seção 9](#9-regularização-da-operação-e-reg-e-01-a-reg-e-08).
 
 ## 1. Como ler a classificação
 
@@ -43,6 +44,7 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 | D-15 | OS atrasada e prazos | **Pendente** | E2-FRT-03 | Decidir antes da 08 |
 | — | Validação de entradas | **Aprovada** (melhoria); **implementada** (DLT-08) | AUD-12 | 02 (domínio), 04 (API) |
 | — | Desativação de usuários | **Aprovada** (melhoria); **implementada no modelo** (DLT-09) | AUD-10, AUD-08 | 02 (modelo), 03 (persistência), 06 (cadastro) |
+| — | Regularização da Operação E (REG-E-01 a REG-E-08) | **Aprovada; implementada** (DLT-18 a DLT-23; REG-E-07 e REG-E-08 são de rastreabilidade) | Auditoria de leitura da Operação E | 02 |
 
 ## 3. Decisões funcionais aprovadas (D-02 a D-06)
 
@@ -394,8 +396,9 @@ continua sendo a primeira verificação (DLT-16) e um ator inexistente é recusa
   atribuível, e é negado ao apontar; um Gestor com permissões técnicas não aparece nem recebe atribuição; mudar o cargo
   muda as permissões e não o papel.
 - **Mudar o papel:** `ServicoDeUsuarios.alterar_papel`, operação explícita que exige o **papel Gestor e** a permissão
-  `gerir_usuarios`. Ninguém deixa de ser Gestor por conta própria (mesma autoproteção do DLT-12). **Não reatribui** as OS
-  do usuário: a política para OS ativas não foi decidida (ver 8.1).
+  `gerir_usuarios` (ratificado em REG-E-02, DLT-19). Ninguém deixa de ser Gestor por conta própria (REG-E-03, DLT-20). **Não
+  reatribui** as OS do usuário; quem tem OS ativas não deixa o papel Técnico (REG-E-04, DLT-21), e o último gestor
+  administrativamente apto não é eliminado (REG-E-01, DLT-18).
 - **Não feito:** nenhum papel novo; nenhuma autenticação.
 
 ### DLT-02 — Atribuição a técnico ausente (D-03)
@@ -434,12 +437,34 @@ continua sendo a primeira verificação (DLT-16) e um ator inexistente é recusa
 
 ### DLT-08 — Campos obrigatórios e horas positivas (AUD-12)
 
-- **Novo, só os campos do delta:** falha da abertura; parecer e causa-raiz do diagnóstico; intervenção; motivos de
-  reprovação e de cancelamento; nomes de usuário e de equipamento. Texto vazio ou só com espaços é recusado
-  (`campo_obrigatorio`); o texto aceito é guardado **exatamente como informado**. Horas `< 0` mantêm a recusa e a mensagem do
-  legado; `0` e valores não finitos passam a ser recusados (`horas_nao_positivas`). A quantidade de peça positiva é
-  preservada. A validação vem **depois** da autorização e das regras de estado e **antes** de qualquer mutação (uma
-  apontamento recusado não inicia a execução da OS).
+Valem **no domínio e nos serviços**, para qualquer interface (os mesmos campos são conferidos campo a campo em
+`backend/tests/aplicacao/test_campos_obrigatorios.py`, a partir da lista única `backend/tests/apoio/campos.py`).
+
+| Campo | Situação | Delta |
+|-------|----------|-------|
+| descrição da falha (abertura da OS) | **Obrigatório** | DLT-08 |
+| parecer técnico (diagnóstico) | **Obrigatório** | DLT-08 |
+| causa-raiz (diagnóstico) | **Obrigatório** | DLT-08 |
+| intervenção realizada (apontamento de reparo) | **Obrigatório** | DLT-08 |
+| motivo da reprovação | **Obrigatório** | DLT-08 |
+| motivo do cancelamento | **Obrigatório** | DLT-08 |
+| nome do usuário | **Obrigatório** | DLT-08 |
+| nome do equipamento | **Obrigatório** | DLT-08 |
+| texto da observação de OS | **Obrigatório** | DLT-22 (REG-E-05) |
+| descrição da peça utilizada | **Obrigatório** | DLT-22 (REG-E-05) |
+| modelo do equipamento | Opcional (sem validação) | — |
+| teste funcional | Opcional (sem validação) | — |
+| e-mail do usuário | Opcional (sem validação) | — |
+| escala do usuário | Opcional (sem validação) | — |
+
+- **Regra.** Obrigatório = texto não vazio depois de remover os espaços das extremidades. A recusa é
+  `campo_obrigatorio` (422); o texto aceito é guardado **exatamente como informado**.
+- **Horas.** `< 0` mantêm a recusa e a mensagem do legado; `0` e valores não finitos são recusados
+  (`horas_nao_positivas`). A quantidade de peça positiva é preservada e é verificada **antes** da descrição da peça.
+- **Precedência.** A validação vem **depois** da autorização e das regras de estado e **antes** de qualquer mutação:
+  uma recusa não cria registro nem inicia a execução da OS. Na observação a ordem é permissão, vínculo, estado e só
+  então o conteúdo.
+- **Legado.** O legado aceitava todos estes textos vazios (só a tela os exigia): `test_legado_defeitos.py` (CAR-80).
 
 ### DLT-09 — Usuário ativo ou inativo (melhoria 5.2)
 
@@ -449,16 +474,160 @@ continua sendo a primeira verificação (DLT-16) e um ator inexistente é recusa
   `usuario_inativo` antes de qualquer verificação de permissão; um ator inexistente continua `NaoEncontradoError`), não tem
   permissão efetiva, sai da lista de técnicos atribuíveis e não recebe OS. O histórico e as OS que o citam são
   preservados; **nenhuma OS é reatribuída automaticamente** e a exclusão continua recusada para quem tem histórico.
-- **Não feito:** autenticação (D-01); tratamento das OS de quem foi desativado (ver 8.1).
+  A desativação é recusada para quem tem OS ativas sob sua responsabilidade (REG-E-04, DLT-21) e para o último gestor
+  administrativamente apto (REG-E-01, DLT-18).
+- **Não feito:** autenticação (D-01); a política completa de transferência de responsabilidades (ver 8.1).
 
-### 8.1 Pontos sem decisão (não implementados)
+### 8.1 Pontos que estavam sem decisão
 
-| Ponto | O que foi feito | O que falta decidir |
-|-------|-----------------|---------------------|
-| OS ativas de quem muda de papel ou é desativado | Nada é reatribuído; o usuário continua como responsável (um inativo não opera) | Política: gestor caso a caso, regra automática ou bloqueio |
-| `alterar_papel` exige papel **e** permissão | Mais restritivo que só a permissão (D-02: "restrita ao Gestor") | Confirmar se a permissão `gerir_usuarios` basta |
-| Autoproteção em `alterar_papel` e `desativar` | Recusa o próprio gestor, como no DLT-12 | Confirmar a extensão; não há regra para "último gestor" |
-| Textos não listados no DLT-08 | Observação, teste funcional, descrição de peça, modelo, e-mail e escala não são validados | Incluir ou não como obrigatórios |
-| "Diagnóstico" no DLT-08 | Parecer **e** causa-raiz são obrigatórios (ambos o são na interface legada) | Confirmar se a causa-raiz também é obrigatória |
-| Manual `Em atendimento` | Aceito, mas a consulta mostra o derivado | Restringir ou não os valores do ajuste manual |
-| Autenticação | Não implementada | D-01 |
+Os pontos abaixo ficaram em aberto ao fim da Operação E e foram decididos na regularização (seção 9). O que segue
+pendente está na última linha.
+
+| Ponto | Situação ao fim da Operação E | Decisão |
+|-------|-------------------------------|---------|
+| OS ativas de quem muda de papel ou é desativado | Nada era reatribuído; o usuário seguia como responsável | **REG-E-04**: bloqueio (recusa), sem reatribuir nem cancelar |
+| `alterar_papel` exige papel **e** permissão | Mais restritivo que só a permissão | **REG-E-02**: ratificado |
+| Autoproteção em `alterar_papel` e `desativar` | Recusava o próprio gestor; sem regra de "último gestor" | **REG-E-03**: ratificado; **REG-E-01**: último gestor |
+| Textos não listados no DLT-08 | Observação, teste funcional, descrição de peça, modelo, e-mail e escala não eram validados | **REG-E-05**: observação e descrição de peça passam a ser obrigatórias; os demais seguem opcionais |
+| "Diagnóstico" no DLT-08 | Parecer **e** causa-raiz obrigatórios | **REG-E-05**: os campos já validados são preservados |
+| Manual `Em atendimento` | Aceito, mas a consulta mostrava o derivado | **REG-E-06**: só `Disponível` e `Ausente` são aceitos |
+| Autenticação | Não implementada | Pendente (D-01) |
+| Política completa de transferência de responsabilidades (reatribuição de OS de quem é desativado ou muda de papel) | Não decidida | Pendente (fase planejada) |
+
+## 9. Regularização da Operação E (REG-E-01 a REG-E-08)
+
+Depois da Operação E, uma auditoria de leitura propôs oito decisões para regularizar o que ficara implementado por
+interpretação. Foram **aprovadas expressamente pelo usuário em 2026-11-17**
+(*AUTORIZAÇÃO DE REGULARIZAÇÃO DA OPERAÇÃO E*), com autorização para implementar só as correções descritas, atualizar
+testes e documentação e fazer commits **locais** (sem push nem merge; a Operação F **não** foi autorizada). Valem **só
+no novo backend** (`backend/`, branch local `refactor/arquitetura`); o legado não foi alterado.
+
+**Convenção.** Os deltas continuam a numeração DLT sem renumerar os anteriores: REG-E-01 a REG-E-06 têm o registro
+definitivo DLT-18 a DLT-23 (em `backend/tests/caracterizacao/deltas.py`, com `Delta.regularizacao`). REG-E-07 e REG-E-08
+corrigem a rastreabilidade e **não** mudam comportamento: o registro definitivo de cada uma é o próprio identificador
+(`REGULARIZACOES_E`, no mesmo arquivo).
+
+| Decisão | Tema | Registro definitivo | Camada | Situação | Aprovação |
+|---------|------|---------------------|--------|----------|-----------|
+| REG-E-01 | Proteção do último gestor | DLT-18 | Aplicação (condição de gestor apto no domínio) | **Implementada** | 2026-11-17 |
+| REG-E-02 | Alteração de papel (ratificação) | DLT-19 | Aplicação | **Ratificada** (já implementada) | 2026-11-17 |
+| REG-E-03 | Autoproteção estendida (ratificação) | DLT-20 | Aplicação | **Ratificada** (já implementada) | 2026-11-17 |
+| REG-E-04 | Ordens de serviço ativas | DLT-21 | Aplicação | **Implementada** | 2026-11-17 |
+| REG-E-05 | Campos obrigatórios (observação e peça) | DLT-22 | Domínio | **Implementada** | 2026-11-17 |
+| REG-E-06 | Disponibilidade manual e derivada | DLT-23 | Domínio e aplicação | **Implementada** | 2026-11-17 |
+| REG-E-07 | Rastreabilidade do CAR-37 | REG-E-07 | Testes de caracterização | **Registrada** | 2026-11-17 |
+| REG-E-08 | Docstring do CAR-80 | REG-E-08 | Testes de caracterização | **Corrigida** | 2026-11-17 |
+
+Evidência de implementação (commits locais): Bloco A, administração de usuários, `1ec50242b0cbeaef3aae71cb29ca086c428c2bc1`; Bloco B, validações e
+disponibilidade, `e2b2a1706e1cc36f4ad55ab5303f359460c4cb8c`; Bloco C, caracterização, rastreabilidade e documentação, o commit que contém esta seção.
+Todas as recusas são **sem mutação** (usuários, cargos, OS com histórico e sequências de identificadores intactos), com erro
+tipado; as de conflito são `RegraDeAplicacaoError` (409 na borda) e a de valor, `ViolacaoDeRegraError` (422).
+
+### REG-E-01 — Proteção do último gestor (DLT-18)
+
+- **Regra anterior:** nada impedia o sistema de ficar sem quem administre usuários.
+- **Regra aprovada:** **gestor administrativamente apto** = papel Gestor, usuário ativo e permissão efetiva
+  `gerir_usuarios` (`Usuario.e_gestor_administrativo`). A operação que eliminaria o último apto é recusada com
+  `ultimo_gestor` (conflito), sem mutação. Abrange: desativação, alteração de papel, alteração de cargo e alteração das
+  permissões de um cargo (o efeito é calculado sobre **todos** os usuários, inclusive os que compartilham o cargo). Não
+  cria usuário, não concede permissão e não há recuperação administrativa.
+- **Interpretação a confirmar:** a **exclusão** de usuário também é protegida (ela elimina o gestor do mesmo modo e cabe na
+  frase "impedir que o sistema fique sem pelo menos um Gestor"); não estava na lista de operações da decisão.
+- **Ordem das recusas:** autorização, existência, autoproteção (REG-E-03), último gestor e, por fim, OS ativas (REG-E-04).
+  A regra só recusa quando a operação **elimina** a última condição existente: se ninguém era apto antes, nada foi
+  eliminado.
+- **Justificativa:** sem recuperação administrativa, perder o último gestor seria irreversível.
+- **Testes:** `aplicacao/test_regularizacao_e.py` (`test_dlt18_*`), `dominio/test_regularizacao_e.py` e
+  `caracterizacao/test_regularizacao_e_servicos.py`.
+
+### REG-E-02 — Alteração de papel (DLT-19, ratificação)
+
+- **Regra anterior:** `alterar_papel` exigia papel Gestor e `gerir_usuarios` (DLT-01), sem decisão expressa.
+- **Regra aprovada:** o ator precisa, **simultaneamente**, do papel Gestor, estar ativo e ter `gerir_usuarios`; uma só
+  condição não basta. A precedência de autorização (DLT-16, DLT-17) é preservada e a exigência de papel Gestor **não** se
+  estende às demais operações de gestão, que dependem só de permissão.
+- **Testes:** `test_dlt19_*` e `test_dlt01_alterar_papel_*` (`aplicacao/test_operacao_e.py`).
+
+### REG-E-03 — Autoproteção estendida (DLT-20, ratificação)
+
+- **Regra anterior:** um gestor não se rebaixava e ninguém desativava a própria conta, sem decisão expressa.
+- **Regra aprovada:** as duas proteções, que complementam o DLT-12, são ratificadas, com o erro tipado existente
+  (`autoremocao_de_acesso_de_gestao`). O código é **adequado**: perder o papel de Gestor ou a conta é perder o próprio
+  acesso de gestão; nenhuma correção foi necessária. Nenhuma outra autoproteção foi criada (o gestor segue editando os
+  próprios dados e a própria disponibilidade).
+- **Testes:** `test_dlt20_*`, `test_dlt01_ninguem_deixa_de_ser_gestor_por_conta_propria` e
+  `test_dlt09_ninguem_desativa_a_si_mesmo`.
+
+### REG-E-04 — Ordens de serviço ativas (DLT-21)
+
+- **Regra anterior:** desativar ou mudar o papel de quem tinha OS ativas era aceito, sem reatribuir.
+- **Regra aprovada:** OS **ativa** = a que não está em `Concluída` nem `Cancelada` (estados do domínio: `Atribuída`, `Em
+  Execução`, `Aguardando Peça`, `Reparo Finalizado` e `Aguardando Aprovação`, com o usuário como técnico atribuído). Quem tem
+  OS ativa **não é desativado** nem **deixa o papel Técnico** (`usuario_com_os_ativas`, conflito). A verificação vem antes
+  da alteração; usuário, OS, histórico e identificadores ficam intactos. **Não** reatribui nem cancela OS e não altera o
+  histórico. A mudança de cargo que preserva o papel Técnico não é impedida. Desativar quem já está inativo continua
+  idempotente.
+- **Pendente:** a política completa de transferência de responsabilidades (fase planejada).
+- **Testes:** `test_dlt21_*` (usuário sem OS, `Atribuída`, `Em Execução`, `Aguardando Peça`, `Aguardando Aprovação`,
+  `Concluída`, `Cancelada`; desativação e mudança de papel; recusa sem mutação).
+
+### REG-E-05 — Campos obrigatórios (DLT-22)
+
+- **Regra anterior:** observação e descrição de peça vazias eram aceitas.
+- **Regra aprovada:** ampliação do DLT-08 ao texto da observação e à descrição da peça (tabela do DLT-08, seção 8). Modelo
+  do equipamento, teste funcional, e-mail e escala **não** se tornam obrigatórios. **Precedência:** na observação,
+  permissão, vínculo, estado e só depois o conteúdo; na peça, a quantidade antes da descrição, e as peças antes da OS e das
+  horas, como no legado.
+- **Testes:** `test_dlt22_*` (domínio, serviços e comparação) e `aplicacao/test_campos_obrigatorios.py`.
+
+### REG-E-06 — Disponibilidade manual e derivada (DLT-23)
+
+- **Regra anterior:** o valor manual aceitava `Em atendimento` e a autorização das duas vias de alteração não era única.
+- **Regra aprovada:** a disponibilidade manual aceita **exclusivamente** `Disponível` e `Ausente` (`Usuario.definir_disponibilidade_manual`; recusa `disponibilidade_manual_invalida`, 422, sem mutação). `Em atendimento` é só derivado das
+  OS. `ServicoDeUsuarios.definir_disponibilidade` e `ServicoDeDisponibilidade.alterar_disponibilidade` delegam à **mesma
+  função** (`politica_de_disponibilidade.py`, DLT-15): o usuário altera a própria; quem tem `gerir_usuarios` altera a de
+  terceiros; terceiro sem autorização é recusado antes de procurar o alvo. A ausência manual continua prevalecendo sobre a
+  derivada; sem atualização em segundo plano.
+- **Limite.** A regra é imposta pelo método `definir_disponibilidade_manual` e pelos serviços; o atributo
+  `Usuario.disponibilidade` segue atribuível diretamente (o adaptador de caracterização do domínio reproduz a tela do
+  legado atribuindo o valor). Nenhum caminho dos serviços grava `Em atendimento`.
+- **Testes:** `test_dlt23_*` (as duas vias decidem igual em todas as combinações de ator, alvo e valor).
+
+### REG-E-07 — Rastreabilidade do CAR-37
+
+- **Regra anterior:** o teste que só roda no legado (`test_tecnico.py::test_conclusao_sem_diagnostico_e_recusada`) não tinha
+  o vínculo com o DLT-06 registrado, e a exclusão da variante podia ser lida como a do cenário inteiro.
+- **Regra aprovada:** confirmada pela leitura do código, a relação com o **DLT-06**: o teste leva a OS a `Reparo Finalizado`
+  sem diagnóstico, e a finalização sem diagnóstico passou a ser recusada (`sem_diagnostico`), então o estado de partida é
+  inalcançável no novo código. Só **essa variante** não é comparada diretamente
+  (`aplicabilidade.VARIANTES_SOMENTE_NO_LEGADO`); o CAR-37 continua **preservado** e executado nos três adaptadores pelos
+  seus outros testes; a invariante segue testada no domínio com a mesma recusa e a mesma mensagem. As expectativas do
+  legado não foram alteradas e nenhum `skip` foi criado.
+- **Testes:** `test_rastreabilidade.py` (`test_a_variante_so_no_legado_do_car_37_esta_ligada_ao_dlt_06` e correlatos).
+
+### REG-E-08 — Docstring do CAR-80
+
+- **Regra anterior:** o docstring do teste do legado afirmava que o domínio e os serviços recusavam textos que ainda
+  aceitavam (observação e descrição de peça).
+- **Regra aprovada:** os docstrings e esta documentação listam **exatamente** os campos validados e os não validados (tabela
+  do DLT-08), a partir de uma lista única (`backend/tests/apoio/campos.py`) conferida campo a campo nos serviços e contra
+  este documento. Nenhum teste foi alterado para esconder divergências.
+
+### 9.1 Políticas ratificadas para documentação
+
+Já implementadas e **não modificadas** pela regularização (nenhuma contradiz REG-E-01 a REG-E-08):
+
+- ator inativo é recusado **antes** da verificação de permissão;
+- nas observações, a verificação segue autorização, vínculo e estado;
+- o gestor autorizado pode observar OS ativas (D-04);
+- desativar e reativar mantêm o comportamento **idempotente**;
+- a ordem herdada de validação de peças e horas permanece preservada.
+
+### 9.2 Limites e riscos remanescentes
+
+- Autenticação (D-01) e a política completa de transferência de responsabilidades seguem pendentes; não há recuperação
+  administrativa (a decisão não a criou).
+- `alterar_papel` não alcança o caso "último gestor" por si só (o ator é, por construção, um gestor apto, e a
+  autoproteção impede o autorrebaixamento); a verificação existe como garantia e é exercida pelas demais operações.
+- `Usuario.disponibilidade` permanece atribuível diretamente (ver REG-E-06); papel e `ativo` só existem em memória até a
+  Fase 03.
