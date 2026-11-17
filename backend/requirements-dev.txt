@@ -2,7 +2,9 @@
 # Versoes exatas, inclusive transitivas, para reproduzir o ambiente.
 # Instalacao (a partir de backend/, dentro do ambiente virtual .venv):
 #   python -m pip install -r requirements-dev.txt
-# Nenhuma dependencia de producao esta listada: ainda nao ha codigo que a exija.
+# As dependencias de execucao ficam em requirements.txt (incluido abaixo).
+
+-r requirements.txt
 
 # --- Diretas ---
 pytest==9.2.0
@@ -19,4 +21,9 @@ packaging==26.3
 pathspec==1.1.1
 pluggy==1.7.0
 Pygments==2.21.0
-typing-extensions==4.16.0
+
+# --- PostgreSQL embutido para os testes (Fase 03, D-12): servidor real em pasta temporaria ---
+pgserver==0.1.4
+fasteners==0.20
+platformdirs==4.14.7
+psutil==7.2.2

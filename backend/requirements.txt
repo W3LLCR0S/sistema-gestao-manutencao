@@ -1,0 +1,18 @@
+# Dependencias de execucao do novo backend (Fase 03: persistencia em PostgreSQL).
+# Versoes exatas, inclusive transitivas, para reproduzir o ambiente. Instalacao (a partir de
+# backend/, dentro do ambiente virtual .venv):
+#   python -m pip install -r requirements.txt          # so execucao
+#   python -m pip install -r requirements-dev.txt      # execucao + testes e ferramentas
+
+# --- Diretas ---
+SQLAlchemy==2.0.58
+alembic==1.20.1
+psycopg[binary]==3.3.9
+
+# --- Transitivas (fixadas) ---
+greenlet==3.5.6
+Mako==1.4.3
+MarkupSafe==3.0.4
+psycopg-binary==3.3.9
+typing-extensions==4.16.0
+tzdata==2026.6 ; sys_platform == "win32"
