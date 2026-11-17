@@ -15,6 +15,7 @@ from tests.caracterizacao.aplicabilidade import (
 )
 from tests.caracterizacao.fachada import Fachada, RelogioFixo
 from tests.caracterizacao.integridade import impressao_digital_do_legado, pycs_do_legado
+from tests.caracterizacao.numeracao import nova_numeracao
 from tests.guardas_ambiente import DIRETORIO_DADOS, caminho_em_dados
 
 
@@ -92,4 +93,4 @@ def f(request: pytest.FixtureRequest, relogio: RelogioFixo) -> Fachada:
             )
         pytest.skip(linha.motivo)
 
-    return AdaptadorDominio(relogio, diante_da_ausencia)
+    return AdaptadorDominio(relogio, diante_da_ausencia, numeracao=nova_numeracao())

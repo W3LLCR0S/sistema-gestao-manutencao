@@ -30,6 +30,7 @@ from tests.caracterizacao.aplicabilidade import (
 from tests.caracterizacao.cenarios import CENARIOS_POR_ID, Classe
 from tests.caracterizacao.deltas import DELTAS_POR_ID, StatusDelta
 from tests.caracterizacao.fachada import Fachada
+from tests.caracterizacao.numeracao import nova_numeracao
 from tests.guardas_ambiente import RAIZ_BACKEND
 
 DIRETORIO_TESTES = RAIZ_BACKEND / "tests"
@@ -143,7 +144,7 @@ def test_operacao_ausente_avisa_a_responsabilidade_certa_e_nao_altera_a_base(met
         pedidas.append(responsabilidade)
         raise LookupError("interrompe a chamada, como o skip faz")
 
-    adaptador = AdaptadorDominio(diante_da_ausencia=registrar)  # type: ignore[arg-type]
+    adaptador = AdaptadorDominio(diante_da_ausencia=registrar, numeracao=nova_numeracao())  # type: ignore[arg-type]
     antes = (adaptador.usuarios(), adaptador.equipamentos(), adaptador.todas_as_os())
     with pytest.raises(LookupError):
         CHAMADAS_DE_TESTE[metodo](adaptador)
@@ -153,7 +154,7 @@ def test_operacao_ausente_avisa_a_responsabilidade_certa_e_nao_altera_a_base(met
 
 def test_sem_gancho_o_adaptador_falha_em_vez_de_fingir_a_operacao() -> None:
     with pytest.raises(NotImplementedError, match="persistencia"):
-        AdaptadorDominio().salvar_e_recarregar()
+        AdaptadorDominio(numeracao=nova_numeracao()).salvar_e_recarregar()
 
 
 def test_o_adaptador_cobre_toda_a_fachada() -> None:
@@ -211,6 +212,7 @@ def test_nenhum_teste_usa_skip_ou_xfail_fora_do_gancho_do_registro() -> None:
 PERMITIDOS_NO_ADAPTADOR = {
     "tests.caracterizacao.aplicabilidade",
     "tests.caracterizacao.fachada",
+    "tests.caracterizacao.traducao",
 }
 
 
@@ -233,6 +235,17 @@ def test_adaptador_do_dominio_so_importa_o_dominio_a_biblioteca_padrao_e_a_facha
             or modulo in PERMITIDOS_NO_ADAPTADOR
         )
         assert permitido, f"importação não permitida no adaptador do domínio: {modulo}"
+
+
+def test_a_traducao_compartilhada_so_importa_o_dominio_a_biblioteca_padrao_e_a_fachada() -> None:
+    arquivo = DIRETORIO_TESTES / "caracterizacao" / "traducao.py"
+    for modulo in _importados(arquivo):
+        permitido = (
+            modulo.split(".")[0] in sys.stdlib_module_names
+            or modulo.startswith("manutencao.domain")
+            or modulo == "tests.caracterizacao.fachada"
+        )
+        assert permitido, f"importação não permitida na tradução: {modulo}"
 
 
 def test_adaptador_do_dominio_nao_importa_o_legado_nem_outras_camadas() -> None:

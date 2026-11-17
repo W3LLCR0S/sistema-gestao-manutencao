@@ -11,29 +11,31 @@ Duas conversões explícitas, as únicas diferenças em relação ao adaptador d
   UTC (``_instante``) e entregue às operações como ``datetime`` com fuso, que é o que o domínio
   exige (D-11).
 * **Datas nos snapshots.** O domínio guarda instantes UTC; o snapshot compatível com o legado
-  mostra o instante normalizado em UTC no formato ``dd/mm/aaaa hh:mm`` (``_texto_legado``). Não há
-  conversão para ``America/Sao_Paulo``: isso é apresentação (Fase 04).
+  mostra o instante normalizado em UTC no formato ``dd/mm/aaaa hh:mm`` (``traducao.texto_legado``).
+  Não há conversão para ``America/Sao_Paulo``: isso é apresentação (Fase 04).
+
+**Numeração.** O adaptador **não gera identificadores**: a entidade precisa de um número, mas quem
+o decide é a sequência que o teste injeta (``numeracao``), a mesma política do repositório em
+memória (DLT-10). A cadeia de decisão da numeração é coberta pelo adaptador dos serviços.
 
 Operações cuja responsabilidade o domínio puro não tem (cadastro e identificadores, exclusão,
 disponibilidade derivada, persistência) chamam ``diante_da_ausencia``; o teste decide, pelo
 registro de ``aplicabilidade.py``, se pula (cenário registrado) ou falha (cenário não registrado).
 
-As recusas são classificadas pelo **código** do erro de domínio, não pelo texto: a categoria de
-cada recusa é a mesma do adaptador do legado, que a deriva da mensagem.
+As recusas são classificadas pelo **código** do erro de domínio (``traducao``), não pelo texto.
 """
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any, NoReturn, TypeVar
+from typing import Any, NoReturn, Protocol, TypeVar
 
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.enums import Criticidade, Disponibilidade, StatusOS
 from manutencao.domain.equipamento import Equipamento
-from manutencao.domain.erros import CodigoErro, DominioError
+from manutencao.domain.erros import DominioError
 from manutencao.domain.ordem_servico import OrdemServico
 from manutencao.domain.peca_material import PecaMaterial
 from manutencao.domain.permissoes import Permissao, Permissoes
-from manutencao.domain.servico import Servico
 from manutencao.domain.usuario import Usuario
 from tests.caracterizacao.aplicabilidade import Responsabilidade
 from tests.caracterizacao.fachada import (
@@ -41,40 +43,28 @@ from tests.caracterizacao.fachada import (
     EquipamentoSnap,
     OsSnap,
     Peca,
-    PecaSnap,
-    Recusa,
     RelogioFixo,
     Resultado,
-    ServicoSnap,
     UsuarioSnap,
 )
-
-RECUSA_POR_CODIGO: dict[CodigoErro, Recusa] = {
-    CodigoErro.SEM_PERMISSAO: Recusa.SEM_PERMISSAO,
-    CodigoErro.NAO_RESPONSAVEL: Recusa.NAO_RESPONSAVEL,
-    CodigoErro.ESTADO_INVALIDO: Recusa.ESTADO_INVALIDO,
-    CodigoErro.OS_ENCERRADA: Recusa.OS_ENCERRADA,
-    CodigoErro.JA_ATRIBUIDA: Recusa.JA_ATRIBUIDA,
-    CodigoErro.JA_NESSE_STATUS: Recusa.JA_NESSE_STATUS,
-    CodigoErro.EQUIPAMENTO_INATIVO: Recusa.EQUIPAMENTO_INATIVO,
-    CodigoErro.NAO_E_TECNICO: Recusa.NAO_E_TECNICO,
-    CodigoErro.STATUS_NAO_PERMITIDO: Recusa.STATUS_NAO_PERMITIDO,
-    CodigoErro.SEM_INTERVENCAO: Recusa.SEM_INTERVENCAO,
-    CodigoErro.SEM_DIAGNOSTICO: Recusa.SEM_DIAGNOSTICO,
-    CodigoErro.HORAS_NEGATIVAS: Recusa.HORAS_NEGATIVAS,
-    CodigoErro.QUANTIDADE_INVALIDA: Recusa.QUANTIDADE_INVALIDA,
-    # Sem equivalente no legado: se aparecer num cenário, o teste deve falhar.
-    CodigoErro.PERMISSAO_INVALIDA: Recusa.DESCONHECIDA,
-    CodigoErro.INSTANTE_INVALIDO: Recusa.DESCONHECIDA,
-}
+from tests.caracterizacao.traducao import (
+    RECUSA_POR_CODIGO,
+    snap_cargo,
+    snap_equipamento,
+    snap_os,
+    snap_usuario,
+)
 
 DiantedaAusencia = Callable[[Responsabilidade], NoReturn]
 T = TypeVar("T")
 
 
-def _texto_legado(instante: datetime) -> str:
-    """Instante UTC no formato de texto do legado (``dd/mm/aaaa hh:mm``, sem fuso)."""
-    return instante.astimezone(UTC).strftime("%d/%m/%Y %H:%M")
+class Numeracao(Protocol):
+    """A política de identificadores (do repositório), não do adaptador."""
+
+    def proximo(self) -> int: ...
+
+    def registrar(self, identificador: int) -> None: ...
 
 
 def _sem_ausencia(responsabilidade: Responsabilidade) -> NoReturn:
@@ -88,9 +78,12 @@ class AdaptadorDominio:
         self,
         relogio: RelogioFixo | None = None,
         diante_da_ausencia: DiantedaAusencia = _sem_ausencia,
+        *,
+        numeracao: Numeracao,
     ) -> None:
         self.relogio = relogio or RelogioFixo()
         self._ausente = diante_da_ausencia
+        self._numeracao = numeracao
         # A mesma base inicial do legado (``_popular_exemplo``), em memória.
         gestor = Cargo(1, "Gestor", Permissoes.padrao_gestor())
         tecnico = Cargo(2, "Técnico", Permissoes.padrao_tecnico())
@@ -145,10 +138,10 @@ class AdaptadorDominio:
         self, solicitante: int, equipamento: int, falha: str, criticidade: str
     ) -> Resultado:
         def acao() -> int:
-            # Como a tela do legado: numera (máximo + 1), abre e só então inclui na base de teste.
-            numero = max((o.numero for o in self._ordens), default=0) + 1
+            # Consulta o próximo número, abre e só então inclui na base e consome o número: uma
+            # abertura recusada não gasta número (CAR-04).
             os_ = OrdemServico.abrir(
-                numero,
+                self._numeracao.proximo(),
                 self._equipamento(equipamento),
                 falha,
                 Criticidade(criticidade),
@@ -156,6 +149,7 @@ class AdaptadorDominio:
                 quando=self._instante(),
             )
             self._ordens.append(os_)
+            self._numeracao.registrar(os_.numero)
             return os_.numero
 
         return self._executar(acao)
@@ -291,95 +285,40 @@ class AdaptadorDominio:
         """A entidade de domínio por trás do snapshot (para testes que inspecionam o fuso)."""
         return self._os(numero)
 
-    @staticmethod
-    def _peca(p: PecaMaterial) -> PecaSnap:
-        return PecaSnap(p.descricao, float(p.quantidade))
-
-    def _snap_servico(self, s: Servico) -> ServicoSnap:
-        return ServicoSnap(
-            s.numero,
-            s.tipo.value,
-            s.descricao,
-            None if s.responsavel is None else s.responsavel.id,
-            _texto_legado(s.data),
-            float(s.horas),
-            tuple(self._peca(p) for p in s.pecas),
-        )
-
-    def _snap_os(self, o: OrdemServico) -> OsSnap:
-        return OsSnap(
-            numero=o.numero,
-            status=o.status.value,
-            equipamento_id=o.equipamento.id,
-            falha=o.falha,
-            criticidade=o.criticidade.value,
-            aberta_por_id=o.aberta_por.id,
-            tecnico_id=None if o.tecnico_atribuido is None else o.tecnico_atribuido.id,
-            diagnostico=o.diagnostico,
-            causa_raiz=o.causa_raiz,
-            horas_trabalhadas=float(o.horas_trabalhadas),
-            intervencoes=o.intervencoes_realizadas,
-            pecas=tuple(self._peca(p) for p in o.pecas_utilizadas),
-            data_abertura=_texto_legado(o.data_abertura),
-            data_conclusao=None if o.data_conclusao is None else _texto_legado(o.data_conclusao),
-            teste_funcional=o.teste_funcional,
-            motivo_cancelamento=o.motivo_cancelamento,
-            historico=tuple(self._snap_servico(s) for s in o.servicos),
-        )
-
     def _carga(self, u: Usuario) -> int:
         """OS ativas atribuídas ao usuário (projeção só de leitura sobre as entidades)."""
         return sum(1 for o in self._ordens if o.esta_com(u) and not o.encerrada)
 
-    def _snap_usuario(self, u: Usuario) -> UsuarioSnap:
-        return UsuarioSnap(
-            id=u.id,
-            nome=u.nome,
-            cargo_id=u.cargo.id,
-            cargo=u.cargo.nome,
-            email=u.email,
-            escala=u.escala,
-            disponibilidade=u.disponibilidade.value,
-            carga=self._carga(u),
-        )
-
-    @staticmethod
-    def _snap_equipamento(e: Equipamento) -> EquipamentoSnap:
-        return EquipamentoSnap(e.id, e.nome, e.modelo, e.ativo)
-
     def os(self, numero: int) -> OsSnap | None:
         achada = next((o for o in self._ordens if o.numero == numero), None)
-        return None if achada is None else self._snap_os(achada)
+        return None if achada is None else snap_os(achada)
 
     def todas_as_os(self) -> tuple[OsSnap, ...]:
-        return tuple(self._snap_os(o) for o in self._ordens)
+        return tuple(snap_os(o) for o in self._ordens)
 
     def usuario(self, id: int) -> UsuarioSnap | None:
         achado = next((u for u in self._usuarios if u.id == id), None)
-        return None if achado is None else self._snap_usuario(achado)
+        return None if achado is None else snap_usuario(achado, self._carga(achado))
 
     def usuarios(self) -> tuple[UsuarioSnap, ...]:
-        return tuple(self._snap_usuario(u) for u in self._usuarios)
+        return tuple(snap_usuario(u, self._carga(u)) for u in self._usuarios)
 
     def tecnicos(self) -> tuple[int, ...]:
         return tuple(u.id for u in self._usuarios if u.e_tecnico)
 
     def equipamento(self, id: int) -> EquipamentoSnap | None:
         achado = next((e for e in self._equipamentos if e.id == id), None)
-        return None if achado is None else self._snap_equipamento(achado)
+        return None if achado is None else snap_equipamento(achado)
 
     def equipamentos(self) -> tuple[EquipamentoSnap, ...]:
-        return tuple(self._snap_equipamento(e) for e in self._equipamentos)
+        return tuple(snap_equipamento(e) for e in self._equipamentos)
 
     def ordens_do_equipamento(self, equipamento: int) -> tuple[int, ...]:
         alvo = self._equipamento(equipamento)
         return tuple(o.numero for o in self._ordens if o.equipamento == alvo)
 
     def cargos(self) -> tuple[CargoSnap, ...]:
-        return tuple(
-            CargoSnap(c.id, c.nome, tuple(p.value for p in c.permissoes.ativas()))
-            for c in self._cargos
-        )
+        return tuple(snap_cargo(c) for c in self._cargos)
 
     # -------------------------------------------------------------------------------- persistência
     def salvar_e_recarregar(self) -> None:

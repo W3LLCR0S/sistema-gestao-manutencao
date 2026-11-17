@@ -5,7 +5,7 @@ Os testes de cenário rodam cada comportamento contra um adaptador de cada vez. 
 das mensagens e a ordem do histórico), com duas exceções que são deltas aprovados e implementados:
 
 * DLT-07: o domínio guarda instantes UTC com fuso; a comparação normaliza as datas para o texto do
-  legado explicitamente (ver ``adaptador_dominio._texto_legado``);
+  legado explicitamente (ver ``traducao.texto_legado``);
 * DLT-11: permissões tipadas; um nome inválido é erro no domínio e negação silenciosa no legado.
 
 São testes de infraestrutura da caracterização (sem marcador ``cenario``).
@@ -47,6 +47,7 @@ from tests.caracterizacao.fluxos import (
     os_em_execucao,
     os_reparo_finalizado,
 )
+from tests.caracterizacao.numeracao import nova_numeracao
 
 
 @dataclass
@@ -65,7 +66,7 @@ class Par:
 def par(caminho_base: Path, relogio: RelogioFixo) -> Iterator[Par]:
     legado = AdaptadorLegado(caminho_base, relogio)
     try:
-        yield Par(legado, AdaptadorDominio(relogio), relogio)
+        yield Par(legado, AdaptadorDominio(relogio, numeracao=nova_numeracao()), relogio)
     finally:
         legado.fechar()
 
@@ -164,7 +165,7 @@ def test_toda_operacao_em_cada_estado_tem_o_mesmo_resultado_e_o_mesmo_estado(
     comparadas = 0
     for nome, operacao in OPERACOES.items():
         legado = AdaptadorLegado(caminho_base.with_name(f"{comparadas}.json"), relogio)
-        dominio = AdaptadorDominio(relogio)
+        dominio = AdaptadorDominio(relogio, numeracao=nova_numeracao())
         try:
             numero_legado = CONSTRUTORES[construtor](legado)
             numero_dominio = CONSTRUTORES[construtor](dominio)
