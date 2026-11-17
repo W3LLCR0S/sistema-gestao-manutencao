@@ -1,0 +1,148 @@
+"""Registro de deltas: o que muda em relação ao legado, por decisão já aprovada.
+
+Segue ADR-0006 (seção "Deltas de comportamento"): para cada mudança, o comportamento atual (com
+o(s) cenário(s) que o caracterizam), o comportamento aprovado e a decisão que o autorizou.
+
+**Nenhum delta está implementado.** O legado continua com o comportamento descrito em ``legado``;
+os cenários listados em ``cenarios`` verificam esse comportamento antigo. Quando uma mudança for
+aplicada (Operação E, uma por vez, cada uma com autorização própria), o teste correspondente é
+substituído e o ``status`` do delta passa a ``IMPLEMENTADO``, em commit próprio.
+"""
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+
+class StatusDelta(StrEnum):
+    NAO_IMPLEMENTADO = "nao_implementado"
+    IMPLEMENTADO = "implementado"
+
+
+@dataclass(frozen=True)
+class Delta:
+    id: str
+    decisao: str  # identificador em docs/DECISOES_APROVADAS.md (ou a melhoria aprovada)
+    regra: str
+    legado: str  # comportamento atual, caracterizado pelos testes
+    aprovado: str  # comportamento futuro aprovado
+    cenarios: tuple[str, ...]  # CAR-nn que verificam o comportamento legado
+    operacao_prevista: str  # onde a FASE_02 prevê a aplicação (indicativo, sem autorização)
+    status: StatusDelta = StatusDelta.NAO_IMPLEMENTADO
+
+
+DELTAS: tuple[Delta, ...] = (
+    Delta(
+        "DLT-01",
+        "D-02",
+        "Identidade de técnico",
+        "É técnico quem tem a permissão apontar_reparo; retirá-la tira o usuário da lista de "
+        "técnicos e da atribuição; concedê-la ao Gestor o torna atribuível.",
+        "Gestor e Técnico são papéis explícitos, independentes das permissões; permissão "
+        "técnica não torna Gestor em Técnico e retirar apontar_reparo não destitui o Técnico.",
+        ("CAR-18", "CAR-60", "CAR-82"),
+        "E",
+    ),
+    Delta(
+        "DLT-02",
+        "D-03",
+        "Atribuição a técnico Ausente",
+        "O domínio aceita; só a tela da CLI pede confirmação.",
+        "Recusada por padrão (conflito de regra); aceita com confirmação explícita validada na "
+        "camada de aplicação; o histórico registra a atribuição a técnico ausente.",
+        ("CAR-17", "CAR-89"),
+        "E",
+    ),
+    Delta(
+        "DLT-03",
+        "D-04",
+        "Observação em OS Concluída ou Cancelada",
+        "Aceita de qualquer usuário com registrar_apontamento; o histórico encerrado cresce.",
+        "Recusada (OS encerrada é imutável); observação não é diagnóstico nem reparo.",
+        ("CAR-79",),
+        "E",
+    ),
+    Delta(
+        "DLT-04",
+        "D-04",
+        "Quem pode registrar observação em OS ativa",
+        "Qualquer usuário com registrar_apontamento, sem vínculo com a OS.",
+        "Gestor, técnico responsável e quem abriu a OS; técnico que não é responsável nem autor "
+        "da abertura é recusado (salvo se também for Gestor autorizado).",
+        ("CAR-39", "CAR-79"),
+        "E",
+    ),
+    Delta(
+        "DLT-05",
+        "D-05",
+        "Disponibilidade dos técnicos",
+        "Valor armazenado, só atualizado pela rotina da interface; consultas logo após uma "
+        "transição devolvem o valor antigo.",
+        "Derivada das OS (só Em Execução caracteriza atendimento) a cada consulta, sem rotina; "
+        "ausência manual prevalece.",
+        ("CAR-43", "CAR-47", "CAR-48", "CAR-49", "CAR-50", "CAR-51", "CAR-81"),
+        "E",
+    ),
+    Delta(
+        "DLT-06",
+        "D-06",
+        "Diagnóstico antes de Reparo Finalizado",
+        "Finalizar exige só intervenção; sem diagnóstico, conclusão e diagnóstico ficam "
+        "bloqueados até voltar o status.",
+        "Diagnóstico exigido antes da transição para Reparo Finalizado, com erro claro e sem "
+        "alterar status nem histórico.",
+        ("CAR-34", "CAR-83"),
+        "E",
+    ),
+    Delta(
+        "DLT-07",
+        "D-11",
+        "Datas e fuso horário",
+        "Texto dd/mm/aaaa hh:mm sem fuso, lido do relógio do sistema pelo domínio.",
+        "Instantes com fuso armazenados em UTC; relógio fornecido pela aplicação; datetime "
+        "ingênuo rejeitado; apresentação em America/Sao_Paulo (Fase 04).",
+        ("CAR-90",),
+        "C",
+    ),
+    Delta(
+        "DLT-08",
+        "Validações obrigatórias (AUD-12)",
+        "Campos obrigatórios e valores mínimos",
+        "O domínio aceita falha, intervenção, diagnóstico, motivo e nomes vazios ou só espaços "
+        "e 0 hora; recusa horas negativas e peça com quantidade não positiva.",
+        "Campos obrigatórios vazios ou só espaços rejeitados; apontamento com duração menor ou "
+        "igual a zero rejeitado; quantidade de peça positiva preservada.",
+        ("CAR-80",),
+        "E",
+    ),
+    Delta(
+        "DLT-09",
+        "Usuário ativo/inativo",
+        "Desativação de usuários",
+        "Não existe o campo ativo; um usuário só pode ser excluído se não tiver histórico.",
+        "Campo ativo; usuário inativo não autentica nem opera e não é atribuível; o histórico "
+        "preserva a referência; sem reatribuição automática.",
+        ("CAR-64", "CAR-65"),
+        "E",
+    ),
+    Delta(
+        "DLT-10",
+        "IDs monotônicos (AUD-05)",
+        "Identificadores de usuário e equipamento",
+        "max()+1: excluir o maior id faz o próximo cadastro reutilizá-lo.",
+        "Identificadores monotônicos, sem reutilização após exclusão.",
+        ("CAR-75",),
+        "D",
+    ),
+    Delta(
+        "DLT-11",
+        "AUD-03 (permissões tipadas)",
+        "Nomes de permissão",
+        "Texto livre: um nome errado é negado em silêncio; nomes desconhecidos são ignorados "
+        "ao definir permissões do cargo.",
+        "Permissões tipadas: nome inválido é erro detectável, não negação silenciosa.",
+        ("CAR-74",),
+        "C",
+    ),
+)
+
+DELTAS_POR_ID: dict[str, Delta] = {d.id: d for d in DELTAS}
