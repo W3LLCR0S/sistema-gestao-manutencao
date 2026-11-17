@@ -2,12 +2,14 @@
 
 Cada entrada de ``IMPLEMENTACOES`` constrói um conjunto **novo e vazio** dos quatro repositórios,
 ligados entre si. A suíte (``test_contrato_*.py``) roda inteira contra cada entrada: é assim que a
-substituição de uma implementação por outra (LSP) fica demonstrada. A Fase 03 acrescentará aqui a
-implementação sobre o banco, sem alterar nenhum teste.
+substituição de uma implementação por outra (LSP) fica demonstrada. A implementação sobre o
+PostgreSQL (Fase 03) foi acrescentada aqui sem alterar nenhum teste.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
+
+import pytest
 
 from manutencao.application.portas.repositorios import (
     CargoRepository,
@@ -21,6 +23,13 @@ from manutencao.infrastructure.memoria import (
     OrdensEmMemoria,
     UsuariosEmMemoria,
 )
+from manutencao.infrastructure.postgres import (
+    Banco,
+    CargosNoBanco,
+    EquipamentosNoBanco,
+    OrdensNoBanco,
+    UsuariosNoBanco,
+)
 
 
 @dataclass(frozen=True)
@@ -33,11 +42,23 @@ class Repositorios:
     ordens: OrdemServicoRepository
 
 
-def _em_memoria() -> Repositorios:
+def _em_memoria(_pedido: pytest.FixtureRequest) -> Repositorios:
     cargos = CargosEmMemoria()
     return Repositorios(
         EquipamentosEmMemoria(), cargos, UsuariosEmMemoria(cargos), OrdensEmMemoria()
     )
 
 
-IMPLEMENTACOES: dict[str, Callable[[], Repositorios]] = {"memoria": _em_memoria}
+def _no_postgres(pedido: pytest.FixtureRequest) -> Repositorios:
+    """Repositórios sobre um PostgreSQL real, migrado e vazio (fixture ``banco_limpo``)."""
+    banco: Banco = pedido.getfixturevalue("banco_limpo")
+    cargos = CargosNoBanco(banco)
+    return Repositorios(
+        EquipamentosNoBanco(banco), cargos, UsuariosNoBanco(banco, cargos), OrdensNoBanco(banco)
+    )
+
+
+IMPLEMENTACOES: dict[str, Callable[[pytest.FixtureRequest], Repositorios]] = {
+    "memoria": _em_memoria,
+    "postgres": _no_postgres,
+}

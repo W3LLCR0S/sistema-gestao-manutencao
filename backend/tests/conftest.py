@@ -4,7 +4,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy.engine import URL
 
+from manutencao.infrastructure.postgres import Banco
+from manutencao.infrastructure.postgres.migracoes import aplicar
+from tests.apoio.postgres import banco_temporario, esvaziar, servidor
 from tests.guardas_ambiente import (
     RAIZ_BACKEND,
     RAIZ_REPOSITORIO,
@@ -56,3 +60,27 @@ def raiz_backend() -> Path:
 @pytest.fixture(scope="session")
 def raiz_repositorio() -> Path:
     return RAIZ_REPOSITORIO
+
+
+# ------------------------------------------------------------------------------- PostgreSQL
+@pytest.fixture(scope="session")
+def url_do_banco_de_teste() -> Iterator[URL]:
+    """Um banco PostgreSQL exclusivo da sessão, já migrado (Alembic ``head``).
+
+    Só é criado quando algum teste o pede. O servidor vem de ``MANUTENCAO_TEST_SERVER_URL`` ou do
+    ``pgserver`` de desenvolvimento (ver ``tests/apoio/postgres.py``).
+    """
+    with servidor() as admin, banco_temporario(admin) as url:
+        aplicar(url)
+        yield url
+
+
+@pytest.fixture
+def banco_limpo(url_do_banco_de_teste: URL) -> Iterator[Banco]:
+    """O banco migrado e **vazio** (dados e sequências zerados) para um teste."""
+    esvaziar(url_do_banco_de_teste)
+    banco = Banco(url_do_banco_de_teste)
+    try:
+        yield banco
+    finally:
+        banco.encerrar()

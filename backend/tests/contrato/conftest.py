@@ -8,5 +8,5 @@ from tests.contrato.implementacoes import IMPLEMENTACOES, Repositorios
 @pytest.fixture(params=sorted(IMPLEMENTACOES))
 def repos(request: pytest.FixtureRequest) -> Repositorios:
     """Repositórios novos e vazios da implementação em teste."""
-    repositorios: Repositorios = IMPLEMENTACOES[request.param]()
+    repositorios: Repositorios = IMPLEMENTACOES[request.param](request)
     return repositorios
