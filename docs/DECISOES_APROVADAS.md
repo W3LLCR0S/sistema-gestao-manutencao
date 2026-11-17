@@ -34,11 +34,11 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 | D-05 | Disponibilidade dos técnicos | **Aprovada; implementada** (DLT-05) | AUD-13 | 02 |
 | D-06 | Diagnóstico obrigatório antes de Reparo Finalizado | **Aprovada; implementada** (DLT-06) | AUD-21 | 02 |
 | D-07 | Campos extras de equipamento | **Pendente** | OPC-06 | Decidir antes da 03 |
-| D-08 | Importação dos dados JSON existentes | **Pendente** | OPC-07, AUD-06 | Decidir antes da 03 |
+| D-08 | Importação dos dados JSON existentes | **Pendente**; a Fase 03 **não** importa (só semente fictícia) | OPC-07, AUD-06 | Decidir antes de qualquer importação |
 | D-09 | Hospedagem da API e do banco | **Pendente** | ADR-0001 | Decidir antes da 10 |
 | D-10 | Futuro da CLI e do diretório `app/` | **Aprovada para o planejamento** (remoção do legado segue sem decisão, ver 4) | AUD-18 | 02 (convivência); remoções só com autorização posterior |
 | D-11 | Datas e fuso horário | **Aprovada** | AUD-07 | 02 (tipos); conversão de dados legados depois |
-| D-12 | Provisionamento do PostgreSQL | **Pendente** | ADR-0006 | Decidir antes da 03 |
+| D-12 | Provisionamento do PostgreSQL | **Aprovada** (2026-11-17: PostgreSQL mantido; testes com PostgreSQL real embutido ou servidor informado; ver `PERSISTENCIA.md`) | ADR-0006 | 03 |
 | D-13 | Ferramentas de qualidade | **Aprovada** (backend) | AUD-17 | 02 |
 | D-14 | Estrutura do novo backend | **Aprovada** | ADR-0002 | 02 |
 | D-15 | OS atrasada e prazos | **Pendente** | E2-FRT-03 | Decidir antes da 08 |

@@ -24,6 +24,13 @@
 | [`PLANO_DE_MIGRACAO.md`](PLANO_DE_MIGRACAO.md) | Roteiro incremental por fase, riscos, critérios de aceitação e decisões pendentes |
 | [`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md) | Relatório final da Fase 02: implementado, requisitos, padrões, testes, limitações e transição |
 
+## Persistência e próximas fases (Fase 03)
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [`PERSISTENCIA.md`](PERSISTENCIA.md) | PostgreSQL, SQLAlchemy e Alembic: modelo, decisões, configuração, comandos, testes e limitações |
+| [`MAPEAMENTO_API_FRONTEND.md`](MAPEAMENTO_API_FRONTEND.md) | Requisitos obrigatórios mapeados para FastAPI e React (planejamento) e a proposta mínima de D-01 |
+
 ## Na raiz do repositório
 
 - [`../README.md`](../README.md): como executar a Entrega 1 (CLI).
