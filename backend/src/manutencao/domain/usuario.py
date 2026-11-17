@@ -80,6 +80,13 @@ class Usuario:
         return self.papel is Papel.GESTOR
 
     @property
+    def e_gestor_administrativo(self) -> bool:
+        """Gestor **administrativamente apto** (REG-E-01): papel Gestor, ativo e com a permissão
+        efetiva ``gerir_usuarios``. É esta condição, e não só o papel, que o sistema nunca pode
+        perder em todos os usuários ao mesmo tempo."""
+        return self.e_gestor and self.pode(Permissao.GERIR_USUARIOS)
+
+    @property
     def atribuivel(self) -> bool:
         """Pode receber OS: papel Técnico e usuário ativo."""
         return self.e_tecnico and self.ativo

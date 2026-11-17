@@ -226,12 +226,15 @@ def test_dlt01_ninguem_deixa_de_ser_gestor_por_conta_propria(amb: Ambiente) -> N
 
 
 def test_dlt01_mudar_o_papel_nao_reatribui_as_os(amb: Ambiente) -> None:
-    numero = em_execucao(amb, BRUNO)
+    # Com OS ativa a mudança é recusada (REG-E-04); com a OS já encerrada ela é aceita e a OS
+    # continua como estava, sem reatribuição automática.
+    numero = aguardando_aprovacao(amb)
+    amb.servico_ordens.aprovar(ANA, numero)
     historico = guardada(amb, numero).servicos
     amb.servico_usuarios.alterar_papel(ANA, BRUNO, Papel.GESTOR)
     os_ = guardada(amb, numero)
     assert os_.tecnico_atribuido == _usuario(amb, BRUNO)  # sem reatribuição automática
-    assert (os_.status, os_.servicos) == (StatusOS.EM_EXECUCAO, historico)
+    assert (os_.status, os_.servicos) == (StatusOS.CONCLUIDA, historico)
 
 
 def test_dlt01_alterar_papel_segue_a_precedencia_da_autorizacao(amb: Ambiente) -> None:
@@ -785,7 +788,12 @@ def test_dlt09_usuario_inativo_nao_opera_nenhum_caso_de_uso(amb: Ambiente) -> No
     equipamento = amb.servico_equipamentos
     ordens, usuarios = amb.servico_ordens, amb.servico_usuarios
     nova = amb.servico_usuarios.cadastrar(ANA, "Eva", CARGO_GESTOR, papel=Papel.GESTOR).id
-    for quem in (BRUNO, CARLA, nova):
+    # Bruno tem OS ativas, e o serviço não o desativaria (REG-E-04): o estado "inativo com OS"
+    # (de uma base anterior à regra) é montado direto no repositório, para provar que ele não opera.
+    bruno = _usuario(amb, BRUNO)
+    bruno.desativar()
+    amb.usuarios.salvar(bruno)
+    for quem in (CARLA, nova):
         amb.servico_usuarios.desativar(ANA, quem)
     operacoes: tuple[Operacao, ...] = (
         lambda: ordens.abrir(CARLA, TORNO, "x", Criticidade.BAIXA),
@@ -842,23 +850,22 @@ def test_dlt09_tecnico_inativo_sai_da_lista_e_nao_recebe_os(amb: Ambiente) -> No
 
 
 def test_dlt09_desativar_preserva_o_historico_e_nao_reatribui_as_os(amb: Ambiente) -> None:
-    numero = em_execucao(amb, BRUNO)
+    # Só quem não tem OS ativa é desativado (REG-E-04): aqui a OS já foi concluída.
+    numero = aguardando_aprovacao(amb)
+    amb.servico_ordens.aprovar(ANA, numero)
     antes = guardada(amb, numero)
     amb.servico_usuarios.desativar(ANA, BRUNO)
     depois = guardada(amb, numero)
     assert depois.tecnico_atribuido == _usuario(amb, BRUNO)  # nenhuma reatribuição automática
     assert (depois.status, depois.servicos) == (antes.status, antes.servicos)
-    assert amb.projecoes.carga_do_tecnico(BRUNO) == 1
+    assert amb.projecoes.carga_do_tecnico(BRUNO) == 0
     assert _usuario(amb, BRUNO).nome == "Bruno Lima"  # a referência histórica mantém o nome
-    # o gestor resolve a OS à mão: reatribui a um técnico ativo
-    amb.servico_ordens.atribuir(ANA, numero, CARLA)
-    assert guardada(amb, numero).tecnico_atribuido == _usuario(amb, CARLA)
 
 
 def test_dlt09_usuario_com_historico_continua_sem_poder_ser_excluido_mas_pode_ser_desativado(
     amb: Ambiente,
 ) -> None:
-    atribuida(amb, BRUNO)
+    amb.servico_ordens.aprovar(ANA, aguardando_aprovacao(amb))  # histórico, sem OS ativa
     _recusado(
         amb,
         RegraDeAplicacaoError,

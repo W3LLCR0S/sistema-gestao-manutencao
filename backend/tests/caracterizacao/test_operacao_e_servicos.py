@@ -370,7 +370,7 @@ def test_dlt09_o_legado_nao_tem_o_conceito_de_ativo_e_so_exclui_quem_nao_tem_his
 def test_dlt09_nos_servicos_o_usuario_com_historico_e_desativado_sem_perder_a_referencia(
     par: Par,
 ) -> None:
-    os_atribuida(par.servicos, tecnico=BRUNO)
+    os_cancelada(par.servicos, atribuida=True, tecnico=BRUNO)  # histórico, sem OS ativa (REG-E-04)
     servicos = _servicos(par)._c
     recusada(
         par.servicos.remover_usuario(BRUNO, ANA), Recusa.USUARIO_COM_HISTORICO

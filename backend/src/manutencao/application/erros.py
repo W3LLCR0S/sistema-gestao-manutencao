@@ -20,6 +20,9 @@ class CodigoErroAplicacao(StrEnum):
     USUARIO_COM_HISTORICO = "usuario_com_historico"
     AUTOEXCLUSAO = "autoexclusao"
     AUTOREMOCAO_DE_ACESSO_DE_GESTAO = "autoremocao_de_acesso_de_gestao"
+    # Regularização da Operação E (REG-E-01, REG-E-04)
+    ULTIMO_GESTOR = "ultimo_gestor"
+    USUARIO_COM_OS_ATIVAS = "usuario_com_os_ativas"
 
 
 class AplicacaoError(Exception):
