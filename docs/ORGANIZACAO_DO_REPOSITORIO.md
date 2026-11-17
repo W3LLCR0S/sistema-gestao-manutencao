@@ -100,7 +100,7 @@ Documentação de desenvolvimento fica em `docs/`. `README.md` e `DOCUMENTACAO.m
 - **Interface:** entrada e saída. Hoje é o terminal em `ui/`.
 
 **Frontend e backend.** A intenção é uma aplicação web em que o frontend e o backend fiquem em diretórios separados,
-comunicando-se por uma API, com regras de negócio apenas no backend. O backend novo será criado no pacote
+comunicando-se por uma API, com regras de negócio apenas no backend. O backend novo foi criado (Fase 02) no pacote
 `backend/src/manutencao/`, ao lado do código legado, que é preservado durante a migração (decisão D-14,
 [`adr/0008`](adr/0008-estrutura-do-backend-e-convivencia-com-o-legado.md)); o contrato da API ainda **não foi definido**.
 A direção técnica aprovada (stack, camadas, Repository, injeção de dependências, testes, datas e regras da OS) está

@@ -1,8 +1,6 @@
 # ADR-0002 — Arquitetura em camadas, inspirada na hexagonal simplificada
 
-- **Status:** Aceita para documentação (Fase 01); revisada na própria Fase 01 para fixar a regra de dependência, a raiz
-  de composição e o relógio. A estrutura de pastas segue a decisão D-14
-  ([ADR-0008](0008-estrutura-do-backend-e-convivencia-com-o-legado.md)).
+- **Status:** Aceita; **implementada na Fase 02** em `backend/src/manutencao/` (`domain`, `application`, `infrastructure`, `composicao`; `api` existe como pacote vazio reservado à Fase 04).
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0003, ADR-0004, ADR-0005; AUD-09, AUD-10, AUD-15, AUD-16; E2-ARQ-02, E2-SOL-05
 
@@ -57,7 +55,7 @@ Os casos de uso dependem **somente de abstrações** (`Protocol` das portas).
 operações de domínio que precisam dele; o domínio não importa a porta
 ([ADR-0007](0007-datas-fuso-horario-e-relogio.md)).
 
-Estrutura-alvo (**não implementada**; pacote `backend/src/manutencao/`, aprovado em D-14 para evitar conflito com o `app/`
+Estrutura-alvo (**implementada na Fase 02**, exceto `api/`; pacote `backend/src/manutencao/`, aprovado em D-14 para evitar conflito com o `app/`
 legado; convivência com o legado em [ADR-0008](0008-estrutura-do-backend-e-convivencia-com-o-legado.md)):
 
 ```
@@ -88,3 +86,7 @@ frontend/
   `application` por `domain`, é defeito (verificada por teste de arquitetura, ADR-0006).
 - O frontend não contém regra de negócio; validações de interface são conveniência e a API continua sendo a autoridade.
 - Os nomes finais dos subpacotes podem ser ajustados na Fase 02; mudanças relevantes exigem nova ADR ou revisão desta.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+A regra de dependência foi implementada e é **verificada por teste**: `tests/arquitetura/test_camadas.py` (o pacote tem exatamente as cinco camadas; cada módulo respeita a regra) e `tests/arquitetura/test_injecao_de_dependencias.py`. Verificação manual na revisão: `domain` importa só a biblioteca-padrão e a si mesmo; `application` não importa `infrastructure`, `composicao` nem `api`; `infrastructure` importa só portas, entidades e erros da aplicação. A estrutura-alvo descrita acima deixou de ser apenas proposta, exceto `api/`, que continua vazio até a Fase 04.

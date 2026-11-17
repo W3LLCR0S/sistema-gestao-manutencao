@@ -1,7 +1,6 @@
 # ADR-0006 — Estratégia de testes e ferramentas de qualidade
 
-- **Status:** Aceita para documentação (Fase 01); atualizada com a decisão D-13 e com a estratégia de caracterização.
-  Ferramentas além das aprovadas dependem de justificativa. **Nenhuma ferramenta foi instalada nesta fase.**
+- **Status:** Aceita; **aplicada na Fase 02** (ferramentas D-13 instaladas na Operação A; caracterização antes da refatoração).
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0001 a ADR-0005, ADR-0007 a ADR-0009; AUD-17; E2-OBJ-01 (testabilidade), E2-SOL-03, E2-SOL-04,
   E2-SOL-05, E2-DOC-02; [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (D-13)
@@ -200,3 +199,7 @@ Fase 02, são:
   nenhuma instalação é feita nesta fase).
 - Metas de cobertura, ferramenta E2E e ferramentas adicionais de frontend continuam pendentes.
 - O script de verificação da auditoria deve ser convertido em testes versionados, e não reutilizado como está.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Resultado ao final da Fase 02: `pytest` **2477 passed, 46 skipped**, `ruff check`, `ruff format --check` e `mypy` estrito sem erros. Por camada: domínio 534, aplicação 405, contrato 82, integração 13, arquitetura 234, caracterização 1176 (+46 *skipped* com justificativa registrada por cenário), guardas do ambiente 33. Os 23 deltas (DLT-01 a DLT-23) têm teste e registro documental. A cobertura numérica continua **não definida** (Fase 09). Os testes de API, banco e *frontend* da pirâmide ainda não existem.

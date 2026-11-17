@@ -1,6 +1,6 @@
 # ADR-0003 — Separação de responsabilidades entre as camadas
 
-- **Status:** Aceita para documentação (Fase 01). Detalhes de autenticação continuam em aberto.
+- **Status:** Aceita; **parcialmente implementada na Fase 02** (validação, regras e autorização central). Tradução de erros em HTTP, transação e autenticação continuam em aberto.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0005; AUD-02, AUD-09, AUD-12, AUD-13, AUD-14; E2-SOL-01
 
@@ -62,3 +62,7 @@ Não há CLI sobre os novos serviços (D-10); a CLI legada permanece com seu tra
   próprio acesso, `ui/tela_usuarios.py:58,104`) passam para `application`; a interface só coleta a confirmação.
 - Autenticação (formato da sessão ou do token, política de senha inicial, recuperação de acesso) **ainda não está
   especificada**; será proposta na Fase 04 com aprovação específica. Esta ADR define só onde cada parte reside.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Implementado: validação de entrada e invariantes no domínio (`domain/validacao.py`, entidades), autorização central na aplicação (`application/servicos/comum.py: carregar_ator`; `Usuario.exigir`) e erros tipados com código (`domain/erros.py`, `application/erros.py`) prontos para serem traduzidos na borda. **Não implementado:** tradução para HTTP e contrato da API (Fase 04), transação/versão (Fase 03) e autenticação (D-01, sem ADR).

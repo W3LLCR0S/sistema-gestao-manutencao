@@ -1,6 +1,6 @@
 # ADR-0008 — Estrutura do backend e convivência com o legado
 
-- **Status:** Aprovada (D-14; convivência com o legado conforme D-10). **Não implementada.** Nenhum diretório novo foi criado nesta fase.
+- **Status:** Aprovada (D-14; convivência com o legado conforme D-10); **implementada na Fase 02**.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0006; AUD-06, AUD-18; [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (D-14, D-10)
 
@@ -21,8 +21,7 @@ e sem criar um terceiro conjunto de módulos misturado ao legado (R-09).
 
 ## Decisão
 
-Criar **futuramente** o pacote `backend/src/manutencao/`. Estrutura-alvo (**proposta**, nomes finais ajustáveis na
-Fase 02):
+Criar o pacote `backend/src/manutencao/`. Estrutura-alvo (**implementada na Fase 02**; os nomes finais estão no código):
 
 ```
 backend/
@@ -74,3 +73,7 @@ e atual** (a D-10 aprova a preservação, não a remoção). Nada disso ocorre n
 - Os testes de caracterização que usam o legado dependem de módulos que serão removidos depois; ver estratégia
   realista no ADR-0006 (testes por fachada estável e transição para o novo domínio).
 - A regra "não criar um terceiro conjunto paralelo" passa a significar: todo código novo vai para `manutencao/`.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+O pacote `backend/src/manutencao/` existe, não importa o legado (`tests/arquitetura/test_isolamento_legado.py`) e o legado ficou **idêntico à tag `entrega-1`** (`git diff entrega-1 HEAD` vazio em `main.py models ui persistencia app dados README.md DOCUMENTACAO.md`). A relação com o legado é feita só pelos testes de caracterização. O pacote `app/` segue preservado e sem uso; sua remoção depende de autorização posterior (D-10). A estrutura-alvo descrita acima foi implementada, exceto `api/` (pacote vazio até a Fase 04).

@@ -193,3 +193,35 @@ D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).
 Leitura: a Entrega 1 está funcionalmente presente na CLI, com 15 requisitos que exigem correção durante a migração
 (`ressalva`) e um sem verificação de execução da CLI; a Entrega 2 está essencialmente por fazer, como esperado no início
 da Fase 01. Esta tabela descreve o **estado do baseline**, não o resultado das fases futuras.
+
+## 7. Situação ao encerrar a Fase 02 (2026-11-17)
+
+As seções 1 a 6 descrevem o **baseline** e permanecem como registro. Esta seção mostra apenas os requisitos que a
+Fase 02 alterou, com a evidência real (detalhes em [`PRINCIPIOS_SOLID_E_PADROES.md`](PRINCIPIOS_SOLID_E_PADROES.md#4-evidências-ao-encerrar-a-fase-02)
+e [`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md)). A CLI legada **não** foi alterada: a coluna "Situação" das seções 2 e 3
+continua válida para ela.
+
+### 7.1 Entrega 2 (arquitetura)
+
+| ID | Situação no baseline | Situação ao fim da Fase 02 | Evidência | O que falta |
+|----|----------------------|----------------------------|-----------|-------------|
+| E2-SOL-01 SRP | Parcial | **Atendido** (backend) | Entidades sem persistência; um serviço por conjunto coeso; `domain/`, `application/`, `infrastructure/`, `composicao/` | — |
+| E2-SOL-02 OCP | Não atendido | **Atendido com ressalva** | `dominio/test_extensibilidade.py`; controle dirigido por dados (`domain/transicoes.py`, `domain/permissoes.py`) | Nova permissão ainda exige declarar o membro em `Permissao` |
+| E2-SOL-03 LSP | Não atendido | **Parcial** | Relógio com duas implementações e contrato (`contrato/test_contrato_relogio.py`); contrato dos repositórios pronto (82 testes) | Segunda implementação dos repositórios (Fase 03) |
+| E2-SOL-04 ISP | Não atendido | **Atendido** | Portas por agregado (`application/portas/repositorios.py`); `aplicacao/test_injecao_de_dependencias.py` | — |
+| E2-SOL-05 DIP | Parcial | **Atendido** (backend) | `arquitetura/test_camadas.py`, `arquitetura/test_injecao_de_dependencias.py`; só `composicao/fabrica.py` importa implementações | Provedores `Depends` na borda (Fase 04) |
+| E2-PAD-01 Padrão de projeto | Não atendido | **Atendido** (Repository, Dependency Injection e Service Layer) | Seção 4.2 de `PRINCIPIOS_SOLID_E_PADROES.md` | Critério de aceitação "duas implementações do Repository" (Fase 03) |
+| E2-ARQ-02 Tipo de arquitetura | Parcial | **Atendido** (camadas) | ADR-0002, ADR-0008; teste de dependências | — |
+| E2-PER-01 Persistência desacoplada | Parcial | **Parcial** | Portas e memória; regras fora do repositório | Persistência real atrás das portas (Fase 03) |
+| E2-ENT-01 Código por camada | Parcial | **Parcial** | `backend/src/manutencao/` | Camada de apresentação (Fases 04 e seguintes) |
+| E2-DOC-02 SOLID e padrões documentados | Não atendido | **Parcial** | Seção 4 de `PRINCIPIOS_SOLID_E_PADROES.md`, ADRs revisados, `RELATORIO_FASE_02.md` | Relatório técnico final consolidado |
+
+Sem alteração (continuam **Não atendidos** ou **Parciais** como no baseline): E2-FRT-01 a E2-FRT-03 (interface web),
+E2-EXE-01, E2-DOC-01, E2-DOC-03 a E2-DOC-05 e E2-OBJ-01/E2-ARQ-01 (dependem das fases seguintes).
+
+### 7.2 Entrega 1 (regras de negócio)
+
+Os requisitos da Entrega 1 afetados pelas decisões D-02 a D-06, validação de entradas e desativação de usuários estão
+**implementados no novo backend** (DLT-01 a DLT-23; seção 5 acima) e verificados pelos testes de caracterização,
+de domínio e de aplicação. Isso **não** altera a situação da CLI legada, nem constitui interface para o usuário final.
+

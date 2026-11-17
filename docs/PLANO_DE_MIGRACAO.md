@@ -63,6 +63,8 @@ dados simulados como se fossem de produção) e é validada de ponta a ponta na 
 
 ### Fase 02 — Testes de caracterização e domínio (`refactor/arquitetura`)
 
+> **Status (2026-11-17): Operações A a F concluídas; merge e push pendentes de autorização.** Resultado e limitações em [`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md).
+
 **Objetivo:** estruturar o domínio e a aplicação conforme ADR-0002, 0003, 0004 e 0005, em `backend/src/manutencao/`
 (D-14), preservando o comportamento exigido pela Entrega 1 e aplicando, **depois e em separado**, as mudanças aprovadas.
 

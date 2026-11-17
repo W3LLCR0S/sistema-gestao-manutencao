@@ -1,6 +1,6 @@
 # ADR-0004 — Repository e persistência
 
-- **Status:** Aceita para documentação (Fase 01). Itens marcados como *proposta* serão confirmados nas Fases 02 e 03.
+- **Status:** Aceita; **parcialmente implementada na Fase 02**: portas `Protocol` por agregado e implementação em memória. SQLAlchemy, transação e controle de versão (*propostas*) ficam para a Fase 03.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0001, ADR-0002; AUD-04 a AUD-08, AUD-10, AUD-16; E2-PAD-01, E2-PER-01, E2-SOL-03, E2-SOL-04
 
@@ -66,3 +66,7 @@ trata a incompatibilidade com a implementação paralela em `app/` (AUD-06).
   decisão posterior ([ADR-0008](0008-estrutura-do-backend-e-convivencia-com-o-legado.md)).
 - Usuários passam a ter o campo `ativo` (desativação sem exclusão, `DECISOES_APROVADAS.md`, seção 5.2); as chaves
   estrangeiras para usuários desativados são mantidas para preservar o histórico.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Implementado: quatro portas `Protocol` em `application/portas/repositorios.py` (`EquipamentoRepository`, `CargoRepository`, `UsuarioRepository`, `OrdemServicoRepository`), sem repositório genérico; implementação em memória em `infrastructure/memoria/` com identificadores monotônicos e cópias defensivas; suíte de contrato `tests/contrato/` (82 testes) que roda inteira contra cada entrada de `IMPLEMENTACOES`. **Honestidade sobre a evidência:** hoje há **uma** implementação dos repositórios (memória); a segunda (banco) é da Fase 03 e entra na mesma suíte sem alterar teste. Os itens *proposta* (unidade de trabalho, mapeamento do ORM, controle otimista de versão) **não foram implementados** e seguem para a Fase 03.

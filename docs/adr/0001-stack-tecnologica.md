@@ -1,6 +1,6 @@
 # ADR-0001 — Stack tecnológica
 
-- **Status:** Aceita para documentação (Fase 01). A implementação depende da autorização de cada fase.
+- **Status:** Aceita. Na Fase 02 só foram adotadas `pytest`, `ruff` e `mypy` (D-13); FastAPI, React, PostgreSQL, SQLAlchemy e Alembic **seguem não implementados**.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0004, ADR-0006; achados AUD-01, AUD-04, AUD-06 da [auditoria](../AUDITORIA_ARQUITETURAL.md)
 
@@ -55,3 +55,7 @@ domínio em Python já concentra as regras do ciclo da OS e deve ser aproveitado
 - A CLI e a persistência JSON são preservadas, mas deixam de ser mecanismos finais (D-10), mas as funcionalidades e regras exigidas pela Entrega 1
   devem continuar atendidas (verificado por testes de caracterização, ADR-0006).
 - O diretório `app/` não é removido na Fase 01.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Mantida sem alteração de decisão. A Fase 02 usou apenas Python 3.11, `pytest`, `ruff` e `mypy` em modo estrito (`backend/pyproject.toml`; `dependencies = []`, ou seja, o pacote não depende de nenhuma biblioteca de terceiros). O restante da stack (FastAPI, React, PostgreSQL, SQLAlchemy 2, Alembic) é tratado nas fases seguintes.

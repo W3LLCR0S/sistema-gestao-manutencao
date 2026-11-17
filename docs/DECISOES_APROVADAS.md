@@ -531,9 +531,13 @@ tipado; as de conflito são `RegraDeAplicacaoError` (409 na borda) e a de valor,
   `ultimo_gestor` (conflito), sem mutação. Abrange: desativação, alteração de papel, alteração de cargo e alteração das
   permissões de um cargo (o efeito é calculado sobre **todos** os usuários, inclusive os que compartilham o cargo). Não
   cria usuário, não concede permissão e não há recuperação administrativa.
-- **Interpretação a confirmar:** a **exclusão** de usuário também é protegida (ela elimina o gestor do mesmo modo e cabe na
-  frase "impedir que o sistema fique sem pelo menos um Gestor"); não estava na lista de operações da decisão.
-- **Ordem das recusas:** autorização, existência, autoproteção (REG-E-03), último gestor e, por fim, OS ativas (REG-E-04).
+- **Ratificada em 2026-11-17 (Operação F):** a **exclusão** de usuário também é protegida; a exclusão não pode deixar o
+  sistema sem pelo menos um Gestor ativo com `gerir_usuarios`. Antes era uma interpretação a confirmar; **nenhuma mudança
+  de código foi necessária** (a guarda já existia em `ServicoDeUsuarios.excluir`). A Operação F acrescentou apenas o teste
+  de precedência e de ausência de mutação (`test_dlt18_exclusao_do_ultimo_gestor_respeita_a_precedencia_das_recusas`).
+- **Ordem das recusas** (nas operações de desativação, papel, cargo e permissões): autorização, existência, autoproteção
+  (REG-E-03), último gestor e, por fim, OS ativas (REG-E-04). **Na exclusão:** autorização, existência, autoexclusão,
+  histórico em OS e, por último, o último gestor; cada recusa sem mutação.
   A regra só recusa quando a operação **elimina** a última condição existente: se ninguém era apto antes, nada foi
   eliminado.
 - **Justificativa:** sem recuperação administrativa, perder o último gestor seria irreversível.

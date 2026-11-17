@@ -11,7 +11,7 @@
 | [`ORGANIZACAO_DO_REPOSITORIO.md`](ORGANIZACAO_DO_REPOSITORIO.md) | Estrutura atual, regras de higiene e relação entre branches e fases |
 | [`LIMITACOES_E_AUDITORIA.md`](LIMITACOES_E_AUDITORIA.md) | Limitações da Entrega 1 e achados da auditoria inicial |
 
-## Arquitetura (Fase 01)
+## Arquitetura (Fases 01 e 02)
 
 | Documento | Conteúdo |
 |-----------|----------|
@@ -22,6 +22,7 @@
 | [`DIAGRAMAS.md`](DIAGRAMAS.md) | Componentes, camadas, entidades, máquina de estados e fluxo da OS (Mermaid) |
 | [`PRINCIPIOS_SOLID_E_PADROES.md`](PRINCIPIOS_SOLID_E_PADROES.md) | SOLID e padrões: situação atual × plano e como serão demonstrados |
 | [`PLANO_DE_MIGRACAO.md`](PLANO_DE_MIGRACAO.md) | Roteiro incremental por fase, riscos, critérios de aceitação e decisões pendentes |
+| [`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md) | Relatório final da Fase 02: implementado, requisitos, padrões, testes, limitações e transição |
 
 ## Na raiz do repositório
 
@@ -30,5 +31,5 @@
 
 Ordem de leitura sugerida: auditoria → decisões aprovadas → matriz → ADRs → diagramas → SOLID e padrões → plano de migração.
 
-As decisões aprovadas orientam fases futuras e **não estão implementadas**; o código da branch continua sendo o da
-Entrega 1.
+As decisões aprovadas foram implementadas no novo backend (`backend/`) na Fase 02, conforme o
+[`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md); a CLI legada da Entrega 1 continua preservada e inalterada.
