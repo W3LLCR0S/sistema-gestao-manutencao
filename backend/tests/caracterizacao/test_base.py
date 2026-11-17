@@ -27,6 +27,7 @@ from tests.caracterizacao.cenarios import (
 from tests.caracterizacao.cli_isolada import LANCADOR
 from tests.caracterizacao.fachada import Fachada, Recusa, RelogioFixo
 from tests.caracterizacao.fluxos import os_aberta
+from tests.caracterizacao.integridade import impressao_digital_do_legado
 from tests.guardas_ambiente import DIRETORIO_DADOS, RAIZ_REPOSITORIO
 
 
@@ -130,3 +131,20 @@ def test_lancador_da_cli_bloqueia_a_rede_antes_de_rodar_o_legado() -> None:
     )
     assert processo.returncode == 0, processo.stderr
     assert "bloqueado: rede bloqueada" in processo.stdout
+
+
+def test_impressao_digital_do_legado_cobre_o_codigo_e_nunca_dados() -> None:
+    impressao = impressao_digital_do_legado()
+    for esperado in (
+        "main.py",
+        "models/ordem_servico.py",
+        "persistencia/repositorio.py",
+        "ui/aplicacao.py",
+        "app/contexto.py",
+        "README.md",
+        "DOCUMENTACAO.md",
+    ):
+        assert esperado in impressao, esperado
+    assert not any(caminho.startswith("dados") for caminho in impressao)
+    assert not any(caminho.endswith(".pyc") for caminho in impressao)
+    assert all(len(h) == 64 for h in impressao.values())
