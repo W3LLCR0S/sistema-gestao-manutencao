@@ -10,6 +10,7 @@
 pytest==9.2.0
 ruff==0.17.5
 mypy==2.4.1
+httpx2==2.16.2   # cliente de teste da API (starlette.testclient)
 
 # --- Transitivas (fixadas) ---
 ast-serialize==0.13.1
@@ -21,6 +22,9 @@ packaging==26.3
 pathspec==1.1.1
 pluggy==1.7.0
 Pygments==2.21.0
+httpcore2==2.16.2
+certifi==2026.10.23
+truststore==0.10.5
 
 # --- PostgreSQL embutido para os testes (Fase 03, D-12): servidor real em pasta temporaria ---
 pgserver==0.1.4

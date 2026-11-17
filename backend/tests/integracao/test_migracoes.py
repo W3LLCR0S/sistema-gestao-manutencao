@@ -21,6 +21,8 @@ TABELAS = {
     "ordens_servico",
     "servicos_os",
     "pecas_servico",
+    "credenciais",
+    "sessoes",
 }
 
 
@@ -122,3 +124,31 @@ def test_restricoes_do_banco_recusam_valores_invalidos(
             conexao.execute(text("DELETE FROM cargos WHERE id = 1"))
     finally:
         engine.dispose()
+
+
+def test_reverter_a_0002_preserva_o_esquema_da_0001_e_os_dados(
+    url_do_servidor_de_teste: URL,
+) -> None:
+    """A migração de autenticação é aditiva: desfazê-la não toca em usuários nem em OS."""
+    with banco_temporario(url_do_servidor_de_teste) as url:
+        migracoes.aplicar(url, "0001")
+        engine = create_engine(url)
+        try:
+            with engine.begin() as conexao:
+                conexao.execute(text("INSERT INTO cargos (id, nome) VALUES (1, 'Gestor')"))
+                conexao.execute(
+                    text("INSERT INTO usuarios VALUES (1,'x',1,'','','Disponível','Gestor',true)")
+                )
+        finally:
+            engine.dispose()
+        migracoes.aplicar(url)  # 0002
+        assert migracoes.revisao_atual(url) == "0002"
+        migracoes.reverter(url, "-1")
+        assert migracoes.revisao_atual(url) == "0001"
+        assert _tabelas(url) == TABELAS - {"credenciais", "sessoes"}
+        engine = create_engine(url)
+        try:
+            with engine.connect() as conexao:
+                assert conexao.execute(text("SELECT count(*) FROM usuarios")).scalar_one() == 1
+        finally:
+            engine.dispose()

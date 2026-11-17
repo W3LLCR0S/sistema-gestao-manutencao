@@ -21,7 +21,7 @@ DIRETORIO_TESTES = Path(__file__).resolve().parent
 
 # Diretório de testes -> marcador registrado em pyproject.toml.
 MARCADORES_POR_DIRETORIO = frozenset(
-    {"caracterizacao", "dominio", "aplicacao", "integracao", "contrato", "arquitetura"}
+    {"caracterizacao", "dominio", "aplicacao", "integracao", "contrato", "arquitetura", "api"}
 )
 
 

@@ -53,15 +53,22 @@ def test_dominio_nao_importa_aplicacao_nem_infraestrutura(fonte: ArquivoFonte) -
 
 
 def test_so_a_raiz_de_composicao_importa_a_infraestrutura() -> None:
-    """A raiz de composição é a fábrica e o comando de administração do banco (que aplica as
-    migrações); nenhum outro módulo, nem outro da própria composição, importa a infraestrutura."""
+    """A raiz de composição é a fábrica, a montagem da aplicação web, o servidor, o carregamento do
+    ambiente e o comando de administração do banco (que aplica as migrações); nenhum outro módulo,
+    nem outro da própria composição, importa a infraestrutura."""
     quem = {
         f.modulo
         for f in FONTES
         if f.camada != "infrastructure"
         and any(m.startswith("manutencao.infrastructure") for m in _importados(f))
     }
-    assert quem == {"manutencao.composicao.fabrica", "manutencao.composicao.banco"}
+    assert quem == {
+        "manutencao.composicao.fabrica",
+        "manutencao.composicao.banco",
+        "manutencao.composicao.aplicacao",
+        "manutencao.composicao.servidor",
+        "manutencao.composicao.ambiente",
+    }
 
 
 def test_a_infraestrutura_depende_das_portas_e_das_entidades_nao_dos_servicos() -> None:

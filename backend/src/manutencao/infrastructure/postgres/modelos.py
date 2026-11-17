@@ -36,6 +36,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -198,3 +199,32 @@ class PecaModelo(Base):
     posicao: Mapped[int] = mapped_column(Integer, primary_key=True)
     descricao: Mapped[str] = mapped_column(Text, nullable=False)
     quantidade: Mapped[float] = mapped_column(Double, nullable=False)
+
+
+class CredencialModelo(Base):
+    """Acesso do usuário (D-01): login único (já em minúsculas) e **só o hash** da senha."""
+
+    __tablename__ = "credenciais"
+
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True, autoincrement=False
+    )
+    login: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    atualizada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SessaoModelo(Base):
+    """Sessão do servidor (D-01). ``id_hash`` é o sha256 do token; o token nunca é gravado."""
+
+    __tablename__ = "sessoes"
+
+    id_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    csrf: Mapped[str] = mapped_column(String(64), nullable=False)
+    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)

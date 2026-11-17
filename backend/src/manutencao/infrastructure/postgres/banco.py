@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -52,6 +52,15 @@ class Banco:
                 raise
             finally:
                 self._atual.reset(ficha)
+
+    def disponivel(self) -> bool:
+        """Se o banco responde (verificação de saúde); nunca levanta."""
+        try:
+            with self._engine.connect() as conexao:
+                conexao.execute(text("SELECT 1"))
+        except Exception:
+            return False
+        return True
 
     def encerrar(self) -> None:
         """Libera o pool de conexões."""

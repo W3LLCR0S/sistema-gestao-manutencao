@@ -4,6 +4,7 @@ SQLAlchemy 2.0 sobre psycopg 3, com o esquema versionado por Alembic (``backend/
 Os repositórios só **traduzem** entre linhas e entidades: nenhuma regra de negócio mora aqui.
 """
 
+from manutencao.infrastructure.postgres.acesso import CredenciaisNoBanco, SessoesNoBanco
 from manutencao.infrastructure.postgres.banco import Banco
 from manutencao.infrastructure.postgres.cargos import CargosNoBanco
 from manutencao.infrastructure.postgres.configuracao import (
@@ -19,7 +20,9 @@ __all__ = [
     "CargosNoBanco",
     "ConfiguracaoDoBanco",
     "ConfiguracaoInvalidaError",
+    "CredenciaisNoBanco",
     "EquipamentosNoBanco",
     "OrdensNoBanco",
+    "SessoesNoBanco",
     "UsuariosNoBanco",
 ]
