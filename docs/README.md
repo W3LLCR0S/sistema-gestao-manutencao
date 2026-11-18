@@ -32,6 +32,7 @@
 | [`MAPEAMENTO_API_FRONTEND.md`](MAPEAMENTO_API_FRONTEND.md) | Requisitos obrigatórios mapeados para FastAPI e React (a API foi implementada; o React é planejamento) |
 | [`API.md`](API.md) | API HTTP (Fase 04): como executar, autenticação, erros, endpoints, paginação, segurança e testes |
 | [`FRONTEND.md`](FRONTEND.md) | Frontend React (Fase 05): arquitetura, telas, responsividade, testes e limitações |
+| [`RELATORIO_FASE_05.md`](RELATORIO_FASE_05.md) | Relatório da Fase 05: entrega, testes executados (inclusive E2E no PostgreSQL), pendências |
 | [`EXECUCAO_LOCAL.md`](EXECUCAO_LOCAL.md) | Passo a passo: PostgreSQL, API, frontend e acesso pelo celular |
 | [`INSTALACAO_POSTGRESQL_WINDOWS.md`](INSTALACAO_POSTGRESQL_WINDOWS.md) | Instalação permanente do PostgreSQL 16 no Windows, banco, papel, `.env` e verificação (sem expor senhas) |
 | [`ACESSO_PELO_CELULAR.md`](ACESSO_PELO_CELULAR.md) | Teste pelo celular na rede local: proxy, cookies, CSRF, CORS, firewall e limitações do HTTP |
