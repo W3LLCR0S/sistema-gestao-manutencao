@@ -21,10 +21,10 @@ Objetivo: abrir o sistema no celular, na mesma rede Wi-Fi do computador, **sem e
 2. API (a partir de `backend/`): **escuta só em `127.0.0.1` por padrão**. Com o proxy do frontend isso basta, porque
    o proxy roda no computador. Só use `--rede` se for acessar a API diretamente pelo celular:
    `python -m manutencao.composicao.servidor --rede`.
-3. Frontend (próxima fase): o servidor de desenvolvimento deve escutar na rede (`vite --host`) e ter o proxy:
+3. Frontend (Fase 05, `frontend/`, já com este proxy em `vite.config.ts`): o servidor de desenvolvimento deve escutar na rede (`vite --host`) e ter o proxy:
 
    ```ts
-   // vite.config.ts (referência para a próxima fase)
+   // vite.config.ts (implementado; use changeOrigin: false)
    export default defineConfig({
      server: { host: true, port: 5173, proxy: { "/api": "http://127.0.0.1:8000" } },
    });

@@ -1,5 +1,7 @@
 # Mapeamento dos requisitos obrigatórios para a API (FastAPI) e a interface (React)
 
+> **Atualização (Fase 05):** o frontend React está implementado em `frontend/` (ver [`FRONTEND.md`](FRONTEND.md)).
+>
 > **Atualização (Fase 04, 2026-11-17):** a **API e a autenticação (D-01, aprovada) estão implementadas** na branch
 > `feat/api`; o contrato real é [`API.md`](API.md) (gerado também em `/docs`). Os endpoints reais seguem esta tabela
 > com poucas diferenças (ex.: `PUT /usuarios/{id}/credencial`, `POST /auth/alterar-senha`, `GET /permissoes`,
