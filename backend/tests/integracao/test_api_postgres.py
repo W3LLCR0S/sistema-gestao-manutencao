@@ -199,7 +199,8 @@ def test_matricula_e_gravada_unica_e_no_formato_pelo_proprio_banco(
     engine = create_engine(banco_de_demonstracao)
     try:
         with engine.connect() as conexao:
-            gravadas = dict(conexao.execute(text("SELECT id, matricula FROM usuarios")).all())
+            linhas = conexao.execute(text("SELECT id, matricula FROM usuarios")).all()
+            gravadas = {int(i): str(m) for i, m in linhas}
         assert gravadas == {1: MAT_ANA, 2: MAT_BRUNO, 3: MAT_CARLA}
         with pytest.raises(Exception, match="uq_usuarios_matricula"), engine.begin() as conexao:
             conexao.execute(text("UPDATE usuarios SET matricula = :m WHERE id = 2"), {"m": MAT_ANA})

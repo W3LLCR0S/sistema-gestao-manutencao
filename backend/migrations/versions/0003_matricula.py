@@ -132,7 +132,7 @@ def upgrade() -> None:
     if "uq_usuarios_matricula" not in restricoes:
         op.create_unique_constraint("uq_usuarios_matricula", "usuarios", ["matricula"])
     if "ck_usuarios_matricula_formato" not in restricoes:
-        op.create_check_constraint("ck_usuarios_matricula_formato", "usuarios", FORMATO_SQL)
+        op.create_check_constraint(op.f("ck_usuarios_matricula_formato"), "usuarios", FORMATO_SQL)
 
     # --- credenciais.login -> login_legado (anulável, sem unicidade)
     colunas = _colunas("credenciais")
@@ -155,7 +155,7 @@ def downgrade() -> None:
             op.create_unique_constraint("uq_credenciais_login", "credenciais", ["login"])
     restricoes = _restricoes("usuarios")
     if "ck_usuarios_matricula_formato" in restricoes:
-        op.drop_constraint("ck_usuarios_matricula_formato", "usuarios", type_="check")
+        op.drop_constraint(op.f("ck_usuarios_matricula_formato"), "usuarios", type_="check")
     if "uq_usuarios_matricula" in restricoes:
         op.drop_constraint("uq_usuarios_matricula", "usuarios", type_="unique")
     if "matricula" in _colunas("usuarios"):
