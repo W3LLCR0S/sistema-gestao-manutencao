@@ -27,7 +27,7 @@ credencial ou sem controle de concorrência não é segura nem confiável), e **
 
 | ID | Tema | Situação | Origem | Fase de implementação |
 |----|------|----------|--------|-----------------------|
-| D-01 | Autenticação: sessão ou token, senha inicial, recuperação | **Pendente** | AUD-01 | Decidir antes da 04 |
+| D-01 | Autenticação: sessão ou token, senha inicial, recuperação | **Aprovada (2026-11-17) e implementada na Fase 04** — [ADR-0010](adr/0010-autenticacao-e-sessao.md) | AUD-01 | — |
 | D-02 | Definição de Técnico | **Aprovada; implementada** (DLT-01) | AUD-20 | 02 |
 | D-03 | Atribuição a Técnico Ausente | **Aprovada; implementada** (DLT-02) | AUD-09 | 02 |
 | D-04 | Apontamentos e observações em OS | **Aprovada; implementada** (DLT-03, DLT-04) | AUD-11 | 02 |

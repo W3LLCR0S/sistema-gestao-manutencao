@@ -29,7 +29,10 @@
 | Documento | Conteúdo |
 |-----------|----------|
 | [`PERSISTENCIA.md`](PERSISTENCIA.md) | PostgreSQL, SQLAlchemy e Alembic: modelo, decisões, configuração, comandos, testes e limitações |
-| [`MAPEAMENTO_API_FRONTEND.md`](MAPEAMENTO_API_FRONTEND.md) | Requisitos obrigatórios mapeados para FastAPI e React (planejamento) e a proposta mínima de D-01 |
+| [`MAPEAMENTO_API_FRONTEND.md`](MAPEAMENTO_API_FRONTEND.md) | Requisitos obrigatórios mapeados para FastAPI e React (a API foi implementada; o React é planejamento) |
+| [`API.md`](API.md) | API HTTP (Fase 04): como executar, autenticação, erros, endpoints, paginação, segurança e testes |
+| [`INSTALACAO_POSTGRESQL_WINDOWS.md`](INSTALACAO_POSTGRESQL_WINDOWS.md) | Instalação permanente do PostgreSQL 16 no Windows, banco, papel, `.env` e verificação (sem expor senhas) |
+| [`ACESSO_PELO_CELULAR.md`](ACESSO_PELO_CELULAR.md) | Teste pelo celular na rede local: proxy, cookies, CSRF, CORS, firewall e limitações do HTTP |
 
 ## Na raiz do repositório
 

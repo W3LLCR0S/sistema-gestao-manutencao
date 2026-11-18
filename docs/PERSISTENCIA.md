@@ -13,10 +13,12 @@ backend/
 ├── migrations/
 │   ├── env.py                                # URL vem do ambiente (mesma config da aplicação)
 │   └── versions/0001_esquema_inicial.py      # DDL explícita, independente do código atual
+│       └── 0002_autenticacao.py              # credenciais e sessões (D-01); aditiva, 0001 intacta
 ├── .env.example                              # modelo de configuração (sem segredos)
 ├── requirements.txt / requirements-dev.txt   # versões exatas
 └── src/manutencao/
     ├── infrastructure/postgres/
+    │   ├── acesso.py         # credenciais e sessões (D-01)
     │   ├── configuracao.py   # variáveis de ambiente, senha oculta, leitor de .env
     │   ├── banco.py          # Engine e transações (rollback, transação externa participável)
     │   ├── modelos.py        # modelos SQLAlchemy (o esquema)
@@ -42,6 +44,7 @@ trocar a função de composição; **nenhum serviço mudou**.
 | `usuarios` | nome, cargo (FK `RESTRICT`), e-mail, escala, disponibilidade **manual**, papel, ativo | papel e ativo persistidos (DLT-01, DLT-09) |
 | `equipamentos` | nome, modelo, ativo | |
 | `ordens_servico` | OS (agregado) | status, criticidade, diagnóstico, causa-raiz, teste, cancelamento, datas (`timestamptz`) |
+| `credenciais`, `sessoes` | acesso e sessões (D-01, migração `0002`): login único + **hash** da senha; sessão com `sha256` do token, CSRF e expiração; `ON DELETE CASCADE` de `usuarios` | ver [`adr/0010`](adr/0010-autenticacao-e-sessao.md) |
 | `servicos_os` | histórico da OS (PK `os_numero`+`numero`, `ON DELETE CASCADE`) | tipo, descrição, responsável, instante, horas |
 | `pecas_servico` | peças de cada registro de reparo | quantidade `> 0` |
 
@@ -86,9 +89,9 @@ nem na saída do comando.
 
 ### 1. PostgreSQL
 
-O projeto precisa de um servidor PostgreSQL 14+ acessível (**o computador de desenvolvimento deste
-trabalho não tinha PostgreSQL nem Docker**; os testes usam o `pgserver`, ver abaixo). O caminho mais
-rápido para uso real:
+O projeto precisa de um servidor PostgreSQL 14+ acessível. **Instalação permanente no Windows, passo a passo e
+sem expor senhas: [`INSTALACAO_POSTGRESQL_WINDOWS.md`](INSTALACAO_POSTGRESQL_WINDOWS.md).** Os testes usam o
+`pgserver` (ver abaixo) e não a substituem. Resumo:
 
 - **Windows (instalador):** `winget install PostgreSQL.PostgreSQL.16` (ou o instalador oficial em
   postgresql.org). Guarde a senha do usuário `postgres` que o instalador pede.
@@ -117,6 +120,14 @@ copy .env.example .env                                           # edite a senha
 (O comando funciona com `PYTHONPATH=src`; os testes do `pyproject.toml` já a configuram. Para
 executar o comando direto, use `set PYTHONPATH=src` antes, ou `pip install -e .` quando a API
 chegar.)
+
+Acesso (D-01, a partir de `backend/`; a senha é pedida **sem eco** ou por `--senha-stdin`, nunca em argumento):
+
+```powershell
+.venv\Scripts\python -m manutencao.composicao.banco criar-gestor --nome "Nome" --login login   # 1º gestor (banco sem gestor com acesso)
+.venv\Scripts\python -m manutencao.composicao.banco definir-acesso --usuario-id N --login login   # cria/redefine; revoga as sessões
+.venv\Scripts\python -m manutencao.composicao.banco semear --com-acesso    # demonstração + logins ana/bruno/carla (uma senha)
+```
 
 `semear` cria 2 cargos, 3 usuários, 3 equipamentos e 5 OS (aberta, atribuída, em execução,
 concluída e cancelada), **todos fictícios e separados do legado**; recusa-se a rodar em banco que
@@ -164,5 +175,6 @@ plano, backup, dry-run e autorização específica; nada disso foi feito).
 - Importação do JSON legado: **não** implementada (D-08).
 - O comando exige o repositório inteiro (as migrações ficam em `backend/migrations`); não é um pacote
   instalável isolado.
-- Não verificado: PostgreSQL instalado como serviço do Windows (os testes rodaram no `pgserver`,
-  PostgreSQL 16.2 real) e execução em outro computador; os comandos acima são a receita.
+- **Não verificado:** PostgreSQL instalado como serviço do Windows (os testes e a verificação ponta a ponta
+  rodaram no `pgserver`, PostgreSQL 16.2 real, mas descartável) e execução em outro computador; os comandos
+  acima e o guia de instalação são a receita. A API e a autenticação estão em [`API.md`](API.md).

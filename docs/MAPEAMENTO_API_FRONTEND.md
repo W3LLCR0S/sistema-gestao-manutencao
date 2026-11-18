@@ -1,8 +1,11 @@
 # Mapeamento dos requisitos obrigatórios para a API (FastAPI) e a interface (React)
 
-> **Planejamento. Nada deste documento está implementado.** A Fase 03 entrega só a persistência; a
-> API e o frontend dependem de nova autorização. Serve de checklist objetivo para a Entrega 2
-> (prazo acadêmico: 2026-11-20).
+> **Atualização (Fase 04, 2026-11-17):** a **API e a autenticação (D-01, aprovada) estão implementadas** na branch
+> `feat/api`; o contrato real é [`API.md`](API.md) (gerado também em `/docs`). Os endpoints reais seguem esta tabela
+> com poucas diferenças (ex.: `PUT /usuarios/{id}/credencial`, `POST /auth/alterar-senha`, `GET /permissoes`,
+> `GET /auth/sessao`, `GET /auth/permissoes/{p}`, `GET /painel`, `GET /saude`). **O frontend React ainda não existe**
+> (próxima fase): as seções 3 e 4 abaixo permanecem como planejamento. A seção 4 foi **aprovada** com as
+> alterações registradas em [`adr/0010`](adr/0010-autenticacao-e-sessao.md). Prazo acadêmico: 2026-11-20.
 
 Princípios: a API é uma **borda fina** sobre os serviços que já existem (`ServicoDeUsuarios`,
 `ServicoDeEquipamentos`, `ServicoDeOrdens`, `ServicoDeDisponibilidade`); **nenhuma regra de negócio
@@ -90,7 +93,7 @@ Requisitos de responsividade (definidos pelo responsável em 2026-11-17):
 
 Critério de aceitação: funcionar com **mouse, teclado e toque**, não só "parecer" ajustado.
 
-## 4. Decisão D-01 (autenticação): proposta mínima, **aguarda aprovação**
+## 4. Decisão D-01 (autenticação): **aprovada e implementada** (ver ADR-0010); texto original da proposta
 
 D-01 está **pendente** em `DECISOES_APROVADAS.md` (a recomendação ali é cookie de sessão
 `HttpOnly` ou token de curta duração, senha em hash de biblioteca consolidada e gestor inicial
