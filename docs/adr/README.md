@@ -16,7 +16,8 @@ planejado. A implementação das demais partes ocorre nas fases seguintes, cada 
 | [0007](0007-datas-fuso-horario-e-relogio.md) | Datas com fuso em UTC, exibição em America/Sao_Paulo; relógio na aplicação (D-11) | Aprovada; implementada (domínio e aplicação) |
 | [0008](0008-estrutura-do-backend-e-convivencia-com-o-legado.md) | Pacote `backend/src/manutencao/`; convivência com o legado (D-14) | Aprovada; implementada |
 | [0009](0009-papeis-autorizacao-e-regras-da-os.md) | Papéis, autorização e regras da OS (D-02 a D-06, validações, usuários inativos) | Aprovada; implementada no novo backend (Operação E) |
-| [0010](0010-autenticacao-e-sessao.md) | Autenticação por login e senha (Argon2id), sessões do servidor, cookie `HttpOnly`, CSRF (D-01) | Aprovada (2026-11-17); implementada na Fase 04 |
+| [0010](0010-autenticacao-e-sessao.md) | Autenticação por login e senha (Argon2id), sessões do servidor, cookie `HttpOnly`, CSRF (D-01) | Aprovada (2026-11-17); implementada na Fase 04; identificação alterada pela [0011](0011-login-por-matricula.md) |
+| [0011](0011-login-por-matricula.md) | Login por matrícula única `AA999999` gerada pelo sistema | Implementada na branch `feat/autenticacao-matricula` |
 
 Decisões ainda **sem ADR** por dependerem de aprovação específica: hospedagem e banco
 em produção (D-09, Fase 10), migração de dados reais (D-08) e demais pendências listadas em

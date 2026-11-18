@@ -25,14 +25,14 @@ Guia único para subir o sistema no computador e abrir no navegador ou no celula
 ```powershell
 cd backend
 $env:PYTHONPATH = "src"
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar        # 0001 + 0002
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome" --login seu.login
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar        # 0001 a 0003
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome"   # imprime a matrícula gerada
 #   a senha é pedida sem eco. Para dados fictícios de demonstração (banco vazio):
 #   .\.venv\Scripts\python.exe -m manutencao.composicao.banco semear --com-acesso
 ```
 
-**Login inicial:** o `login` informado em `criar-gestor` (ou `ana`, `bruno`, `carla` na demonstração, com a senha
-digitada no `semear`). Depois, o Gestor cadastra os demais usuários em **Usuários**.
+**Login inicial:** a **matrícula** impressa por `criar-gestor` (ou, na demonstração, `KM482731` Ana, `RT095624` Bruno
+e `VX716309` Carla, com a senha digitada no `semear`). Consulte as matrículas com `banco usuarios`. Depois, o Gestor cadastra os demais usuários em **Usuários**.
 
 ## 3. Todo dia
 

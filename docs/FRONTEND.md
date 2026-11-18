@@ -45,11 +45,11 @@ Decisões:
 
 ## Telas
 
-- **Login / Minha conta:** login, logout, troca de senha, disponibilidade própria (técnico).
+- **Login / Minha conta:** login por matrícula (`AA999999`, maiúsculas automáticas), logout, troca de senha, disponibilidade própria (técnico).
 - **Painel:** totais, pendentes, em execução, minhas OS, OS por status e criticidade, técnicos e disponibilidade,
   atividade recente (dados de `GET /painel`).
 - **Equipamentos:** busca, filtro, cadastro, edição, inativar/reativar, excluir, detalhes com histórico de OS.
-- **Usuários:** busca/filtros, cadastro (com login opcional), edição, cargo, papel, disponibilidade, credencial,
+- **Usuários:** busca/filtros, pesquisa por matrícula, cadastro (a matrícula é gerada e exibida na confirmação; senha opcional), edição, cargo, papel, disponibilidade, credencial,
   desativar/reativar, excluir. **Cargos:** permissões por cargo.
 - **Ordens de serviço:** listagem com filtros (URL compartilhável), abertura, detalhe com diagnóstico, atribuição
   (com confirmação para técnico ausente, D-03), execução (status, reparos com horas/intervenção/peças),
@@ -73,6 +73,6 @@ conclusão → histórico) é validado contra a API e o PostgreSQL reais.
 
 - Sem testes automatizados em navegador real (Playwright/Cypress); a validação visual de 320–1920 px é manual.
 - Sem paginação na interface (a API limita a 200 itens por consulta).
-- Sem "esqueci a senha" (fora do escopo; o Gestor redefine a credencial).
+- Sem "esqueci a senha" (fora do escopo; o Gestor redefine a senha).
 - HTTP na rede local não é criptografado ([`ACESSO_PELO_CELULAR.md`](ACESSO_PELO_CELULAR.md)).
 - `npm audit` aponta ReDoS em `picomatch` (dependência de ferramentas de desenvolvimento; não entra no build).

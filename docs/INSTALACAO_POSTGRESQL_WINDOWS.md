@@ -76,10 +76,10 @@ notepad .env      # edite MANUTENCAO_DB_PASSWORD com a senha do papel "manutenca
 ```powershell
 cd backend
 $env:PYTHONPATH = "src"
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar        # 0001 e 0002 (Alembic)
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome" --login seu.login
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar        # 0001 a 0003 (Alembic)
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome"   # imprime a matrícula gerada
 #   ou, para a demonstração fictícia (banco vazio): semear --com-acesso
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco estado        # revisão 0002 e contagens
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco estado        # revisão 0003 e contagens
 ```
 
 Prova de persistência: encerre os processos, **reinicie o serviço** (`Restart-Service postgresql-x64-16`) ou o

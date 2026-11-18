@@ -13,7 +13,8 @@ backend/
 ├── migrations/
 │   ├── env.py                                # URL vem do ambiente (mesma config da aplicação)
 │   └── versions/0001_esquema_inicial.py      # DDL explícita, independente do código atual
-│       └── 0002_autenticacao.py              # credenciais e sessões (D-01); aditiva, 0001 intacta
+│       ├── 0002_autenticacao.py              # credenciais e sessões (D-01); aditiva, 0001 intacta
+│       └── 0003_matricula.py                 # usuarios.matricula (UNIQUE, CHECK AA999999); login -> login_legado
 ├── .env.example                              # modelo de configuração (sem segredos)
 ├── requirements.txt / requirements-dev.txt   # versões exatas
 └── src/manutencao/
@@ -44,7 +45,7 @@ trocar a função de composição; **nenhum serviço mudou**.
 | `usuarios` | nome, cargo (FK `RESTRICT`), e-mail, escala, disponibilidade **manual**, papel, ativo | papel e ativo persistidos (DLT-01, DLT-09) |
 | `equipamentos` | nome, modelo, ativo | |
 | `ordens_servico` | OS (agregado) | status, criticidade, diagnóstico, causa-raiz, teste, cancelamento, datas (`timestamptz`) |
-| `credenciais`, `sessoes` | acesso e sessões (D-01, migração `0002`): login único + **hash** da senha; sessão com `sha256` do token, CSRF e expiração; `ON DELETE CASCADE` de `usuarios` | ver [`adr/0010`](adr/0010-autenticacao-e-sessao.md) |
+| `credenciais`, `sessoes` | acesso e sessões (D-01, migração `0002`): **hash** da senha (identificação por `usuarios.matricula`, migração `0003`; `login_legado` só registra o nome antigo); sessão com `sha256` do token, CSRF e expiração; `ON DELETE CASCADE` de `usuarios` | ver [`adr/0010`](adr/0010-autenticacao-e-sessao.md) |
 | `servicos_os` | histórico da OS (PK `os_numero`+`numero`, `ON DELETE CASCADE`) | tipo, descrição, responsável, instante, horas |
 | `pecas_servico` | peças de cada registro de reparo | quantidade `> 0` |
 
@@ -124,9 +125,10 @@ chegar.)
 Acesso (D-01, a partir de `backend/`; a senha é pedida **sem eco** ou por `--senha-stdin`, nunca em argumento):
 
 ```powershell
-.venv\Scripts\python -m manutencao.composicao.banco criar-gestor --nome "Nome" --login login   # 1º gestor (banco sem gestor com acesso)
-.venv\Scripts\python -m manutencao.composicao.banco definir-acesso --usuario-id N --login login   # cria/redefine; revoga as sessões
-.venv\Scripts\python -m manutencao.composicao.banco semear --com-acesso    # demonstração + logins ana/bruno/carla (uma senha)
+.venv\Scripts\python -m manutencao.composicao.banco criar-gestor --nome "Nome"   # 1º gestor (matrícula gerada) (banco sem gestor com acesso)
+.venv\Scripts\python -m manutencao.composicao.banco definir-acesso --matricula AA999999   # (ou --usuario-id N) cria/redefine a senha; revoga as sessões
+.venv\Scripts\python -m manutencao.composicao.banco usuarios   # lista matrícula, nome, papel e situação
+.venv\Scripts\python -m manutencao.composicao.banco semear --com-acesso    # demonstração + acesso de Ana/Bruno/Carla por matrícula (uma senha)
 ```
 
 `semear` cria 2 cargos, 3 usuários, 3 equipamentos e 5 OS (aberta, atribuída, em execução,

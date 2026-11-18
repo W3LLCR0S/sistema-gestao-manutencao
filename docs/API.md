@@ -13,8 +13,8 @@ Pré-requisitos: PostgreSQL configurado em `backend/.env` ([`PERSISTENCIA.md`](P
 ```powershell
 cd backend
 $env:PYTHONPATH = "src"
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar                 # esquema (0001 + 0002)
-.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome" --login seu.login
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco migrar                 # esquema (0001 a 0003)
+.\.venv\Scripts\python.exe -m manutencao.composicao.banco criar-gestor --nome "Seu Nome"        # imprime a matrícula gerada
 #   (pede a senha sem eco; ou: semear --com-acesso para a demonstração fictícia)
 .\.venv\Scripts\python.exe -m manutencao.composicao.servidor                     # http://127.0.0.1:8000
 ```
@@ -38,7 +38,7 @@ $env:PYTHONPATH = "src"
 
 ## Como o cliente fala com a API
 
-1. `POST /api/v1/auth/login` com `{"login","senha"}` → cookie `HttpOnly` + `{usuario, csrf_token, expira_em}`.
+1. `POST /api/v1/auth/login` com `{"matricula","senha"}` (matrícula `AA999999`; o nome de usuário antigo não é mais aceito) → cookie `HttpOnly` + `{usuario, csrf_token, expira_em}`.
 2. Toda requisição leva o cookie (no navegador: `credentials: "include"` em chamadas entre origens, ou apenas mesma
    origem pelo proxy do frontend).
 3. `POST/PUT/PATCH/DELETE` levam `X-CSRF-Token: <csrf_token>`. Após recarregar a página, `GET /auth/me` devolve o
@@ -78,12 +78,12 @@ Usuários, cargos e disponibilidade (`gerir_usuarios`, salvo indicação):
 | Método e caminho | Descrição |
 |---|---|
 | `GET /usuarios?ativo=&papel=&limite=&deslocamento=` | lista paginada |
-| `POST /usuarios` | cadastra; opcionalmente já com `login` e `senha` (atômico) |
+| `POST /usuarios` | cadastra; a **matrícula é gerada pelo sistema** e devolvida em `matricula` (não pode ser enviada); opcionalmente já com `senha` (atômico) |
 | `GET /usuarios/{id}` · `PATCH /usuarios/{id}` | detalhe · atualiza nome, e-mail, escala |
 | `PUT /usuarios/{id}/cargo` · `PUT /usuarios/{id}/papel` | cargo · papel (só Gestor) |
 | `POST /usuarios/{id}/desativar` · `/reativar` | ativação (desativar revoga as sessões) |
 | `DELETE /usuarios/{id}` | exclui (sem histórico em OS) |
-| `PUT /usuarios/{id}/credencial` | define/redefine login e senha (revoga as sessões do usuário) |
+| `PUT /usuarios/{id}/credencial` | define/redefine a senha `{"senha"}`; a matrícula não muda (revoga as sessões do usuário) |
 | `GET /cargos` · `PUT /cargos/{id}/permissoes` | cargos · define as permissões (tudo ou nada) |
 | `GET /permissoes` | catálogo de permissões (qualquer autenticado) |
 | `GET /disponibilidade?ordenar_por_carga=` | disponibilidade derivada e carga (`ver_disponibilidade`) |

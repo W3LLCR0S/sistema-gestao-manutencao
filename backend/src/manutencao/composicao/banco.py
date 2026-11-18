@@ -61,7 +61,9 @@ def _estado(config: ConfiguracaoDoBanco) -> int:
     print(f"Banco: {config}")
     recente = migracoes.revisao_mais_recente()
     print(f"Revisão aplicada: {atual or '(nenhuma)'}; mais recente: {recente}")
-    if atual is not None:
+    if atual is not None and atual != recente:
+        print("Esquema desatualizado: rode 'migrar' para ver as contagens.")
+    elif atual is not None:
         banco = Banco(config.url)
         try:
             c = criar_container_postgres(banco)
