@@ -21,8 +21,8 @@ import type {
 } from "./tipos";
 
 export const autenticacao = {
-  login: (login: string, senha: string) =>
-    api.post<Sessao>("/auth/login", { login, senha }, { semRedirecionar: true }),
+  login: (matricula: string, senha: string) =>
+    api.post<Sessao>("/auth/login", { matricula, senha }, { semRedirecionar: true }),
   logout: () => api.post<void>("/auth/logout", {}, { semRedirecionar: true }),
   eu: () => api.get<Sessao>("/auth/me"),
   alterarSenha: (senha_atual: string, nova_senha: string) =>
@@ -35,13 +35,13 @@ export interface NovoUsuario {
   papel: Papel;
   email?: string;
   escala?: string;
-  login?: string;
+  /** Opcional. A matrícula nunca é enviada: o servidor a gera e a devolve no cadastro. */
   senha?: string;
 }
 
 export const usuarios = {
-  listar: (ativo?: boolean, papel?: Papel) =>
-    api.get<Pagina<Usuario>>("/usuarios", { ativo, papel, limite: 200 }),
+  listar: (ativo?: boolean, papel?: Papel, busca?: string) =>
+    api.get<Pagina<Usuario>>("/usuarios", { ativo, papel, busca: busca || undefined, limite: 200 }),
   obter: (id: number) => api.get<Usuario>(`/usuarios/${id}`),
   criar: (u: NovoUsuario) => api.post<Usuario>("/usuarios", u),
   atualizar: (id: number, d: { nome?: string; email?: string; escala?: string }) =>
@@ -52,8 +52,8 @@ export const usuarios = {
   desativar: (id: number) => api.post<Usuario>(`/usuarios/${id}/desativar`),
   reativar: (id: number) => api.post<Usuario>(`/usuarios/${id}/reativar`),
   excluir: (id: number) => api.delete<void>(`/usuarios/${id}`),
-  definirCredencial: (id: number, login: string, senha: string) =>
-    api.put<Usuario>(`/usuarios/${id}/credencial`, { login, senha }),
+  definirCredencial: (id: number, senha: string) =>
+    api.put<void>(`/usuarios/${id}/credencial`, { senha }),
   alterarDisponibilidade: (id: number, disponibilidade: Disponibilidade) =>
     api.put<Usuario>(`/usuarios/${id}/disponibilidade`, { disponibilidade }),
   minhaDisponibilidade: (disponibilidade: Disponibilidade) =>

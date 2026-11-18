@@ -51,6 +51,8 @@ export interface CargoResumo {
 }
 export interface Usuario {
   id: number;
+  /** Identificador de login (AA999999): gerado pelo sistema e imutável. */
+  matricula: string;
   nome: string;
   email: string;
   escala: string;
@@ -60,9 +62,7 @@ export interface Usuario {
   cargo: CargoResumo;
   permissoes: Permissao[];
 }
-export interface UsuarioAtual extends Usuario {
-  login: string | null;
-}
+export type UsuarioAtual = Usuario;
 export interface Sessao {
   usuario: UsuarioAtual;
   csrf_token: string;

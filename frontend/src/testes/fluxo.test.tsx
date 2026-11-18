@@ -16,9 +16,9 @@ function sessao(papel: "Gestor" | "Técnico"): Sessao {
     csrf_token: "csrf-teste",
     expira_em: "2026-11-18T20:00:00Z",
     usuario: {
-      id: 1, nome: papel === "Gestor" ? "Gina Gestora" : "Tom Técnico", email: "", escala: "", papel,
+      id: 1, matricula: "KM482731", nome: papel === "Gestor" ? "Gina Gestora" : "Tom Técnico", email: "", escala: "", papel,
       ativo: true, disponibilidade: "Disponível", cargo: { id: 1, nome: papel },
-      permissoes: papel === "Gestor" ? PERMS_GESTOR : PERMS_TECNICO, login: "u",
+      permissoes: papel === "Gestor" ? PERMS_GESTOR : PERMS_TECNICO,
     },
   };
 }
@@ -27,11 +27,11 @@ const painelVazio = { total: 0, em_aberto: 0, encerradas: 0, minhas_em_aberto: 0
 /** Servidor falso na fronteira do fetch: só para testar componentes; o fluxo real é o E2E com a API. */
 function servidor(opcoes: { logado?: "Gestor" | "Técnico" | null; loginOk?: boolean }) {
   let logado = opcoes.logado ?? null;
-  const chamadas: { metodo: string; url: string; csrf?: string }[] = [];
+  const chamadas: { metodo: string; url: string; csrf?: string; corpo?: string }[] = [];
   const mock = vi.fn(async (url: string, init?: RequestInit) => {
     const metodo = init?.method ?? "GET";
     const cab = (init?.headers ?? {}) as Record<string, string>;
-    chamadas.push({ metodo, url, csrf: cab["X-CSRF-Token"] });
+    chamadas.push({ metodo, url, csrf: cab["X-CSRF-Token"], corpo: typeof init?.body === "string" ? init.body : undefined });
     const json = (s: number, c: unknown) => new Response(JSON.stringify(c), { status: s });
     if (url === "/api/v1/auth/me") return logado ? json(200, sessao(logado)) : json(401, { codigo: "nao_autenticado", mensagem: "Faça login." });
     if (url === "/api/v1/auth/login") {
@@ -75,11 +75,13 @@ describe("fluxos de tela", () => {
   });
 
   it("login correto abre o painel com dados da API", async () => {
-    servidor({ logado: null });
+    const { chamadas } = servidor({ logado: null });
     montar("/");
-    await userEvent.type(await screen.findByLabelText("Usuário"), "gina");
+    await userEvent.type(await screen.findByLabelText("Matrícula"), "km482731");
     await userEvent.type(screen.getByLabelText("Senha"), "segredo");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    const login = chamadas.find((c) => c.url.endsWith("/auth/login"));
+    expect(JSON.parse(login?.corpo ?? "{}")).toEqual({ matricula: "KM482731", senha: "segredo" });
     expect(await screen.findByRole("heading", { name: "Painel" })).toBeInTheDocument();
     expect(screen.getByText(/Gina Gestora/, { selector: ".pagina-cab__sub" })).toBeInTheDocument();
   });
@@ -87,18 +89,36 @@ describe("fluxos de tela", () => {
   it("senha errada mostra o erro e limpa a senha", async () => {
     servidor({ logado: null, loginOk: false });
     montar("/login");
-    await userEvent.type(await screen.findByLabelText("Usuário"), "gina");
+    await userEvent.type(await screen.findByLabelText("Matrícula"), "KM482731");
     await userEvent.type(screen.getByLabelText("Senha"), "errada");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Usuário ou senha incorretos.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Matrícula ou senha incorretos.");
     expect(screen.getByLabelText("Senha")).toHaveValue("");
   });
 
-  it("login exige usuário e senha antes de chamar a API", async () => {
+  it("login recusa matrícula fora do formato e o nome de usuário antigo sem chamar a API", async () => {
+    const { chamadas } = servidor({ logado: null });
+    montar("/login");
+    await userEvent.type(await screen.findByLabelText("Matrícula"), "ana");
+    await userEvent.type(screen.getByLabelText("Senha"), "segredo");
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("duas letras e seis números");
+    expect(chamadas.some((c) => c.url.endsWith("/auth/login"))).toBe(false);
+  });
+
+  it("o campo de matrícula põe em maiúsculas, descarta símbolos e limita a 8 caracteres", async () => {
+    servidor({ logado: null });
+    montar("/login");
+    const campo = await screen.findByLabelText("Matrícula");
+    await userEvent.type(campo, "km-48 273199");
+    expect(campo).toHaveValue("KM482731");
+  });
+
+  it("login exige matrícula e senha antes de chamar a API", async () => {
     const { chamadas } = servidor({ logado: null });
     montar("/login");
     await userEvent.click(await screen.findByRole("button", { name: "Entrar" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Informe o usuário e a senha.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Informe a matrícula e a senha.");
     expect(chamadas.some((c) => c.url.endsWith("/auth/login"))).toBe(false);
   });
 

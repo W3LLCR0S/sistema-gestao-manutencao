@@ -15,7 +15,7 @@ const GESTOR_PERMS: Permissao[] = [
 function usuario(id: number, papel: "Gestor" | "Técnico", permissoes: Permissao[], ativo = true): UsuarioAtual {
   return {
     id, nome: "U", email: "", escala: "", papel, ativo, disponibilidade: "Disponível",
-    cargo: { id: 1, nome: "C" }, permissoes, login: "u",
+    cargo: { id: 1, nome: "C" }, permissoes, matricula: "KM482731",
   };
 }
 function ordem(status: StatusOS, tecnicoId: number | null = 2): Ordem {

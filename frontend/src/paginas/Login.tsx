@@ -5,12 +5,13 @@ import { ErroApi, mensagemDeErro } from "../api/cliente";
 import { useAuth } from "../auth/Autenticacao";
 import { CampoTexto } from "../componentes/Campos";
 import { Alerta } from "../componentes/Estados";
+import { matriculaValida, normalizarDigitacaoDaMatricula, TAMANHO_DA_MATRICULA } from "../utilitarios/matricula";
 
 export function Login() {
   const { usuario, verificando, entrar, aviso } = useAuth();
   const navegar = useNavigate();
   const local = useLocation();
-  const [login, setLogin] = useState("");
+  const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -20,20 +21,24 @@ export function Login() {
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    if (!login.trim() || !senha) {
-      setErro("Informe o usuário e a senha.");
+    if (!matricula || !senha) {
+      setErro("Informe a matrícula e a senha.");
+      return;
+    }
+    if (!matriculaValida(matricula)) {
+      setErro("A matrícula tem duas letras e seis números, como KM482731.");
       return;
     }
     setEnviando(true);
     setErro(null);
     try {
-      await entrar(login.trim(), senha);
+      await entrar(matricula, senha);
       navegar(destino, { replace: true });
     } catch (ex) {
       setSenha("");
       setErro(
         ex instanceof ErroApi && ex.status === 401
-          ? "Usuário ou senha incorretos."
+          ? "Matrícula ou senha incorretos."
           : mensagemDeErro(ex),
       );
       setEnviando(false);
@@ -51,11 +56,16 @@ export function Login() {
           {aviso && <Alerta tipo="info">{aviso}</Alerta>}
           {erro && <Alerta>{erro}</Alerta>}
           <CampoTexto
-            rotulo="Usuário"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
+            rotulo="Matrícula"
+            value={matricula}
+            onChange={(e) => setMatricula(normalizarDigitacaoDaMatricula(e.target.value))}
             autoComplete="username"
-            autoCapitalize="none"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={TAMANHO_DA_MATRICULA}
+            placeholder="AA999999"
+            ajuda="Duas letras e seis números. Ex.: KM482731"
             autoFocus
             required
           />

@@ -10,7 +10,7 @@ interface Contexto {
   usuario: UsuarioAtual | null;
   verificando: boolean;
   aviso: string | null;
-  entrar: (login: string, senha: string) => Promise<void>;
+  entrar: (matricula: string, senha: string) => Promise<void>;
   sair: () => Promise<void>;
   atualizarUsuario: (u: UsuarioAtual) => void;
   recarregarUsuario: () => Promise<void>;
@@ -52,8 +52,8 @@ export function ProvedorAutenticacao({ children }: { children: ReactNode }) {
   }, [aplicar]);
 
   const entrar = useCallback(
-    async (login: string, senha: string) => {
-      aplicar(await autenticacao.login(login, senha));
+    async (matricula: string, senha: string) => {
+      aplicar(await autenticacao.login(matricula, senha));
     },
     [aplicar],
   );

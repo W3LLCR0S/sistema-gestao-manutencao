@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { mensagemDeErro } from "../api/cliente";
 import { cargos, usuarios } from "../api/servicos";
@@ -14,6 +14,7 @@ import { useCarregar } from "../utilitarios/useCarregar";
 
 type Dialogo =
   | { tipo: "novo" }
+  | { tipo: "criado"; usuario: Usuario }
   | { tipo: "detalhe"; id: number }
   | { tipo: "editar"; item: Usuario }
   | { tipo: "credencial"; item: Usuario }
@@ -27,18 +28,21 @@ export function Usuarios() {
   const [filtroAtivo, setFiltroAtivo] = useState<"" | "true" | "false">("");
   const [filtroPapel, setFiltroPapel] = useState<"" | Papel>("");
   const [busca, setBusca] = useState("");
+  const [buscaAplicada, setBuscaAplicada] = useState("");
+  // A pesquisa (por matrícula, nome ou e-mail) é feita pelo servidor, com uma pequena espera ao digitar.
+  useEffect(() => {
+    const t = window.setTimeout(() => setBuscaAplicada(busca.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [busca]);
   const { dados, carregando, erro, recarregar } = useCarregar(
-    () => usuarios.listar(filtroAtivo === "" ? undefined : filtroAtivo === "true", filtroPapel || undefined),
-    [filtroAtivo, filtroPapel],
+    () => usuarios.listar(filtroAtivo === "" ? undefined : filtroAtivo === "true", filtroPapel || undefined, buscaAplicada),
+    [filtroAtivo, filtroPapel, buscaAplicada],
   );
   const catalogo = useCarregar(() => cargos.listar());
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [ocupado, setOcupado] = useState(false);
 
-  const itens = useMemo(() => {
-    const t = busca.trim().toLowerCase();
-    return (dados?.itens ?? []).filter((u) => !t || `${u.nome} ${u.email}`.toLowerCase().includes(t));
-  }, [dados, busca]);
+  const itens = dados?.itens ?? [];
 
   async function executar(acao: () => Promise<unknown>, sucesso: string) {
     setOcupado(true);
@@ -71,7 +75,7 @@ export function Usuarios() {
 
       <div className="cartao">
         <div className="filtros">
-          <CampoTexto rotulo="Buscar por nome ou e-mail" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <CampoTexto rotulo="Buscar por matrícula, nome ou e-mail" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} />
           <CampoSelecao rotulo="Papel" value={filtroPapel} onChange={(e) => setFiltroPapel(e.target.value as "" | Papel)}>
             <option value="">Todos</option>
             <option value="Gestor">Gestor</option>
@@ -96,6 +100,7 @@ export function Usuarios() {
           <table className="tabela-resp">
             <thead>
               <tr>
+                <th>Matrícula</th>
                 <th>Nome</th>
                 <th>Papel</th>
                 <th>Cargo</th>
@@ -109,6 +114,9 @@ export function Usuarios() {
             <tbody>
               {itens.map((u) => (
                 <tr key={u.id}>
+                  <td data-rotulo="Matrícula">
+                    <code className="matricula">{u.matricula}</code>
+                  </td>
                   <td data-rotulo="Nome">
                     <button type="button" className="btn-link" onClick={() => setDialogo({ tipo: "detalhe", id: u.id })}>
                       {u.nome}
@@ -136,18 +144,45 @@ export function Usuarios() {
       {dialogo?.tipo === "novo" && catalogo.dados && (
         <FormularioNovo
           cargosLista={catalogo.dados}
-          aoFechar={() => setDialogo(null)}
+          // não sobrepõe a confirmação (com a matrícula) aberta logo após o cadastro
+          aoFechar={() => setDialogo((atual) => (atual?.tipo === "criado" ? atual : null))}
           aoSalvar={async (d) => {
-            await usuarios.criar(d);
-            avisos.ok("Usuário cadastrado.");
+            const criado = await usuarios.criar(d);
             recarregar();
+            setDialogo({ tipo: "criado", usuario: criado });
           }}
         />
+      )}
+
+      {dialogo?.tipo === "criado" && (
+        <Modal titulo="Usuário cadastrado" aoFechar={() => setDialogo(null)}>
+          <p>
+            <strong>{dialogo.usuario.nome}</strong> foi cadastrado(a). A matrícula foi gerada pelo sistema e é usada no login:
+          </p>
+          <p className="matricula-destaque" aria-label="Matrícula gerada">
+            {dialogo.usuario.matricula}
+          </p>
+          <p className="campo__ajuda">
+            {dialogo.usuario.ativo ? "Anote-a e entregue ao funcionário. " : ""}A matrícula não pode ser alterada. Ela pode ser consultada
+            depois na lista de usuários.
+          </p>
+          <div className="acoes">
+            <button type="button" className="btn" onClick={() => setDialogo(null)} autoFocus>
+              Fechar
+            </button>
+          </div>
+        </Modal>
       )}
 
       {detalhe && (
         <Modal titulo={detalhe.nome} aoFechar={() => setDialogo(null)} largo>
           <dl className="detalhes">
+            <div>
+              <dt>Matrícula</dt>
+              <dd>
+                <code className="matricula">{detalhe.matricula}</code>
+              </dd>
+            </div>
             <div>
               <dt>E-mail</dt>
               <dd>{detalhe.email || "—"}</dd>
@@ -203,9 +238,9 @@ export function Usuarios() {
         <FormularioCredencial
           item={dialogo.item}
           aoFechar={() => setDialogo(null)}
-          aoSalvar={async (login, senha) => {
-            await usuarios.definirCredencial(dialogo.item.id, login, senha);
-            avisos.ok("Credencial definida. As sessões do usuário foram encerradas.");
+          aoSalvar={async (senha) => {
+            await usuarios.definirCredencial(dialogo.item.id, senha);
+            avisos.ok("Senha definida. As sessões do usuário foram encerradas.");
             recarregar();
           }}
         />
@@ -330,7 +365,7 @@ function DetalhesAcoes({
           Editar dados
         </button>
         <button type="button" className="btn btn--sec" onClick={() => aoEscolher({ tipo: "credencial", item: usuario })}>
-          Definir login e senha
+          Definir senha
         </button>
         <button type="button" className="btn btn--sec" onClick={() => aoEscolher({ tipo: "desativar", item: usuario })}>
           {usuario.ativo ? "Desativar" : "Reativar"}
@@ -350,14 +385,13 @@ function FormularioNovo({
 }: {
   cargosLista: { id: number; nome: string }[];
   aoFechar: () => void;
-  aoSalvar: (d: { nome: string; cargo_id: number; papel: Papel; email: string; escala: string; login?: string; senha?: string }) => Promise<void>;
+  aoSalvar: (d: { nome: string; cargo_id: number; papel: Papel; email: string; escala: string; senha?: string }) => Promise<void>;
 }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [escala, setEscala] = useState("");
   const [cargoId, setCargoId] = useState(cargosLista[0]?.id ?? 0);
   const [papel, setPapel] = useState<Papel>("Técnico");
-  const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   return (
     <FormModal
@@ -367,7 +401,6 @@ function FormularioNovo({
       aoFechar={aoFechar}
       validar={() => {
         if (!nome.trim()) return "Informe o nome.";
-        if (!!login.trim() !== !!senha) return "Informe login e senha juntos, ou deixe ambos em branco.";
         return null;
       }}
       aoEnviar={() =>
@@ -377,7 +410,7 @@ function FormularioNovo({
           papel,
           email: email.trim(),
           escala: escala.trim(),
-          ...(login.trim() ? { login: login.trim(), senha } : {}),
+          ...(senha ? { senha } : {}),
         })
       }
     >
@@ -397,8 +430,10 @@ function FormularioNovo({
         </CampoSelecao>
         <CampoTexto rotulo="Escala" value={escala} onChange={(e) => setEscala(e.target.value)} maxLength={100} ajuda="Ex.: Seg–Sex 8h–17h" />
         <span />
-        <CampoTexto rotulo="Login (opcional)" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="off" autoCapitalize="none" ajuda="Permite acessar o sistema." />
-        <CampoTexto rotulo="Senha (opcional)" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" />
+        <CampoTexto rotulo="Senha de acesso (opcional)" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" ajuda="Mínimo de 10 caracteres. Sem senha, o acesso é definido depois." />
+        <p className="campo__ajuda" style={{ gridColumn: "1 / -1" }}>
+          A matrícula (duas letras e seis números) é gerada automaticamente ao cadastrar e será exibida na confirmação.
+        </p>
       </div>
     </FormModal>
   );
@@ -438,19 +473,20 @@ function FormularioCredencial({
 }: {
   item: Usuario;
   aoFechar: () => void;
-  aoSalvar: (login: string, senha: string) => Promise<void>;
+  aoSalvar: (senha: string) => Promise<void>;
 }) {
-  const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   return (
     <FormModal
-      titulo={`Login e senha — ${item.nome}`}
+      titulo={`Senha — ${item.nome}`}
       rotuloEnviar="Definir"
       aoFechar={aoFechar}
-      validar={() => (!login.trim() || !senha ? "Informe o login e a senha." : null)}
-      aoEnviar={() => aoSalvar(login.trim(), senha)}
+      validar={() => (!senha ? "Informe a nova senha." : null)}
+      aoEnviar={() => aoSalvar(senha)}
     >
-      <CampoTexto rotulo="Login" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="off" autoCapitalize="none" required />
+      <p className="campo__ajuda">
+        Matrícula de acesso: <code className="matricula">{item.matricula}</code> (não muda).
+      </p>
       <CampoTexto rotulo="Nova senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" required />
     </FormModal>
   );

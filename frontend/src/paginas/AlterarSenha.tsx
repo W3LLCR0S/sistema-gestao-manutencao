@@ -60,8 +60,8 @@ export function AlterarSenha() {
               <dd>{usuario?.nome}</dd>
             </div>
             <div>
-              <dt>Login</dt>
-              <dd>{usuario?.login ?? "—"}</dd>
+              <dt>Matrícula</dt>
+              <dd>{usuario?.matricula ?? "—"}</dd>
             </div>
             <div>
               <dt>Papel</dt>
