@@ -20,16 +20,19 @@ from tests.apoio.relogio import RelogioFixo
 
 PREFIXO = "/api/v1"
 SENHA = "senha-de-teste-123"
-LOGINS = {ANA: "ana", BRUNO: "bruno", CARLA: "carla"}
+# Matrículas fixas dos três usuários fictícios (semente do legado e migração 0003).
+MATRICULAS = {ANA: "KM482731", BRUNO: "RT095624", CARLA: "VX716309"}
+MAT_ANA, MAT_BRUNO, MAT_CARLA = MATRICULAS[ANA], MATRICULAS[BRUNO], MATRICULAS[CARLA]
+MATRICULA_DESCONHECIDA = "ZZ000000"  # formato válido, mas de ninguém
 HASHER_RAPIDO = HasherArgon2(time_cost=1, memory_cost=8, parallelism=1)
 
 
 def semear_com_acesso(aplicacao: Aplicacao) -> None:
-    """Base do legado (cargos, 3 usuários, 3 equipamentos) e login/senha para os três usuários."""
+    """Base do legado (cargos, 3 usuários, 3 equipamentos) e senha para os três usuários."""
     c = aplicacao.container
     semear_dados_de_exemplo(c.equipamentos, c.cargos, c.usuarios)
-    for usuario_id, login in LOGINS.items():
-        aplicacao.autenticacao.definir_credencial_administrativa(usuario_id, login, SENHA)
+    for usuario_id in MATRICULAS:
+        aplicacao.autenticacao.definir_credencial_administrativa(usuario_id, SENHA)
 
 
 class ClienteLogado:
@@ -82,7 +85,7 @@ class Mundo:
     def entrar(self, usuario_id: int, senha: str = SENHA) -> ClienteLogado:
         http = self.navegador()
         resposta = http.post(
-            f"{PREFIXO}/auth/login", json={"login": LOGINS[usuario_id], "senha": senha}
+            f"{PREFIXO}/auth/login", json={"matricula": MATRICULAS[usuario_id], "senha": senha}
         )
         assert resposta.status_code == 200, resposta.text
         return ClienteLogado(http, resposta.json()["csrf_token"])

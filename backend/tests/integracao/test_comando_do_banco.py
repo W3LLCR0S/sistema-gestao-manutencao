@@ -43,7 +43,7 @@ def test_migrar_semear_e_consultar_em_processos_diferentes(
 
         migrado = _executar(url, raiz_backend, "migrar")
         assert migrado.returncode == 0, migrado.stderr
-        assert "0002" in migrado.stdout
+        assert "0003" in migrado.stdout
 
         semeado = _executar(url, raiz_backend, "semear")
         assert semeado.returncode == 0, semeado.stderr

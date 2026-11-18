@@ -1,27 +1,38 @@
-"""Autenticação da API (D-01): login, sessão, expiração, logout, CSRF, origem e tentativas."""
+"""Autenticação da API (D-01): login por matrícula, sessão, expiração, logout, CSRF, origem e
+tentativas."""
 
 import pytest
 
 from manutencao.application.servicos.autenticacao import hash_do_token
 from tests.apoio.ambiente import ANA, BRUNO
-from tests.apoio.api import LOGINS, PREFIXO, SENHA, Mundo
+from tests.apoio.api import (
+    MAT_ANA,
+    MAT_BRUNO,
+    MAT_CARLA,
+    MATRICULA_DESCONHECIDA,
+    MATRICULAS,
+    PREFIXO,
+    SENHA,
+    Mundo,
+)
 
 LOGIN = f"{PREFIXO}/auth/login"
 COOKIE = "manutencao_sessao"
 
 
-def _login(mundo: Mundo, login: str, senha: str):  # type: ignore[no-untyped-def]
+def _login(mundo: Mundo, matricula: str, senha: str):  # type: ignore[no-untyped-def]
     http = mundo.navegador()
-    return http, http.post(LOGIN, json={"login": login, "senha": senha})
+    return http, http.post(LOGIN, json={"matricula": matricula, "senha": senha})
 
 
 # ------------------------------------------------------------------------------------------ login
 def test_login_valido_abre_sessao_com_cookie_seguro_e_devolve_o_usuario(mundo: Mundo) -> None:
-    http, r = _login(mundo, "ana", SENHA)
+    http, r = _login(mundo, MAT_ANA, SENHA)
     assert r.status_code == 200
     corpo = r.json()
     assert corpo["usuario"]["id"] == ANA
-    assert corpo["usuario"]["login"] == "ana"
+    assert corpo["usuario"]["matricula"] == MAT_ANA
+    assert "login" not in corpo["usuario"]
     assert corpo["usuario"]["papel"] == "Gestor"
     assert corpo["csrf_token"]
     cookie = r.headers["set-cookie"]
@@ -33,13 +44,41 @@ def test_login_valido_abre_sessao_com_cookie_seguro_e_devolve_o_usuario(mundo: M
     assert http.get(f"{PREFIXO}/auth/me").status_code == 200
 
 
-def test_login_e_insensivel_a_maiusculas_e_a_espacos(mundo: Mundo) -> None:
-    _, r = _login(mundo, "  ANA ", SENHA)
+def test_login_ignora_apenas_espacos_nas_pontas_da_matricula(mundo: Mundo) -> None:
+    _, r = _login(mundo, f"  {MAT_ANA} ", SENHA)
     assert r.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "matricula",
+    [
+        "ana",  # o nome de usuário antigo não entra mais
+        "bruno",
+        "carla",
+        "km482731",  # minúsculas: o formato exige maiúsculas
+        "KM48273",  # curta
+        "KM4827311",  # longa
+        "K1482731",  # dígito no lugar de letra
+        "KMA82731",  # letra no lugar de dígito
+        "KM 82731",
+    ],
+)
+def test_login_recusa_nome_antigo_e_matricula_malformada_com_a_mesma_resposta(
+    mundo: Mundo, matricula: str
+) -> None:
+    _, r = _login(mundo, matricula, SENHA)
+    assert r.status_code == 401
+    assert r.json() == {"codigo": "credenciais_invalidas", "mensagem": "Credenciais inválidas."}
+
+
+def test_login_com_o_campo_antigo_login_e_recusado_pela_forma_da_entrada(mundo: Mundo) -> None:
+    r = mundo.navegador().post(LOGIN, json={"login": "ana", "senha": SENHA})
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "entrada_invalida"
+
+
 def test_resposta_do_login_nao_traz_hash_nem_o_token_da_sessao(mundo: Mundo) -> None:
-    http, r = _login(mundo, "ana", SENHA)
+    http, r = _login(mundo, MAT_ANA, SENHA)
     texto = r.text.casefold()
     assert "argon2" not in texto
     assert "hash" not in texto
@@ -53,9 +92,9 @@ def test_senha_incorreta_usuario_inexistente_e_inativo_recebem_a_mesma_recusa(
 ) -> None:
     mundo.aplicacao.container.servico_usuarios.desativar(ANA, 3)  # Carla inativa
     respostas = [
-        _login(mundo, "ana", "senha-errada-123")[1],
-        _login(mundo, "ninguem", SENHA)[1],
-        _login(mundo, "carla", SENHA)[1],  # senha certa, usuário inativo
+        _login(mundo, MAT_ANA, "senha-errada-123")[1],
+        _login(mundo, MATRICULA_DESCONHECIDA, SENHA)[1],
+        _login(mundo, MAT_CARLA, SENHA)[1],  # senha certa, usuário inativo
     ]
     for r in respostas:
         assert r.status_code == 401
@@ -64,7 +103,7 @@ def test_senha_incorreta_usuario_inexistente_e_inativo_recebem_a_mesma_recusa(
 
 
 def test_login_recusado_nao_cria_sessao(mundo: Mundo) -> None:
-    http, r = _login(mundo, "ana", "errada-errada-1")
+    http, r = _login(mundo, MAT_ANA, "errada-errada-1")
     assert r.status_code == 401
     assert http.get(f"{PREFIXO}/auth/me").status_code == 401
 
@@ -73,12 +112,12 @@ def test_login_recusado_nao_cria_sessao(mundo: Mundo) -> None:
     "corpo",
     [
         {},
-        {"login": "ana"},
+        {"matricula": MAT_ANA},
         {"senha": SENHA},
-        {"login": "ana", "senha": SENHA, "ator_id": 1},
-        {"login": 1, "senha": SENHA},
-        {"login": "a" * 101, "senha": SENHA},
-        {"login": "ana", "senha": "x" * 129},
+        {"matricula": MAT_ANA, "senha": SENHA, "ator_id": 1},
+        {"matricula": 1, "senha": SENHA},
+        {"matricula": "a" * 65, "senha": SENHA},
+        {"matricula": MAT_ANA, "senha": "x" * 129},
     ],
 )
 def test_login_valida_a_forma_da_entrada(mundo: Mundo, corpo: dict[str, object]) -> None:
@@ -89,14 +128,14 @@ def test_login_valida_a_forma_da_entrada(mundo: Mundo, corpo: dict[str, object])
 
 def test_erro_de_validacao_nao_devolve_o_valor_enviado(mundo: Mundo) -> None:
     segredo = "uma-senha-que-nao-pode-vazar-" + "x" * 200  # excede o limite de 128
-    r = mundo.navegador().post(LOGIN, json={"login": "ana", "senha": segredo})
+    r = mundo.navegador().post(LOGIN, json={"matricula": MAT_ANA, "senha": segredo})
     assert r.status_code == 422
     assert segredo not in r.text
     assert "uma-senha-que-nao-pode-vazar" not in r.text
 
 
 def test_o_token_nao_e_gravado_em_texto_so_o_hash(mundo: Mundo) -> None:
-    http, _ = _login(mundo, "ana", SENHA)
+    http, _ = _login(mundo, MAT_ANA, SENHA)
     token = http.cookies[COOKIE]
     sessoes = mundo.aplicacao.sessoes
     assert sessoes.obter(token) is None  # o texto do cookie não é a chave guardada
@@ -116,7 +155,7 @@ def test_cookie_ganha_secure_quando_configurado_para_https(mundo: Mundo) -> None
         mundo.aplicacao.contexto, configuracao=replace(mundo.configuracao, cookie_seguro=True)
     )
     http = TestClient(criar_app(contexto), base_url="https://testserver")
-    r = http.post(LOGIN, json={"login": "ana", "senha": SENHA})
+    r = http.post(LOGIN, json={"matricula": MAT_ANA, "senha": SENHA})
     assert r.status_code == 200
     assert "Secure" in r.headers["set-cookie"]
 
@@ -294,7 +333,7 @@ def test_origem_configurada_e_aceita(mundo: Mundo) -> None:
     http = TestClient(app)
     r = http.post(
         LOGIN,
-        json={"login": "ana", "senha": SENHA},
+        json={"matricula": MAT_ANA, "senha": SENHA},
         headers={"Origin": "http://192.168.0.10:5173"},
     )
     assert r.status_code == 200
@@ -325,32 +364,34 @@ def test_apos_cinco_falhas_o_login_e_bloqueado_com_429_e_retry_after(mundo: Mund
     http = mundo.navegador()
     for _ in range(5):
         assert (
-            http.post(LOGIN, json={"login": "ana", "senha": "errada-errada-1"}).status_code == 401
+            http.post(LOGIN, json={"matricula": MAT_ANA, "senha": "errada-errada-1"}).status_code
+            == 401
         )
-    r = http.post(LOGIN, json={"login": "ana", "senha": SENHA})  # até a senha certa é barrada
+    r = http.post(LOGIN, json={"matricula": MAT_ANA, "senha": SENHA})  # até a senha certa é barrada
     assert r.status_code == 429
     assert r.json()["codigo"] == "muitas_tentativas"
     assert int(r.headers["retry-after"]) > 0
     mundo.relogio.avancar(minutes=16)
-    assert http.post(LOGIN, json={"login": "ana", "senha": SENHA}).status_code == 200
+    assert http.post(LOGIN, json={"matricula": MAT_ANA, "senha": SENHA}).status_code == 200
 
 
 def test_login_bem_sucedido_zera_as_falhas(mundo: Mundo) -> None:
     http = mundo.navegador()
     for _ in range(4):
-        http.post(LOGIN, json={"login": "ana", "senha": "errada-errada-1"})
-    assert http.post(LOGIN, json={"login": "ana", "senha": SENHA}).status_code == 200
+        http.post(LOGIN, json={"matricula": MAT_ANA, "senha": "errada-errada-1"})
+    assert http.post(LOGIN, json={"matricula": MAT_ANA, "senha": SENHA}).status_code == 200
     for _ in range(4):
         assert (
-            http.post(LOGIN, json={"login": "ana", "senha": "errada-errada-1"}).status_code == 401
+            http.post(LOGIN, json={"matricula": MAT_ANA, "senha": "errada-errada-1"}).status_code
+            == 401
         )
 
 
-def test_o_limite_vale_por_login_e_nao_bloqueia_outras_contas(mundo: Mundo) -> None:
+def test_o_limite_vale_por_matricula_e_nao_bloqueia_outras_contas(mundo: Mundo) -> None:
     http = mundo.navegador()
     for _ in range(5):
-        http.post(LOGIN, json={"login": "ana", "senha": "errada-errada-1"})
-    assert http.post(LOGIN, json={"login": "bruno", "senha": SENHA}).status_code == 200
+        http.post(LOGIN, json={"matricula": MAT_ANA, "senha": "errada-errada-1"})
+    assert http.post(LOGIN, json={"matricula": MAT_BRUNO, "senha": SENHA}).status_code == 200
 
 
 # ----------------------------------------------------------------------------- senha e credencial
@@ -361,8 +402,8 @@ def test_alterar_propria_senha_revoga_as_outras_sessoes_e_mantem_a_atual(mundo: 
     assert r.status_code == 204
     assert atual.get("/auth/me").status_code == 200
     assert outra.get("/auth/me").status_code == 401
-    assert _login(mundo, LOGINS[BRUNO], SENHA)[1].status_code == 401
-    assert _login(mundo, LOGINS[BRUNO], nova)[1].status_code == 200
+    assert _login(mundo, MATRICULAS[BRUNO], SENHA)[1].status_code == 401
+    assert _login(mundo, MATRICULAS[BRUNO], nova)[1].status_code == 200
 
 
 def test_alterar_senha_exige_a_senha_atual_correta_e_uma_nova_valida(mundo: Mundo) -> None:
@@ -376,49 +417,42 @@ def test_alterar_senha_exige_a_senha_atual_correta_e_uma_nova_valida(mundo: Mund
     assert curta.json()["codigo"] == "entrada_invalida"
 
 
-def test_gestor_redefine_o_acesso_e_as_sessoes_do_usuario_caem(mundo: Mundo) -> None:
+def test_gestor_redefine_a_senha_e_as_sessoes_do_usuario_caem(mundo: Mundo) -> None:
     ana, bruno = mundo.entrar(ANA), mundo.entrar(BRUNO)
+    r = ana.put(f"/usuarios/{BRUNO}/credencial", json={"senha": "outra-senha-longa-1"})
+    assert r.status_code == 204
+    assert bruno.get("/auth/me").status_code == 401
+    assert _login(mundo, MAT_BRUNO, SENHA)[1].status_code == 401
+    assert _login(mundo, MAT_BRUNO, "outra-senha-longa-1")[1].status_code == 200
+    # a matrícula não muda com a redefinição
+    assert ana.get(f"/usuarios/{BRUNO}").json()["matricula"] == MAT_BRUNO
+
+
+def test_credencial_nao_aceita_mais_login(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
     r = ana.put(
         f"/usuarios/{BRUNO}/credencial",
         json={"login": "bruno.lima", "senha": "outra-senha-longa-1"},
     )
-    assert r.status_code == 204
-    assert bruno.get("/auth/me").status_code == 401
-    assert _login(mundo, "bruno", SENHA)[1].status_code == 401
-    assert _login(mundo, "bruno.lima", "outra-senha-longa-1")[1].status_code == 200
+    assert r.status_code == 422
 
 
 def test_tecnico_nao_redefine_credencial_de_ninguem(mundo: Mundo) -> None:
     bruno = mundo.entrar(BRUNO)
-    r = bruno.put(
-        f"/usuarios/{ANA}/credencial", json={"login": "x.y.z", "senha": "uma-senha-longa-1"}
-    )
+    r = bruno.put(f"/usuarios/{ANA}/credencial", json={"senha": "uma-senha-longa-1"})
     assert r.status_code == 403
-    assert _login(mundo, "ana", SENHA)[1].status_code == 200  # nada mudou
+    assert _login(mundo, MAT_ANA, SENHA)[1].status_code == 200  # nada mudou
 
 
-def test_login_ja_em_uso_e_conflito(mundo: Mundo) -> None:
+def test_politica_de_senha_na_redefinicao(mundo: Mundo) -> None:
     ana = mundo.entrar(ANA)
-    r = ana.put(
-        f"/usuarios/{BRUNO}/credencial", json={"login": "Ana", "senha": "uma-senha-longa-1"}
-    )
-    assert r.status_code == 409
-    assert r.json()["codigo"] == "login_em_uso"
-
-
-@pytest.mark.parametrize(
-    ("login", "senha"),
-    [("ab", "uma-senha-longa-1"), ("com espaco", "uma-senha-longa-1"), ("novo.login", "curta")],
-)
-def test_politica_de_login_e_senha(mundo: Mundo, login: str, senha: str) -> None:
-    ana = mundo.entrar(ANA)
-    r = ana.put(f"/usuarios/{BRUNO}/credencial", json={"login": login, "senha": senha})
+    r = ana.put(f"/usuarios/{BRUNO}/credencial", json={"senha": "curta"})
     assert r.status_code == 422
 
 
-def test_senha_igual_ao_login_e_recusada(mundo: Mundo) -> None:
+def test_senha_que_contem_a_matricula_e_recusada(mundo: Mundo) -> None:
     ana = mundo.entrar(ANA)
-    r = ana.put(
-        f"/usuarios/{BRUNO}/credencial", json={"login": "bruno.lima", "senha": "bruno.lima"}
-    )
-    assert r.status_code == 422
+    for senha in (MAT_BRUNO, f"{MAT_BRUNO.lower()}xxxx", f"x{MAT_BRUNO}yyyyyyy"):
+        r = ana.put(f"/usuarios/{BRUNO}/credencial", json={"senha": senha})
+        assert r.status_code == 422, senha
+    assert _login(mundo, MAT_BRUNO, SENHA)[1].status_code == 200  # nada mudou

@@ -7,6 +7,7 @@ do que o teste verifica pode vir da memória do processo. Os comandos administra
 """
 
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -22,7 +23,15 @@ from manutencao.composicao import acesso
 from manutencao.composicao.aplicacao import Aplicacao, criar_aplicacao_postgres
 from manutencao.infrastructure.postgres import Banco, migracoes
 from tests.apoio.ambiente import ANA
-from tests.apoio.api import HASHER_RAPIDO, PREFIXO, SENHA, semear_com_acesso
+from tests.apoio.api import (
+    HASHER_RAPIDO,
+    MAT_ANA,
+    MAT_BRUNO,
+    MAT_CARLA,
+    PREFIXO,
+    SENHA,
+    semear_com_acesso,
+)
 from tests.apoio.postgres import banco_temporario
 from tests.apoio.relogio import RelogioFixo
 
@@ -53,8 +62,8 @@ def banco_de_demonstracao(url_do_banco_de_teste: URL, banco_limpo: Banco) -> URL
     return url_do_banco_de_teste
 
 
-def _login(http: TestClient, login: str = "ana") -> str:
-    r = http.post(f"{PREFIXO}/auth/login", json={"login": login, "senha": SENHA})
+def _login(http: TestClient, matricula: str = MAT_ANA) -> str:
+    r = http.post(f"{PREFIXO}/auth/login", json={"matricula": matricula, "senha": SENHA})
     assert r.status_code == 200, r.text
     return str(r.json()["csrf_token"])
 
@@ -165,7 +174,7 @@ def test_excluir_usuario_apaga_credencial_e_sessoes_no_banco(banco_de_demonstrac
     try:
         ana = _login(instancia.http)
         carla = TestClient(criar_app(instancia.aplicacao.contexto))
-        _login(carla, "carla")
+        _login(carla, MAT_CARLA)
         r = instancia.http.delete(f"{PREFIXO}/usuarios/3", headers={"X-CSRF-Token": ana})
         assert r.status_code == 204
         assert carla.get(f"{PREFIXO}/auth/me").status_code == 401
@@ -184,11 +193,21 @@ def test_excluir_usuario_apaga_credencial_e_sessoes_no_banco(banco_de_demonstrac
         engine.dispose()
 
 
-def test_login_unico_e_garantido_pelo_banco(banco_de_demonstracao: URL) -> None:
+def test_matricula_e_gravada_unica_e_no_formato_pelo_proprio_banco(
+    banco_de_demonstracao: URL,
+) -> None:
     engine = create_engine(banco_de_demonstracao)
     try:
-        with pytest.raises(Exception, match="uq_credenciais_login"), engine.begin() as conexao:
-            conexao.execute(text("UPDATE credenciais SET login = 'ana' WHERE usuario_id = 2"))
+        with engine.connect() as conexao:
+            gravadas = dict(conexao.execute(text("SELECT id, matricula FROM usuarios")).all())
+        assert gravadas == {1: MAT_ANA, 2: MAT_BRUNO, 3: MAT_CARLA}
+        with pytest.raises(Exception, match="uq_usuarios_matricula"), engine.begin() as conexao:
+            conexao.execute(text("UPDATE usuarios SET matricula = :m WHERE id = 2"), {"m": MAT_ANA})
+        with (
+            pytest.raises(Exception, match="ck_usuarios_matricula_formato"),
+            engine.begin() as conexao,
+        ):
+            conexao.execute(text("UPDATE usuarios SET matricula = 'ab123456' WHERE id = 2"))
     finally:
         engine.dispose()
 
@@ -222,7 +241,7 @@ def test_criar_gestor_inicial_e_definir_acesso_em_processos_separados(
 ) -> None:
     senha = "uma-senha-so-de-teste-9"
     with banco_temporario(url_do_servidor_de_teste) as url:
-        sem_esquema = _executar(url, raiz_backend, "criar-gestor", "--nome", "X", "--login", "xxx")
+        sem_esquema = _executar(url, raiz_backend, "criar-gestor", "--nome", "X")
         assert sem_esquema.returncode == 2
         assert "migrar" in sem_esquema.stderr
 
@@ -233,13 +252,13 @@ def test_criar_gestor_inicial_e_definir_acesso_em_processos_separados(
             "criar-gestor",
             "--nome",
             "Marina Costa",
-            "--login",
-            "Marina",
             "--senha-stdin",
             entrada=senha + "\n",
         )
         assert criado.returncode == 0, criado.stderr
-        assert "login 'marina'" in criado.stdout
+        achada = re.search(r"matrícula ([A-Z]{2}[0-9]{6})", criado.stdout)
+        assert achada is not None, criado.stdout
+        matricula = achada.group(1)
         assert senha not in criado.stdout + criado.stderr  # nunca ecoa a senha
 
         # outro processo (a aplicação) autentica com o que foi gravado
@@ -247,7 +266,7 @@ def test_criar_gestor_inicial_e_definir_acesso_em_processos_separados(
         try:
             aplicacao = criar_aplicacao_postgres(banco, hasher=HASHER_RAPIDO)
             # o hash do comando usa os parâmetros padrão; a verificação os lê do próprio hash
-            iniciada = aplicacao.autenticacao.login("marina", senha)
+            iniciada = aplicacao.autenticacao.login(matricula, senha)
             assert iniciada.usuario.papel.value == "Gestor"
             assert iniciada.usuario.nome == "Marina Costa"
             assert {c.nome for c in aplicacao.container.cargos.listar()} == {"Gestor", "Técnico"}
@@ -255,46 +274,46 @@ def test_criar_gestor_inicial_e_definir_acesso_em_processos_separados(
             banco.encerrar()
 
         de_novo = _executar(
-            url, raiz_backend, "criar-gestor", "--nome", "Outro", "--login", "outro",
+            url, raiz_backend, "criar-gestor", "--nome", "Outro",
             "--senha-stdin", entrada=senha + "\n",
         )  # fmt: skip
         assert de_novo.returncode == 3
         assert "Já existe um Gestor" in de_novo.stderr
 
         redefinido = _executar(
-            url, raiz_backend, "definir-acesso", "--usuario-id", "1", "--login", "marina",
+            url, raiz_backend, "definir-acesso", "--matricula", matricula,
             "--senha-stdin", entrada="outra-senha-so-de-teste-9\n",
         )  # fmt: skip
         assert redefinido.returncode == 0, redefinido.stderr
         banco = Banco(url)
         try:
             aplicacao = criar_aplicacao_postgres(banco, hasher=HASHER_RAPIDO)
-            assert aplicacao.autenticacao.login("marina", "outra-senha-so-de-teste-9")
+            assert aplicacao.autenticacao.login(matricula, "outra-senha-so-de-teste-9")
         finally:
             banco.encerrar()
 
 
-def test_comando_recusa_senha_fraca_e_login_invalido(
+def test_comando_recusa_senha_fraca_e_nao_aceita_mais_login(
     url_do_servidor_de_teste: URL, raiz_backend: Path
 ) -> None:
     with banco_temporario(url_do_servidor_de_teste) as url:
         _executar(url, raiz_backend, "migrar")
         fraca = _executar(
-            url, raiz_backend, "criar-gestor", "--nome", "M", "--login", "marina",
+            url, raiz_backend, "criar-gestor", "--nome", "M",
             "--senha-stdin", entrada="curta\n",
         )  # fmt: skip
         assert fraca.returncode == 3
         assert "pelo menos" in fraca.stderr
         ruim = _executar(
-            url, raiz_backend, "criar-gestor", "--nome", "M", "--login", "a b",
+            url, raiz_backend, "criar-gestor", "--nome", "M", "--login", "marina",
             "--senha-stdin", entrada="uma-senha-so-de-teste-9\n",
         )  # fmt: skip
-        assert ruim.returncode == 3
+        assert ruim.returncode == 2  # '--login' não existe mais (argparse recusa)
         estado = _executar(url, raiz_backend, "estado")
         assert "usuários: 0" in estado.stdout  # nada ficou pela metade
 
 
-def test_semear_com_acesso_cria_logins_da_demonstracao(
+def test_semear_com_acesso_cria_as_matriculas_da_demonstracao(
     url_do_servidor_de_teste: URL, raiz_backend: Path
 ) -> None:
     senha = "senha-da-demonstracao-9"
@@ -304,13 +323,13 @@ def test_semear_com_acesso_cria_logins_da_demonstracao(
             url, raiz_backend, "semear", "--com-acesso", "--senha-stdin", entrada=senha + "\n"
         )
         assert semeado.returncode == 0, semeado.stderr
-        assert "ana, bruno, carla" in semeado.stdout
+        assert f"{MAT_ANA}, {MAT_BRUNO}, {MAT_CARLA}" in semeado.stdout
         assert senha not in semeado.stdout + semeado.stderr
         banco = Banco(url)
         try:
             aplicacao = criar_aplicacao_postgres(banco, hasher=HASHER_RAPIDO)
-            for login in ("ana", "bruno", "carla"):
-                assert aplicacao.autenticacao.login(login, senha)
+            for matricula in (MAT_ANA, MAT_BRUNO, MAT_CARLA):
+                assert aplicacao.autenticacao.login(matricula, senha)
         finally:
             banco.encerrar()
 
@@ -329,10 +348,10 @@ def test_gestor_inicial_em_memoria_cria_cargos_e_recusa_um_segundo() -> None:
         app.autenticacao,
         app.unidade,
         nome="Gestora",
-        login="gestora",
         senha=SENHA,
     )
     assert usuario.id == ANA
+    assert usuario.matricula is not None
     assert usuario.e_gestor_administrativo
     with pytest.raises(acesso.GestorJaExisteError):
         acesso.criar_gestor_inicial(
@@ -341,6 +360,5 @@ def test_gestor_inicial_em_memoria_cria_cargos_e_recusa_um_segundo() -> None:
             app.autenticacao,
             app.unidade,
             nome="B",
-            login="b.b.b",
             senha=SENHA,
         )

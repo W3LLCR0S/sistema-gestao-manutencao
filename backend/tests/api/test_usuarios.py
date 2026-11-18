@@ -2,8 +2,9 @@
 
 import pytest
 
+from manutencao.domain.matricula import matricula_valida
 from tests.apoio.ambiente import ANA, BRUNO, CARLA
-from tests.apoio.api import LOGINS, PREFIXO, SENHA, Mundo
+from tests.apoio.api import MAT_ANA, MAT_BRUNO, MAT_CARLA, MATRICULAS, PREFIXO, SENHA, Mundo
 
 NOVO = {"nome": "Diego Rocha", "cargo_id": 2, "papel": "Técnico", "email": "d@x.com"}
 
@@ -87,25 +88,90 @@ def test_cadastrar_usuario(mundo: Mundo) -> None:
     assert corpo["cargo"]["nome"] == "Técnico"
 
 
-def test_cadastrar_com_acesso_permite_login_imediato(mundo: Mundo) -> None:
-    ana = mundo.entrar(ANA)
-    r = ana.post("/usuarios", {**NOVO, "login": "Diego", "senha": "senha-do-diego-123"})
+def test_cadastrar_gera_a_matricula_e_a_devolve_na_confirmacao(mundo: Mundo) -> None:
+    r = mundo.entrar(ANA).post("/usuarios", NOVO)
     assert r.status_code == 201
+    matricula = r.json()["matricula"]
+    assert matricula_valida(matricula)
+    assert matricula not in MATRICULAS.values()
+
+
+def test_matricula_nao_pode_ser_informada_no_cadastro(mundo: Mundo) -> None:
+    r = mundo.entrar(ANA).post("/usuarios", {**NOVO, "matricula": "AB123456"})
+    assert r.status_code == 422  # campo desconhecido: a matrícula é gerada pelo sistema
+
+
+def test_cadastrar_com_senha_permite_login_imediato_pela_matricula(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
+    r = ana.post("/usuarios", {**NOVO, "senha": "senha-do-diego-123"})
+    assert r.status_code == 201
+    matricula = r.json()["matricula"]
     novo = mundo.navegador()
-    ok = novo.post(f"{PREFIXO}/auth/login", json={"login": "diego", "senha": "senha-do-diego-123"})
+    ok = novo.post(
+        f"{PREFIXO}/auth/login", json={"matricula": matricula, "senha": "senha-do-diego-123"}
+    )
     assert ok.status_code == 200
     assert ok.json()["usuario"]["id"] == 4
+    assert ok.json()["usuario"]["matricula"] == matricula
 
 
-def test_cadastrar_com_login_sem_senha_ou_login_repetido_nao_cria_nada(mundo: Mundo) -> None:
+def test_cadastrar_com_o_campo_antigo_login_e_recusado_e_senha_fraca_nao_cria_nada(
+    mundo: Mundo,
+) -> None:
     ana = mundo.entrar(ANA)
     assert ana.post("/usuarios", {**NOVO, "login": "diego"}).status_code == 422
-    repetido = ana.post("/usuarios", {**NOVO, "login": "ANA", "senha": SENHA})
-    assert repetido.status_code == 409
-    assert repetido.json()["codigo"] == "login_em_uso"
-    assert ana.post("/usuarios", {**NOVO, "login": "diego", "senha": "curta"}).status_code == 422
+    assert ana.post("/usuarios", {**NOVO, "senha": "curta"}).status_code == 422
     assert ana.get("/usuarios").json()["total"] == 3
     assert ana.post("/usuarios", NOVO).json()["id"] == 4  # nenhum id foi gasto
+
+
+def test_matriculas_geradas_sao_unicas_entre_varios_cadastros(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
+    geradas = [
+        ana.post("/usuarios", {**NOVO, "nome": f"Pessoa {i}"}).json()["matricula"]
+        for i in range(15)
+    ]
+    todas = [*geradas, *MATRICULAS.values()]
+    assert len(set(todas)) == len(todas)
+    assert all(matricula_valida(m) for m in geradas)
+
+
+def test_listagem_e_detalhe_mostram_a_matricula(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
+    itens = ana.get("/usuarios").json()["itens"]
+    assert {u["id"]: u["matricula"] for u in itens} == MATRICULAS
+    assert ana.get(f"/usuarios/{BRUNO}").json()["matricula"] == MAT_BRUNO
+    assert ana.get("/auth/me").json()["usuario"]["matricula"] == MAT_ANA
+
+
+def test_gestor_pesquisa_usuarios_por_matricula(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
+    por_inteira = ana.get("/usuarios", params={"busca": MAT_BRUNO}).json()
+    assert [u["id"] for u in por_inteira["itens"]] == [BRUNO]
+    por_parte = ana.get("/usuarios", params={"busca": MAT_CARLA[:4].lower()}).json()
+    assert [u["id"] for u in por_parte["itens"]] == [CARLA]
+    assert ana.get("/usuarios", params={"busca": "ZZ999999"}).json()["total"] == 0
+    assert ana.get("/usuarios", params={"busca": "bruno"}).json()["total"] == 1  # nome também
+
+
+def test_tecnico_nao_consulta_matriculas_de_outros(mundo: Mundo) -> None:
+    bruno = mundo.entrar(BRUNO)
+    assert bruno.get("/usuarios").status_code == 403
+    assert bruno.get(f"/usuarios/{ANA}").status_code == 403
+    assert bruno.get("/usuarios", params={"busca": MAT_ANA}).status_code == 403
+
+
+def test_matricula_e_imutavel_pela_api(mundo: Mundo) -> None:
+    ana = mundo.entrar(ANA)
+    r = ana.patch(f"/usuarios/{BRUNO}", {"matricula": "AB123456"})
+    assert r.status_code == 422
+    r = ana.patch(f"/usuarios/{BRUNO}", {"nome": "Bruno Lima Jr."})  # outras edições preservam
+    assert r.status_code == 200
+    assert r.json()["matricula"] == MAT_BRUNO
+    ana.put(f"/usuarios/{BRUNO}/cargo", {"cargo_id": 1})
+    ana.post(f"/usuarios/{BRUNO}/desativar")
+    ana.post(f"/usuarios/{BRUNO}/reativar")
+    assert ana.get(f"/usuarios/{BRUNO}").json()["matricula"] == MAT_BRUNO
 
 
 @pytest.mark.parametrize(
@@ -209,7 +275,7 @@ def test_desativar_revoga_sessoes_e_impede_novo_login_reativar_restaura(mundo: M
     assert r.json()["permissoes"] == []  # inativo não tem permissão efetiva
     assert carla.get("/auth/me").status_code == 401
     tentativa = mundo.navegador().post(
-        f"{PREFIXO}/auth/login", json={"login": LOGINS[CARLA], "senha": SENHA}
+        f"{PREFIXO}/auth/login", json={"matricula": MATRICULAS[CARLA], "senha": SENHA}
     )
     assert tentativa.status_code == 401
     assert ana.post(f"/usuarios/{CARLA}/desativar").status_code == 200  # idempotente
@@ -245,7 +311,7 @@ def test_excluir_usuario_sem_historico_e_com_historico(mundo: Mundo) -> None:
     assert carla.get("/auth/me").status_code == 401
     assert (
         mundo.navegador()
-        .post(f"{PREFIXO}/auth/login", json={"login": "carla", "senha": SENHA})
+        .post(f"{PREFIXO}/auth/login", json={"matricula": MAT_CARLA, "senha": SENHA})
         .status_code
         == 401
     )
