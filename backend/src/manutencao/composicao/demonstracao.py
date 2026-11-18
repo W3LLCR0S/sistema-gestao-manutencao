@@ -5,8 +5,9 @@ inventados. Tudo passa pelos **serviços** (portanto pelas regras reais): usuár
 algumas OS em estados diferentes, para a interface e a API terem o que mostrar. A semente se
 recusa a rodar em um banco que já tem dados.
 
-Contas: ``1 Ana Souza`` (gestora), ``2 Bruno Lima`` e ``3 Carla Mendes`` (técnicos). A autenticação
-(D-01) ainda não existe; os identificadores são os atores dos casos de uso.
+Contas: ``1 Ana Souza`` (gestora), ``2 Bruno Lima`` e ``3 Carla Mendes`` (técnicos).
+Entram pela **matrícula** (Ana ``KM482731``, Bruno ``RT095624``, Carla ``VX716309``) e a
+senha definida com ``--com-acesso``.
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from manutencao.composicao.fabrica import semear_dados_de_exemplo
 from manutencao.domain.enums import Criticidade, StatusOS
 
 ANA, BRUNO, CARLA = 1, 2, 3
+# Matrículas fixas dos três usuários fictícios (também atribuídas pela migração 0003).
+MATRICULAS_DA_DEMONSTRACAO = {ANA: "KM482731", BRUNO: "RT095624", CARLA: "VX716309"}
 TORNO, COMPRESSOR, EMPILHADEIRA = 1, 2, 3
 
 

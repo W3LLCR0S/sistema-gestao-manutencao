@@ -36,9 +36,12 @@ from manutencao.application.servicos.politica_de_disponibilidade import (
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError
+from manutencao.domain.matricula import gerar_matricula_unica
 from manutencao.domain.permissoes import Permissao
 from manutencao.domain.usuario import Usuario
 from manutencao.domain.validacao import exigir_texto
+
+TENTATIVAS_DE_CADASTRO = 5
 
 
 class ServicoDeUsuarios:
@@ -131,14 +134,30 @@ class ServicoDeUsuarios:
     ) -> Usuario:
         """Cadastra um usuário ativo e ``Disponível``, com o **papel informado** (D-02).
 
-        O id vem da sequência do repositório. Uma recusa não consome identificador.
+        O id vem da sequência do repositório. Uma recusa não consome identificador. A **matrícula**
+        (``AA999999``) é gerada aqui, com aleatoriedade segura, verificada contra as existentes e
+        sorteada de novo em caso de colisão; nunca vem do cliente. Se, numa corrida rara, outro
+        cadastro gravar a mesma matrícula primeiro (restrição ``UNIQUE``), sorteia-se outra.
         """
         self._gestor(ator_id)
         cargo = self._carregar_cargo(cargo_id)
         exigir_texto(nome, "o nome")
-        usuario = Usuario(self._usuarios.proximo_id(), nome, cargo, email, escala, papel=papel)
-        self._usuarios.adicionar(usuario)
-        return usuario
+        usuario_id = self._usuarios.proximo_id()
+        for tentativa in range(TENTATIVAS_DE_CADASTRO):
+            matricula = gerar_matricula_unica(self._usuarios.matricula_existe)
+            usuario = Usuario(
+                usuario_id, nome, cargo, email, escala, papel=papel, matricula=matricula
+            )
+            try:
+                self._usuarios.adicionar(usuario)
+            except RegraDeAplicacaoError as erro:
+                if erro.codigo is not CodigoErroAplicacao.MATRICULA_EM_USO:
+                    raise
+                if tentativa == TENTATIVAS_DE_CADASTRO - 1:
+                    raise
+                continue
+            return usuario
+        raise AssertionError("inalcançável")  # pragma: no cover
 
     def atualizar_dados(
         self,

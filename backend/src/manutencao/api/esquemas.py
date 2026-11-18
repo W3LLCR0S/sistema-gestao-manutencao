@@ -63,7 +63,9 @@ class Pagina(Saida, Generic[T]):
 
 # ------------------------------------------------------------------------------------ autenticação
 class LoginEntrada(Entrada):
-    login: Texto100
+    # Sem validar o formato aqui: uma matrícula malformada recebe a mesma recusa (401) que uma
+    # desconhecida, sem pistas de quais valores existem.
+    matricula: Annotated[str, Field(max_length=64)]
     senha: Senha
 
 
@@ -73,7 +75,6 @@ class SenhaAlterarEntrada(Entrada):
 
 
 class CredencialEntrada(Entrada):
-    login: Texto100
     senha: Senha
 
 
@@ -84,6 +85,7 @@ class CargoResumo(Saida):
 
 class UsuarioSaida(Saida):
     id: int
+    matricula: str  # AA999999: gerada pelo sistema, imutável
     nome: str
     email: str
     escala: str
@@ -95,7 +97,7 @@ class UsuarioSaida(Saida):
 
 
 class UsuarioAtualSaida(UsuarioSaida):
-    login: str | None
+    """O usuário autenticado (a matrícula já vem em ``UsuarioSaida``)."""
 
 
 class SessaoSaida(Saida):
@@ -127,8 +129,7 @@ class UsuarioCriarEntrada(Entrada):
     papel: Papel
     email: Texto254 = ""
     escala: Texto100 = ""
-    login: Texto100 | None = None
-    senha: Senha | None = None
+    senha: Senha | None = None  # opcional; a matrícula NUNCA é informada: é gerada
 
 
 class UsuarioAtualizarEntrada(Entrada):

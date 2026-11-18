@@ -3,7 +3,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from manutencao.application.erros import CodigoErroAplicacao, RegraDeAplicacaoError
 from manutencao.application.portas.autenticacao import Credencial, Instante, Sessao
 
 
@@ -11,19 +10,10 @@ class CredenciaisEmMemoria:
     def __init__(self) -> None:
         self._por_usuario: dict[int, Credencial] = {}
 
-    def obter_por_login(self, login: str) -> Credencial | None:
-        alvo = login.casefold()
-        return next((c for c in self._por_usuario.values() if c.login.casefold() == alvo), None)
-
     def obter_por_usuario(self, usuario_id: int) -> Credencial | None:
         return self._por_usuario.get(usuario_id)
 
     def salvar(self, credencial: Credencial) -> None:
-        existente = self.obter_por_login(credencial.login)
-        if existente is not None and existente.usuario_id != credencial.usuario_id:
-            raise RegraDeAplicacaoError(
-                CodigoErroAplicacao.LOGIN_EM_USO, "Esse login já está em uso."
-            )
         self._por_usuario[credencial.usuario_id] = credencial
 
     def remover(self, usuario_id: int) -> None:

@@ -38,6 +38,8 @@ class CodigoErro(StrEnum):
     USUARIO_INATIVO = "usuario_inativo"
     # Regularização da Operação E (REG-E-06)
     DISPONIBILIDADE_MANUAL_INVALIDA = "disponibilidade_manual_invalida"
+    MATRICULA_INVALIDA = "matricula_invalida"
+    MATRICULA_INDISPONIVEL = "matricula_indisponivel"
 
 
 class DominioError(Exception):

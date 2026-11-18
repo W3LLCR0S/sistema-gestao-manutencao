@@ -2,9 +2,14 @@
 
 from dataclasses import dataclass
 
-from manutencao.application.erros import NaoEncontradoError
+from manutencao.application.erros import (
+    CodigoErroAplicacao,
+    NaoEncontradoError,
+    RegraDeAplicacaoError,
+)
 from manutencao.application.portas.repositorios import CargoRepository
 from manutencao.domain.enums import Disponibilidade, Papel
+from manutencao.domain.matricula import gerar_matricula_unica
 from manutencao.domain.usuario import Usuario
 from manutencao.infrastructure.memoria.sequencia import SequenciaMonotonica
 
@@ -21,6 +26,7 @@ class _RegistroUsuario:
     disponibilidade: Disponibilidade
     papel: Papel
     ativo: bool
+    matricula: str
 
 
 class UsuariosEmMemoria:
@@ -50,6 +56,7 @@ class UsuariosEmMemoria:
             usuario.disponibilidade,
             usuario.papel,
             usuario.ativo,
+            usuario.matricula or "",
         )
 
     def _usuario(self, registro: _RegistroUsuario) -> Usuario:
@@ -65,13 +72,27 @@ class UsuariosEmMemoria:
             registro.disponibilidade,
             papel=registro.papel,
             ativo=registro.ativo,
+            matricula=registro.matricula,
         )
 
     def proximo_id(self) -> int:
         return self._sequencia.proximo()
 
+    def matricula_existe(self, matricula: str) -> bool:
+        return any(r.matricula == matricula for r in self._itens.values())
+
+    def obter_por_matricula(self, matricula: str) -> Usuario | None:
+        achado = next((r for r in self._itens.values() if r.matricula == matricula), None)
+        return None if achado is None else self._usuario(achado)
+
     def adicionar(self, usuario: Usuario) -> None:
         self._exigir_cargo(usuario.cargo.id)
+        if usuario.matricula is None:  # o repositório atribui uma matrícula livre ao objeto
+            usuario.atribuir_matricula(gerar_matricula_unica(self.matricula_existe))
+        elif self.matricula_existe(usuario.matricula):
+            raise RegraDeAplicacaoError(
+                CodigoErroAplicacao.MATRICULA_EM_USO, "Essa matrícula já está em uso."
+            )
         self._sequencia.registrar(usuario.id)
         self._itens[usuario.id] = self._registro(usuario)
 

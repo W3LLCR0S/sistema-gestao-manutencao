@@ -3,8 +3,9 @@
     python -m manutencao.composicao.banco estado
     python -m manutencao.composicao.banco migrar
     python -m manutencao.composicao.banco semear [--com-acesso]
-    python -m manutencao.composicao.banco criar-gestor --nome NOME --login LOGIN [--email E]
-    python -m manutencao.composicao.banco definir-acesso --usuario-id N --login LOGIN
+    python -m manutencao.composicao.banco criar-gestor --nome NOME [--email E]
+    python -m manutencao.composicao.banco definir-acesso (--usuario-id N | --matricula AA999999)
+    python -m manutencao.composicao.banco usuarios
     python -m manutencao.composicao.banco reverter [destino] --confirmo   # padrão: -1 (uma revisão)
 
 A conexão vem das variáveis de ambiente (``MANUTENCAO_DATABASE_URL`` ou ``MANUTENCAO_DB_*``) e,
@@ -25,7 +26,11 @@ from manutencao.application.servicos.autenticacao import validar_senha
 from manutencao.composicao import acesso
 from manutencao.composicao.ambiente import carregar_ambiente_local
 from manutencao.composicao.aplicacao import Aplicacao, criar_aplicacao_postgres
-from manutencao.composicao.demonstracao import BancoNaoVazioError, semear_demonstracao
+from manutencao.composicao.demonstracao import (
+    MATRICULAS_DA_DEMONSTRACAO,
+    BancoNaoVazioError,
+    semear_demonstracao,
+)
 from manutencao.composicao.fabrica import criar_container_postgres
 from manutencao.infrastructure.postgres import (
     Banco,
@@ -33,8 +38,6 @@ from manutencao.infrastructure.postgres import (
     ConfiguracaoInvalidaError,
     migracoes,
 )
-
-LOGINS_DA_DEMONSTRACAO = {1: "ana", 2: "bruno", 3: "carla"}
 
 
 def _configuracao() -> ConfiguracaoDoBanco:
@@ -71,6 +74,20 @@ def _estado(config: ConfiguracaoDoBanco) -> int:
     return 0
 
 
+def _listar_usuarios(config: ConfiguracaoDoBanco) -> int:
+    if not _exigir_esquema_atual(config):
+        return 2
+    banco = Banco(config.url)
+    try:
+        c = criar_container_postgres(banco)
+        for u in c.usuarios.listar():
+            situacao = "ativo" if u.ativo else "inativo"
+            print(f"{u.matricula}  {u.id:>3}  {u.nome}  [{u.papel.value}, {situacao}]")
+    finally:
+        banco.encerrar()
+    return 0
+
+
 def _exigir_esquema_atual(config: ConfiguracaoDoBanco) -> bool:
     if migracoes.revisao_atual(config.url) != migracoes.revisao_mais_recente():
         print("O esquema não está atualizado: rode 'migrar' antes.", file=sys.stderr)
@@ -92,8 +109,8 @@ def _semear(config: ConfiguracaoDoBanco, *, com_acesso: bool, senha_stdin: bool)
         with aplicacao.unidade.transacao():
             resumo = semear_demonstracao(aplicacao.container)
             if com_acesso:
-                for usuario_id, login in LOGINS_DA_DEMONSTRACAO.items():
-                    acesso.definir_acesso(aplicacao.autenticacao, usuario_id, login, senha)
+                for usuario_id in MATRICULAS_DA_DEMONSTRACAO:
+                    acesso.definir_acesso(aplicacao.autenticacao, usuario_id, senha)
     except BancoNaoVazioError as erro:
         print(str(erro), file=sys.stderr)
         return 3
@@ -105,9 +122,9 @@ def _semear(config: ConfiguracaoDoBanco, *, com_acesso: bool, senha_stdin: bool)
     )
     if com_acesso:
         print(
-            "Acesso criado para os logins: "
-            + ", ".join(LOGINS_DA_DEMONSTRACAO.values())
-            + " (todos com a senha informada agora; só para demonstração)."
+            "Acesso criado para as matrículas: "
+            + ", ".join(MATRICULAS_DA_DEMONSTRACAO.values())
+            + " (todas com a senha informada agora; só para demonstração)."
         )
     return 0
 
@@ -141,22 +158,23 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
     semear.add_argument(
         "--com-acesso",
         action="store_true",
-        help="cria também o acesso dos 3 usuários fictícios (ana, bruno, carla) com uma senha",
+        help="cria também o acesso dos 3 usuários fictícios (matrículas fixas) com uma senha",
     )
     semear.add_argument("--senha-stdin", action="store_true", help="lê a senha da entrada padrão")
     gestor = comandos.add_parser(
-        "criar-gestor", help="cria o primeiro Gestor com login e senha (pedida sem eco)"
+        "criar-gestor", help="cria o primeiro Gestor (matrícula gerada) com senha (pedida sem eco)"
     )
     gestor.add_argument("--nome", required=True)
-    gestor.add_argument("--login", required=True)
     gestor.add_argument("--email", default="")
     gestor.add_argument("--senha-stdin", action="store_true", help="lê a senha da entrada padrão")
     definir = comandos.add_parser(
-        "definir-acesso", help="cria ou redefine login e senha de um usuário (revoga as sessões)"
+        "definir-acesso", help="cria ou redefine a senha de um usuário (revoga as sessões)"
     )
-    definir.add_argument("--usuario-id", type=int, required=True)
-    definir.add_argument("--login", required=True)
+    alvo = definir.add_mutually_exclusive_group(required=True)
+    alvo.add_argument("--usuario-id", type=int)
+    alvo.add_argument("--matricula", help="matrícula do usuário (AA999999)")
     definir.add_argument("--senha-stdin", action="store_true", help="lê a senha da entrada padrão")
+    comandos.add_parser("usuarios", help="lista matrícula, nome, papel e situação dos usuários")
     reverter = comandos.add_parser("reverter", help="desfaz migrações (APAGA dados dessas tabelas)")
     reverter.add_argument("destino", nargs="?", default="-1")
     reverter.add_argument("--confirmo", action="store_true", help="confirma a perda de dados")
@@ -180,6 +198,8 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         except (ValueError, AplicacaoError) as erro:
             print(getattr(erro, "mensagem", str(erro)), file=sys.stderr)
             return 3
+    if dado.comando == "usuarios":
+        return _listar_usuarios(config)
     if dado.comando in ("criar-gestor", "definir-acesso"):
         if not _exigir_esquema_atual(config):  # antes de pedir a senha
             return 2
@@ -197,19 +217,22 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
                     a.autenticacao,
                     a.unidade,
                     nome=dado.nome,
-                    login=dado.login,
                     senha=senha,
                     email=dado.email,
                 )
-                return (
-                    f"Gestor criado: usuário {usuario.id}, login '{dado.login.strip().casefold()}'."
-                )
+                return f"Gestor criado: usuário {usuario.id}, matrícula {usuario.matricula}."
 
             return _com_aplicacao(config, _criar)
 
         def _definir(a: Aplicacao) -> str:
-            acesso.definir_acesso(a.autenticacao, dado.usuario_id, dado.login, senha)
-            return f"Acesso do usuário {dado.usuario_id} definido; as sessões dele foram revogadas."
+            usuario_id = dado.usuario_id
+            if usuario_id is None:
+                achado = a.container.usuarios.obter_por_matricula(dado.matricula.strip())
+                if achado is None:
+                    raise ValueError("Nenhum usuário tem essa matrícula.")
+                usuario_id = achado.id
+            acesso.definir_acesso(a.autenticacao, usuario_id, senha)
+            return f"Senha do usuário {usuario_id} definida; as sessões dele foram revogadas."
 
         return _com_aplicacao(config, _definir)
     if not dado.confirmo:

@@ -1,4 +1,4 @@
-"""Autenticação por login e senha com sessões do servidor (D-01).
+"""Autenticação por **matrícula** e senha com sessões do servidor (D-01).
 
 * Senha: só o **hash** (Argon2id, porta ``HasherDeSenha``) é guardado; nunca é registrada nem
   devolvida.
@@ -6,25 +6,23 @@
   só o ``sha256`` dele, com expiração absoluta e um segredo CSRF por sessão. Logout, desativação do
   usuário, troca ou redefinição de senha **revogam** sessões.
 * Quem é o ator é decidido **aqui**, pela sessão. A borda nunca aceita um identificador do cliente.
-* Login desconhecido, senha errada e usuário inativo produzem a **mesma** recusa e o mesmo trabalho
-  de hash (sem enumeração de usuários por mensagem ou tempo).
+* Matrícula desconhecida ou malformada, senha errada e usuário inativo produzem a **mesma** recusa
+  e o mesmo trabalho de hash (sem enumeração de usuários por mensagem ou tempo). O nome de usuário
+  antigo (``ana``, ``bruno``...) não é mais aceito: só a matrícula ``AA999999``.
 
 A criação da primeira conta é um procedimento **administrativo** (``composicao.acesso``), não um
 endpoint: não existe credencial fixa no código.
 """
 
 import hashlib
-import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from manutencao.application.erros import (
-    CodigoErroAplicacao,
     CredenciaisInvalidasError,
     EntradaInvalidaError,
     NaoAutenticadoError,
-    RegraDeAplicacaoError,
     SenhaAtualIncorretaError,
 )
 from manutencao.application.portas.autenticacao import (
@@ -38,13 +36,13 @@ from manutencao.application.portas.autenticacao import (
 from manutencao.application.portas.relogio import Relogio
 from manutencao.application.portas.repositorios import UsuarioRepository
 from manutencao.application.servicos.comum import carregar_ator, exigir_encontrado
+from manutencao.domain.matricula import matricula_valida
 from manutencao.domain.permissoes import Permissao
 from manutencao.domain.usuario import Usuario
 
 VALIDADE_PADRAO_EM_HORAS = 8
 TAMANHO_MINIMO_DA_SENHA = 10
 TAMANHO_MAXIMO_DA_SENHA = 128
-_PADRAO_DE_LOGIN = r"[\w.@+\-]{3,100}"
 # Senha só para gastar o mesmo tempo de hash quando o login não existe (não é uma credencial).
 _SENHA_DE_ISCA = "isca-sem-conta-" + "x" * 16
 
@@ -69,20 +67,12 @@ class Autenticacao:
     sessao: Sessao
 
 
-def normalizar_login(login: str) -> str:
-    return login.strip().casefold()
+def normalizar_matricula(matricula: str) -> str:
+    """Só remove espaços nas pontas: a matrícula é case-sensitive (letras maiúsculas)."""
+    return matricula.strip()
 
 
-def validar_login(login: str) -> str:
-    normal = normalizar_login(login)
-    if not re.fullmatch(_PADRAO_DE_LOGIN, normal):
-        raise EntradaInvalidaError(
-            "O login deve ter de 3 a 100 caracteres (letras, números, '.', '@', '+', '-' ou '_')."
-        )
-    return normal
-
-
-def validar_senha(senha: str, login: str = "") -> None:
+def validar_senha(senha: str, matricula: str = "") -> None:
     if len(senha) < TAMANHO_MINIMO_DA_SENHA:
         raise EntradaInvalidaError(
             f"A senha deve ter pelo menos {TAMANHO_MINIMO_DA_SENHA} caracteres."
@@ -91,8 +81,8 @@ def validar_senha(senha: str, login: str = "") -> None:
         raise EntradaInvalidaError(
             f"A senha deve ter no máximo {TAMANHO_MAXIMO_DA_SENHA} caracteres."
         )
-    if login and senha.casefold() == login.casefold():
-        raise EntradaInvalidaError("A senha não pode ser igual ao login.")
+    if matricula and matricula.casefold() in senha.casefold():
+        raise EntradaInvalidaError("A senha não pode ser ou conter a matrícula.")
 
 
 def hash_do_token(token: str) -> str:
@@ -127,15 +117,16 @@ class ServicoDeAutenticacao:
         return self._validade
 
     # ------------------------------------------------------------------------------ sessões
-    def login(self, login: str, senha: str) -> SessaoIniciada:
+    def login(self, matricula: str, senha: str) -> SessaoIniciada:
         """Abre uma sessão. Qualquer falha é ``CredenciaisInvalidasError`` (mensagem única)."""
-        if not login.strip() or not senha or len(senha) > TAMANHO_MAXIMO_DA_SENHA:
+        matricula = normalizar_matricula(matricula)
+        if not matricula_valida(matricula) or not senha or len(senha) > TAMANHO_MAXIMO_DA_SENHA:
             self._hasher.verificar(self._hash_de_isca, _SENHA_DE_ISCA)
             raise CredenciaisInvalidasError
-        credencial = self._credenciais.obter_por_login(normalizar_login(login))
+        usuario = self._usuarios.obter_por_matricula(matricula)
+        credencial = self._credenciais.obter_por_usuario(usuario.id) if usuario else None
         alvo = credencial.senha_hash if credencial is not None else self._hash_de_isca
         confere = self._hasher.verificar(alvo, senha)
-        usuario = self._usuarios.obter(credencial.usuario_id) if credencial is not None else None
         if credencial is None or not confere or usuario is None or not usuario.ativo:
             raise CredenciaisInvalidasError
         agora = self._relogio.agora()
@@ -149,9 +140,7 @@ class ServicoDeAutenticacao:
         )
         with self._unidade.transacao():
             if self._hasher.precisa_renovar(credencial.senha_hash):
-                self._credenciais.salvar(
-                    Credencial(usuario.id, credencial.login, self._hasher.gerar(senha))
-                )
+                self._credenciais.salvar(Credencial(usuario.id, self._hasher.gerar(senha)))
             self._sessoes.remover_expiradas(agora)
             self._sessoes.adicionar(sessao)
         return SessaoIniciada(token, sessao, usuario)
@@ -194,49 +183,31 @@ class ServicoDeAutenticacao:
         )
         if credencial is None or not confere:
             raise SenhaAtualIncorretaError
-        validar_senha(nova, credencial.login)
+        validar_senha(nova, usuario.matricula or "")
         with self._unidade.transacao():
-            self._credenciais.salvar(
-                Credencial(usuario.id, credencial.login, self._hasher.gerar(nova))
-            )
+            self._credenciais.salvar(Credencial(usuario.id, self._hasher.gerar(nova)))
             self._sessoes.remover_do_usuario(usuario.id, exceto=autenticacao.sessao.id_hash)
 
-    def definir_credencial(self, ator_id: int, usuario_id: int, login: str, senha: str) -> None:
-        """O Gestor (``gerir_usuarios``) cria ou redefine o acesso de um usuário.
+    def definir_credencial(self, ator_id: int, usuario_id: int, senha: str) -> None:
+        """O Gestor (``gerir_usuarios``) cria ou redefine a **senha** de um usuário.
 
-        Substitui senha e login e **revoga as sessões** do usuário. A recusa por permissão vem
-        antes de procurar o alvo (como em todos os casos de uso).
+        A matrícula não muda. Revoga as sessões do usuário. A recusa por permissão vem antes de
+        procurar o alvo (como em todos os casos de uso).
         """
         carregar_ator(self._usuarios, ator_id).exigir(Permissao.GERIR_USUARIOS)
-        exigir_encontrado("Usuário", usuario_id, self._usuarios.obter(usuario_id))
-        self._gravar_credencial(usuario_id, login, senha)
+        self._gravar_credencial(usuario_id, senha)
 
-    def definir_credencial_administrativa(self, usuario_id: int, login: str, senha: str) -> None:
+    def definir_credencial_administrativa(self, usuario_id: int, senha: str) -> None:
         """Procedimento **administrativo** (linha de comando): sem ator. Nunca exposto pela API."""
-        exigir_encontrado("Usuário", usuario_id, self._usuarios.obter(usuario_id))
-        self._gravar_credencial(usuario_id, login, senha)
+        self._gravar_credencial(usuario_id, senha)
 
-    def exigir_login_livre(self, login: str, *, usuario_id: int | None = None) -> str:
-        """Valida o login e confirma que não pertence a outro usuário; devolve o login normal."""
-        normal = validar_login(login)
-        existente = self._credenciais.obter_por_login(normal)
-        if existente is not None and existente.usuario_id != usuario_id:
-            raise RegraDeAplicacaoError(
-                CodigoErroAplicacao.LOGIN_EM_USO, "Esse login já está em uso."
-            )
-        return normal
-
-    def _gravar_credencial(self, usuario_id: int, login: str, senha: str) -> None:
-        normal = self.exigir_login_livre(login, usuario_id=usuario_id)
-        validar_senha(senha, normal)
+    def _gravar_credencial(self, usuario_id: int, senha: str) -> None:
+        usuario = exigir_encontrado("Usuário", usuario_id, self._usuarios.obter(usuario_id))
+        validar_senha(senha, usuario.matricula or "")
         senha_hash = self._hasher.gerar(senha)
         with self._unidade.transacao():
-            self._credenciais.salvar(Credencial(usuario_id, normal, senha_hash))
+            self._credenciais.salvar(Credencial(usuario_id, senha_hash))
             self._sessoes.remover_do_usuario(usuario_id)
-
-    def login_do_usuario(self, usuario_id: int) -> str | None:
-        credencial = self._credenciais.obter_por_usuario(usuario_id)
-        return None if credencial is None else credencial.login
 
     def agora(self) -> datetime:
         return self._relogio.agora()

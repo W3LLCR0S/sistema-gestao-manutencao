@@ -7,10 +7,8 @@ sessões dele (``ON DELETE CASCADE``).
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, delete, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import CursorResult, delete, func
 
-from manutencao.application.erros import CodigoErroAplicacao, RegraDeAplicacaoError
 from manutencao.application.portas.autenticacao import Credencial, Sessao
 from manutencao.domain.tempo import garantir_utc
 from manutencao.infrastructure.postgres.banco import Banco
@@ -28,14 +26,7 @@ class CredenciaisNoBanco:
 
     @staticmethod
     def _credencial(modelo: CredencialModelo) -> Credencial:
-        return Credencial(modelo.usuario_id, modelo.login, modelo.senha_hash)
-
-    def obter_por_login(self, login: str) -> Credencial | None:
-        with self._banco.transacao() as sessao:
-            modelo = sessao.scalars(
-                select(CredencialModelo).where(CredencialModelo.login == login.casefold())
-            ).first()
-            return None if modelo is None else self._credencial(modelo)
+        return Credencial(modelo.usuario_id, modelo.senha_hash)
 
     def obter_por_usuario(self, usuario_id: int) -> Credencial | None:
         with self._banco.transacao() as sessao:
@@ -43,21 +34,14 @@ class CredenciaisNoBanco:
             return None if modelo is None else self._credencial(modelo)
 
     def salvar(self, credencial: Credencial) -> None:
-        try:
-            with self._banco.transacao() as sessao:
-                modelo = sessao.get(CredencialModelo, credencial.usuario_id)
-                if modelo is None:
-                    modelo = CredencialModelo(usuario_id=credencial.usuario_id)
-                    sessao.add(modelo)
-                modelo.login = credencial.login.casefold()
-                modelo.senha_hash = credencial.senha_hash
-                modelo.atualizada_em = func.now()
-                sessao.flush()
-        except IntegrityError as erro:
-            # único caso esperado: login de outro usuário (uq_credenciais_login)
-            raise RegraDeAplicacaoError(
-                CodigoErroAplicacao.LOGIN_EM_USO, "Esse login já está em uso."
-            ) from erro
+        with self._banco.transacao() as sessao:
+            modelo = sessao.get(CredencialModelo, credencial.usuario_id)
+            if modelo is None:
+                modelo = CredencialModelo(usuario_id=credencial.usuario_id)
+                sessao.add(modelo)
+            modelo.senha_hash = credencial.senha_hash
+            modelo.atualizada_em = func.now()
+            sessao.flush()
 
     def remover(self, usuario_id: int) -> None:
         with self._banco.transacao() as sessao:

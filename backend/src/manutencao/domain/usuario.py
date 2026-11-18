@@ -4,6 +4,7 @@ from manutencao.domain.cargo import Cargo
 from manutencao.domain.disponibilidade import exigir_disponibilidade_manual
 from manutencao.domain.enums import Disponibilidade, Papel
 from manutencao.domain.erros import CodigoErro, PermissaoNegadaError
+from manutencao.domain.matricula import exigir_matricula_valida
 from manutencao.domain.permissoes import Permissao
 
 
@@ -16,6 +17,9 @@ class Usuario:
       papel, e conceder uma permissão técnica a um Gestor não o torna Técnico.
     * **Permissões** vêm do cargo e respondem "o que o usuário pode executar".
     * **Ativo** (DLT-09): um usuário inativo não opera e não é atribuível; o histórico o preserva.
+    * **Matrícula** (``AA999999``): identificador de login, gerado pelo sistema e **imutável**. Só é
+      atribuída uma vez (``atribuir_matricula``, usada pelo cadastro e pelos repositórios); não há
+      como alterá-la depois. ``None`` apenas num objeto ainda não cadastrado.
     * ``disponibilidade`` é o valor **manual** (a ausência); a efetiva é derivada das OS
       (``derivar_disponibilidade``, D-05).
     """
@@ -31,6 +35,7 @@ class Usuario:
         *,
         papel: Papel,
         ativo: bool = True,
+        matricula: str | None = None,
     ) -> None:
         self.id = id
         self.nome = nome
@@ -40,6 +45,22 @@ class Usuario:
         self.disponibilidade = disponibilidade
         self.papel = papel
         self.ativo = ativo
+        self._matricula: str | None = None
+        if matricula is not None:
+            self.atribuir_matricula(matricula)
+
+    @property
+    def matricula(self) -> str | None:
+        return self._matricula
+
+    def atribuir_matricula(self, matricula: str) -> None:
+        """Define a matrícula **uma única vez**. Repetir o mesmo valor é aceito; trocar, não."""
+        valida = exigir_matricula_valida(matricula)
+        if self._matricula is not None and self._matricula != valida:
+            raise PermissaoNegadaError(
+                CodigoErro.SEM_PERMISSAO, "A matrícula é imutável e não pode ser alterada."
+            )
+        self._matricula = valida
 
     def __eq__(self, outro: object) -> bool:
         if not isinstance(outro, Usuario):

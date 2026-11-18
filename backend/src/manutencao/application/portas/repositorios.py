@@ -124,11 +124,23 @@ class UsuarioRepository(Protocol):
 
     def adicionar(self, usuario: Usuario) -> None:
         """Cadastra uma cópia. ``NaoEncontradoError`` se o cargo não existir e
-        ``IdentificadorJaEmitidoError`` se o id já foi emitido."""
+        ``IdentificadorJaEmitidoError`` se o id já foi emitido.
+
+        A matrícula é única: se o usuário a traz, ela é gravada (``RegraDeAplicacaoError``
+        ``matricula_em_uso`` se pertencer a outro); se vem ``None``, o repositório gera uma livre
+        e a atribui ao objeto recebido. Nenhuma operação posterior altera a matrícula."""
         ...
 
     def obter(self, id: int) -> Usuario | None:
         """Uma cópia do usuário (com o cargo e as permissões atuais), ou ``None``."""
+        ...
+
+    def obter_por_matricula(self, matricula: str) -> Usuario | None:
+        """O usuário dono da matrícula (``AA999999``, comparação exata), ou ``None``."""
+        ...
+
+    def matricula_existe(self, matricula: str) -> bool:
+        """Se algum usuário já tem a matrícula."""
         ...
 
     def listar(self) -> tuple[Usuario, ...]:

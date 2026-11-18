@@ -33,12 +33,24 @@ def listar(
     deslocamento: Deslocamento = 0,
     ativo: Annotated[bool | None, Query(description="Filtra por situação")] = None,
     papel: Annotated[Papel | None, Query(description="Filtra por papel")] = None,
+    busca: Annotated[
+        str | None,
+        Query(max_length=100, description="Pesquisa por matrícula, nome ou e-mail (parcial)"),
+    ] = None,
 ) -> e.Pagina[e.UsuarioSaida]:
     todos = contexto.usuarios.listar(autenticado.usuario.id)
+    termo = (busca or "").strip().casefold()
     filtrados = [
         u
         for u in todos
-        if (ativo is None or u.ativo == ativo) and (papel is None or u.papel == papel)
+        if (ativo is None or u.ativo == ativo)
+        and (papel is None or u.papel == papel)
+        and (
+            not termo
+            or termo in (u.matricula or "").casefold()
+            or termo in u.nome.casefold()
+            or termo in u.email.casefold()
+        )
     ]
     return paginar(filtrados, usuario_saida, limite, deslocamento)
 
@@ -47,7 +59,7 @@ def listar(
     "/usuarios",
     response_model=e.UsuarioSaida,
     status_code=status.HTTP_201_CREATED,
-    summary="Cadastra um usuário (e, opcionalmente, o acesso dele)",
+    summary="Cadastra um usuário; a matrícula é gerada e devolvida (e, opcionalmente, a senha)",
 )
 def cadastrar(
     corpo: e.UsuarioCriarEntrada, autenticado: Autenticado, contexto: Contexto
@@ -59,7 +71,6 @@ def cadastrar(
         corpo.email,
         corpo.escala,
         papel=corpo.papel,
-        login=corpo.login,
         senha=corpo.senha,
     )
     return usuario_saida(usuario)
@@ -140,14 +151,12 @@ def excluir(usuario_id: int, autenticado: Autenticado, contexto: Contexto) -> Re
 @usuarios.put(
     "/usuarios/{usuario_id}/credencial",
     status_code=SEM_CONTEUDO,
-    summary="Define ou redefine login e senha (revoga as sessões do usuário)",
+    summary="Define ou redefine a senha (a matrícula não muda; revoga as sessões)",
 )
 def definir_credencial(
     usuario_id: int, corpo: e.CredencialEntrada, autenticado: Autenticado, contexto: Contexto
 ) -> Response:
-    contexto.autenticacao.definir_credencial(
-        autenticado.usuario.id, usuario_id, corpo.login, corpo.senha
-    )
+    contexto.autenticacao.definir_credencial(autenticado.usuario.id, usuario_id, corpo.senha)
     return Response(status_code=SEM_CONTEUDO)
 
 

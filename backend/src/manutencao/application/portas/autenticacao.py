@@ -15,14 +15,14 @@ Instante = datetime  # o instante (com fuso, UTC) que o relógio da aplicação 
 
 @dataclass(frozen=True)
 class Credencial:
-    """Como um usuário se identifica: ``login`` (único, em minúsculas) e o hash da senha."""
+    """O segredo do acesso de um usuário: o hash da senha. Quem ele é no login é a **matrícula**
+    (atributo do usuário, ``UsuarioRepository.obter_por_matricula``), não um campo daqui."""
 
     usuario_id: int
-    login: str
     senha_hash: str
 
     def __repr__(self) -> str:  # o hash não aparece em log nem em traceback
-        return f"Credencial(usuario_id={self.usuario_id}, login={self.login!r}, senha_hash=***)"
+        return f"Credencial(usuario_id={self.usuario_id}, senha_hash=***)"
 
 
 @dataclass(frozen=True)
@@ -42,15 +42,12 @@ class Sessao:
 
 @runtime_checkable
 class CredencialRepository(Protocol):
-    """Credenciais de acesso. Uma por usuário; o ``login`` é único (sem diferenciar maiúsculas)."""
-
-    def obter_por_login(self, login: str) -> Credencial | None: ...
+    """Credenciais de acesso (hash de senha). Uma por usuário."""
 
     def obter_por_usuario(self, usuario_id: int) -> Credencial | None: ...
 
     def salvar(self, credencial: Credencial) -> None:
-        """Cria ou substitui a credencial do usuário. ``RegraDeAplicacaoError`` (``login_em_uso``)
-        se o login pertence a outro usuário."""
+        """Cria ou substitui a credencial do usuário."""
         ...
 
     def remover(self, usuario_id: int) -> None:

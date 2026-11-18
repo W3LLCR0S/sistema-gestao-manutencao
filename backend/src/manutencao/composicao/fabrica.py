@@ -40,20 +40,38 @@ def semear_dados_de_exemplo(
 ) -> None:
     """A base inicial do legado (``_popular_exemplo``), cadastrada pelas portas.
 
-    Cargos fixos 1 Gestor e 2 Técnico; usuários 1 Ana (gestora), 2 Bruno e 3 Carla (técnicos);
-    equipamentos 1 Torno CNC, 2 Compressor de Ar e 3 Empilhadeira Elétrica. Os identificadores
-    saem da sequência de cada repositório, que depois segue em 4 (ou 3, no caso dos cargos).
+    Cargos fixos 1 Gestor e 2 Técnico; usuários 1 Ana (gestora, matrícula KM482731), 2 Bruno
+    (RT095624) e 3 Carla (VX716309) (técnicos); equipamentos 1 Torno CNC, 2 Compressor de Ar e
+    3 Empilhadeira Elétrica. Os identificadores saem da sequência de cada repositório, que depois
+    segue em 4 (ou 3, no caso dos cargos).
     """
     gestor = Cargo(cargos.proximo_id(), "Gestor", Permissoes.padrao_gestor())
     cargos.adicionar(gestor)
     tecnico = Cargo(cargos.proximo_id(), "Técnico", Permissoes.padrao_tecnico())
     cargos.adicionar(tecnico)
-    for nome, cargo, papel, email, escala in (
-        ("Ana Souza", gestor, Papel.GESTOR, "ana@empresa.com", "Seg-Sex 08h-17h"),
-        ("Bruno Lima", tecnico, Papel.TECNICO, "bruno@empresa.com", "Seg-Sex 07h-16h"),
-        ("Carla Mendes", tecnico, Papel.TECNICO, "carla@empresa.com", "Seg-Sex 13h-22h"),
+    for nome, cargo, papel, email, escala, matricula in (
+        ("Ana Souza", gestor, Papel.GESTOR, "ana@empresa.com", "Seg-Sex 08h-17h", "KM482731"),
+        ("Bruno Lima", tecnico, Papel.TECNICO, "bruno@empresa.com", "Seg-Sex 07h-16h", "RT095624"),
+        (
+            "Carla Mendes",
+            tecnico,
+            Papel.TECNICO,
+            "carla@empresa.com",
+            "Seg-Sex 13h-22h",
+            "VX716309",
+        ),
     ):
-        usuarios.adicionar(Usuario(usuarios.proximo_id(), nome, cargo, email, escala, papel=papel))
+        usuarios.adicionar(
+            Usuario(
+                usuarios.proximo_id(),
+                nome,
+                cargo,
+                email,
+                escala,
+                papel=papel,
+                matricula=matricula,
+            )
+        )
     for nome, modelo in (
         ("Torno CNC", "GL 240"),
         ("Compressor de Ar", "CSW 40"),

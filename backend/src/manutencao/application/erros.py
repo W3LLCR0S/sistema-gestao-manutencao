@@ -28,7 +28,7 @@ class CodigoErroAplicacao(StrEnum):
     NAO_AUTENTICADO = "nao_autenticado"
     CREDENCIAIS_INVALIDAS = "credenciais_invalidas"
     MUITAS_TENTATIVAS = "muitas_tentativas"
-    LOGIN_EM_USO = "login_em_uso"
+    MATRICULA_EM_USO = "matricula_em_uso"
     ENTRADA_INVALIDA = "entrada_invalida"
     SENHA_ATUAL_INCORRETA = "senha_atual_incorreta"
 
@@ -70,7 +70,7 @@ class RegraDeAplicacaoError(AplicacaoError):
 
 
 class EntradaInvalidaError(AplicacaoError):
-    """Um dado de entrada da aplicação (login, senha) não atende à política (HTTP 422)."""
+    """Um dado de entrada da aplicação (matrícula, senha) não atende à política (HTTP 422)."""
 
     def __init__(self, mensagem: str) -> None:
         super().__init__(CodigoErroAplicacao.ENTRADA_INVALIDA, mensagem)
@@ -85,7 +85,7 @@ class NaoAutenticadoError(AplicacaoError):
 
 class CredenciaisInvalidasError(NaoAutenticadoError):
     """Login recusado. A mensagem é única para login desconhecido, senha errada e usuário
-    inativo: a resposta não revela quais logins existem."""
+    inativo: a resposta não revela quais matrículas existem."""
 
     def __init__(self) -> None:
         super().__init__("Credenciais inválidas.")

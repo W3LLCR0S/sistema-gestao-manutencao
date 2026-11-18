@@ -1,11 +1,17 @@
 """Repositório de usuários no PostgreSQL (implementa ``UsuarioRepository``)."""
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
-from manutencao.application.erros import NaoEncontradoError
+from manutencao.application.erros import (
+    CodigoErroAplicacao,
+    NaoEncontradoError,
+    RegraDeAplicacaoError,
+)
 from manutencao.application.portas.repositorios import CargoRepository
 from manutencao.domain.cargo import Cargo
 from manutencao.domain.enums import Disponibilidade, Papel
+from manutencao.domain.matricula import gerar_matricula_unica
 from manutencao.domain.usuario import Usuario
 from manutencao.infrastructure.postgres.banco import Banco
 from manutencao.infrastructure.postgres.modelos import UsuarioModelo
@@ -39,6 +45,7 @@ class UsuariosNoBanco:
             Disponibilidade(modelo.disponibilidade),
             papel=Papel(modelo.papel),
             ativo=modelo.ativo,
+            matricula=modelo.matricula,
         )
 
     @staticmethod
@@ -55,13 +62,61 @@ class UsuariosNoBanco:
         with self._banco.transacao() as sessao:
             return self._sequencia.proximo(sessao)
 
+    def matricula_existe(self, matricula: str) -> bool:
+        with self._banco.transacao() as sessao:
+            achado = sessao.scalars(
+                select(UsuarioModelo.id).where(UsuarioModelo.matricula == matricula)
+            ).first()
+            return achado is not None
+
+    def obter_por_matricula(self, matricula: str) -> Usuario | None:
+        with self._banco.transacao() as sessao:
+            modelo = sessao.scalars(
+                select(UsuarioModelo)
+                .where(UsuarioModelo.matricula == matricula)
+                .execution_options(populate_existing=True)
+            ).first()
+            if modelo is None:
+                return None
+            cargo = self._cargos.obter(modelo.cargo_id)
+            if cargo is None:
+                raise NaoEncontradoError("Cargo", modelo.cargo_id)
+            return self._usuario(modelo, cargo)
+
     def adicionar(self, usuario: Usuario) -> None:
+        """Grava o usuário. A restrição ``UNIQUE`` da matrícula é a garantia final contra corrida:
+        a gravação roda num ponto de salvamento, de modo que uma colisão desfaz só ela (inclusive o
+        registro da sequência) e vira ``matricula_em_uso``, sem contaminar a transação externa."""
         with self._banco.transacao() as sessao:
             self._exigir_cargo(usuario.cargo.id)
-            self._sequencia.registrar(sessao, usuario.id)
-            modelo = UsuarioModelo(id=usuario.id)
-            self._preencher(modelo, usuario)
-            sessao.add(modelo)
+            gerada = usuario.matricula is None
+            for _ in range(5 if gerada else 1):
+                candidata = (
+                    gerar_matricula_unica(self.matricula_existe)
+                    if usuario.matricula is None
+                    else usuario.matricula
+                )
+                try:
+                    with sessao.begin_nested():
+                        self._sequencia.registrar(sessao, usuario.id)
+                        modelo = UsuarioModelo(id=usuario.id, matricula=candidata)
+                        self._preencher(modelo, usuario)
+                        sessao.add(modelo)
+                        sessao.flush()
+                except IntegrityError as erro:
+                    if "matricula" not in str(erro.orig).lower():
+                        raise
+                    if gerada:
+                        continue  # corrida rara: sorteia outra
+                    raise RegraDeAplicacaoError(
+                        CodigoErroAplicacao.MATRICULA_EM_USO, "Essa matrícula já está em uso."
+                    ) from erro
+                if gerada:
+                    usuario.atribuir_matricula(candidata)
+                return
+            raise RegraDeAplicacaoError(
+                CodigoErroAplicacao.MATRICULA_EM_USO, "Não foi possível gerar uma matrícula livre."
+            )
 
     def obter(self, id: int) -> Usuario | None:
         with self._banco.transacao() as sessao:

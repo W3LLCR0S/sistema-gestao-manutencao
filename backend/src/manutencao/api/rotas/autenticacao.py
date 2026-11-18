@@ -1,4 +1,4 @@
-"""Autenticação: login, logout, sessão, usuário atual e permissões (D-01)."""
+"""Autenticação por matrícula: login, logout, sessão, usuário atual e permissões (D-01)."""
 
 from fastapi import APIRouter, Request, Response, status
 
@@ -12,23 +12,23 @@ publico = APIRouter(prefix="/auth", tags=["Autenticação"])
 protegido = APIRouter(prefix="/auth", tags=["Autenticação"], dependencies=PROTEGIDO)
 
 
-def _chave_de_tentativas(request: Request, login: str) -> str:
+def _chave_de_tentativas(request: Request, matricula: str) -> str:
     origem = request.client.host if request.client is not None else "?"
-    return f"{origem}|{login.strip().casefold()}"
+    return f"{origem}|{matricula.strip().upper()}"
 
 
 @publico.post(
     "/login",
     response_model=e.SessaoSaida,
-    summary="Abre uma sessão (cookie HttpOnly) com login e senha",
+    summary="Abre uma sessão (cookie HttpOnly) com matrícula e senha",
 )
 def login(
     corpo: e.LoginEntrada, request: Request, response: Response, contexto: Contexto
 ) -> e.SessaoSaida:
-    chave = _chave_de_tentativas(request, corpo.login)
+    chave = _chave_de_tentativas(request, corpo.matricula)
     contexto.limitador.verificar(chave)
     try:
-        iniciada = contexto.autenticacao.login(corpo.login, corpo.senha)
+        iniciada = contexto.autenticacao.login(corpo.matricula, corpo.senha)
     except CredenciaisInvalidasError:
         contexto.limitador.registrar_falha(chave)
         raise
@@ -44,9 +44,7 @@ def login(
         path="/",
     )
     return e.SessaoSaida(
-        usuario=usuario_atual_saida(
-            iniciada.usuario, contexto.autenticacao.login_do_usuario(iniciada.usuario.id)
-        ),
+        usuario=usuario_atual_saida(iniciada.usuario),
         csrf_token=iniciada.sessao.csrf,
         expira_em=iniciada.sessao.expira_em,
     )
@@ -77,7 +75,7 @@ def logout(request: Request, contexto: Contexto) -> Response:
 def eu(autenticado: Autenticado, contexto: Contexto) -> e.SessaoSaida:
     usuario = autenticado.usuario
     return e.SessaoSaida(
-        usuario=usuario_atual_saida(usuario, contexto.autenticacao.login_do_usuario(usuario.id)),
+        usuario=usuario_atual_saida(usuario),
         csrf_token=autenticado.sessao.csrf,
         expira_em=autenticado.sessao.expira_em,
     )

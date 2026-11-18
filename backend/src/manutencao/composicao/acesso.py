@@ -1,9 +1,10 @@
 """Procedimentos **administrativos** de acesso (D-01): fora da API, na máquina do servidor.
 
-* ``criar_gestor_inicial``: cria o primeiro Gestor com login e senha. Só roda se ainda não existe
-  nenhum Gestor administrativamente apto **com acesso** (depois, o Gestor cria os demais pela API).
-* ``definir_acesso``: cria ou redefine o acesso de um usuário existente (recuperação de senha sem
-  e-mail: quem administra o servidor redefine) e revoga as sessões dele.
+* ``criar_gestor_inicial``: cria o primeiro Gestor com senha; a
+  **matrícula** é gerada. Só roda se ainda não existe nenhum Gestor administrativamente apto **com
+  acesso** (depois, o Gestor cria os demais pela API).
+* ``definir_acesso``: cria ou redefine a senha de um usuário existente (recuperação de senha sem
+  e-mail: quem administra o servidor redefine) e revoga as sessões dele. A matrícula não muda.
 
 Nenhuma senha é lida de argumento, variável de ambiente ou arquivo; a linha de comando as pede ao
 terminal (``getpass``) ou, para automação, à entrada padrão. Nenhuma credencial fixa existe no
@@ -58,7 +59,6 @@ def criar_gestor_inicial(
     unidade: UnidadeDeTrabalho,
     *,
     nome: str,
-    login: str,
     senha: str,
     email: str = "",
 ) -> Usuario:
@@ -68,8 +68,7 @@ def criar_gestor_inicial(
             "Já existe um Gestor com acesso. Use 'definir-acesso' para redefinir uma senha."
         )
     # Valida **antes** de criar e cria de forma atômica: nunca sobra um usuário sem acesso.
-    normal = autenticacao.exigir_login_livre(login)
-    validar_senha(senha, normal)
+    validar_senha(senha)
     if not nome.strip():
         raise ValueError("Informe o nome do gestor.")
     with unidade.transacao():
@@ -78,12 +77,10 @@ def criar_gestor_inicial(
             container.usuarios.proximo_id(), nome.strip(), cargo, email, "", papel=Papel.GESTOR
         )
         container.usuarios.adicionar(usuario)
-        autenticacao.definir_credencial_administrativa(usuario.id, login, senha)
+        autenticacao.definir_credencial_administrativa(usuario.id, senha)
     return usuario
 
 
-def definir_acesso(
-    autenticacao: ServicoDeAutenticacao, usuario_id: int, login: str, senha: str
-) -> None:
-    """Cria ou redefine login e senha de um usuário existente; revoga as sessões dele."""
-    autenticacao.definir_credencial_administrativa(usuario_id, login, senha)
+def definir_acesso(autenticacao: ServicoDeAutenticacao, usuario_id: int, senha: str) -> None:
+    """Cria ou redefine a senha de um usuário existente; revoga as sessões dele."""
+    autenticacao.definir_credencial_administrativa(usuario_id, senha)

@@ -6,7 +6,6 @@ as sessões e excluir removendo a credencial. Nenhuma regra é reimplementada: c
 serviço dono da regra, dentro de uma transação (``UnidadeDeTrabalho``).
 """
 
-from manutencao.application.erros import EntradaInvalidaError
 from manutencao.application.portas.autenticacao import CredencialRepository, UnidadeDeTrabalho
 from manutencao.application.portas.repositorios import UsuarioRepository
 from manutencao.application.servicos.autenticacao import ServicoDeAutenticacao, validar_senha
@@ -41,22 +40,25 @@ class ServicoDeContas:
         escala: str = "",
         *,
         papel: Papel,
-        login: str | None = None,
         senha: str | None = None,
     ) -> Usuario:
-        """Cadastra o usuário e, se ``login`` e ``senha`` vierem, o acesso dele: tudo ou nada."""
+        """Cadastra o usuário (a matrícula é **gerada pelo sistema**) e, se ``senha`` vier, o acesso
+        dele: tudo ou nada. A matrícula gerada está no ``Usuario`` devolvido."""
         carregar_ator(self._usuarios, ator_id).exigir(Permissao.GERIR_USUARIOS)
-        if (login is None) != (senha is None):
-            raise EntradaInvalidaError("Informe login e senha juntos, ou nenhum dos dois.")
-        if login is not None and senha is not None:
-            normal = self._autenticacao.exigir_login_livre(login)
-            validar_senha(senha, normal)
+        if senha is not None:
+            validar_senha(senha)  # antes de criar: uma recusa não consome identificador
         with self._unidade.transacao():
             usuario = self._servico_usuarios.cadastrar(
                 ator_id, nome, cargo_id, email, escala, papel=papel
             )
-            if login is not None and senha is not None:
-                self._autenticacao.definir_credencial_administrativa(usuario.id, login, senha)
+            if senha is not None:
+                try:
+                    self._autenticacao.definir_credencial_administrativa(usuario.id, senha)
+                except Exception:
+                    # Sem transação real (memória), desfaz o cadastro; no PostgreSQL o rollback
+                    # também desfaz, e remover aqui é inofensivo.
+                    self._usuarios.remover(usuario.id)
+                    raise
         return usuario
 
     def desativar(self, ator_id: int, usuario_id: int) -> Usuario:

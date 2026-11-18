@@ -18,6 +18,7 @@ def usuario_resumo(u: Usuario) -> e.UsuarioResumo:
 def usuario_saida(u: Usuario) -> e.UsuarioSaida:
     return e.UsuarioSaida(
         id=u.id,
+        matricula=u.matricula or "",
         nome=u.nome,
         email=u.email,
         escala=u.escala,
@@ -29,8 +30,8 @@ def usuario_saida(u: Usuario) -> e.UsuarioSaida:
     )
 
 
-def usuario_atual_saida(u: Usuario, login: str | None) -> e.UsuarioAtualSaida:
-    return e.UsuarioAtualSaida(**usuario_saida(u).model_dump(), login=login)
+def usuario_atual_saida(u: Usuario) -> e.UsuarioAtualSaida:
+    return e.UsuarioAtualSaida(**usuario_saida(u).model_dump())
 
 
 def cargo_saida(c: Cargo) -> e.CargoSaida:

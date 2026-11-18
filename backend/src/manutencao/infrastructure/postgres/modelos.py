@@ -101,9 +101,12 @@ class UsuarioModelo(Base):
         CheckConstraint(
             f"disponibilidade IN ({_valores(Disponibilidade)})", name="disponibilidade_valida"
         ),
+        # Matrícula AA999999: duas letras maiúsculas e seis dígitos (revisão 0003)
+        CheckConstraint("matricula ~ '^[A-Z]{2}[0-9]{6}$'", name="matricula_formato"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    matricula: Mapped[str] = mapped_column(String(8), nullable=False, unique=True)
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     cargo_id: Mapped[int] = mapped_column(
         ForeignKey("cargos.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -202,14 +205,16 @@ class PecaModelo(Base):
 
 
 class CredencialModelo(Base):
-    """Acesso do usuário (D-01): login único (já em minúsculas) e **só o hash** da senha."""
+    """Acesso do usuário (D-01): **só o hash** da senha. Quem entra é identificado pela matrícula
+    (``usuarios.matricula``). ``login_legado`` guarda o nome de usuário anterior à revisão 0003,
+    apenas como registro: não é usado na autenticação e fica ``NULL`` nas contas novas."""
 
     __tablename__ = "credenciais"
 
     usuario_id: Mapped[int] = mapped_column(
         ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True, autoincrement=False
     )
-    login: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    login_legado: Mapped[str | None] = mapped_column(String(100), nullable=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     atualizada_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
