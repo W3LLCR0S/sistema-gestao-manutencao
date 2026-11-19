@@ -1,6 +1,6 @@
 # ADR-0005 — Injeção de dependências
 
-- **Status:** Aceita para documentação (Fase 01); revisada para esclarecer a raiz de composição.
+- **Status:** Aceita; **implementada na Fase 02** (injeção por construtor e raiz de composição). Os provedores `Depends` do FastAPI ficam para a Fase 04.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0004; AUD-16; E2-SOL-05, E2-PAD-01
 
@@ -50,3 +50,7 @@ precisam receber repositórios, relógio e serviço de hash sem conhecer as impl
 - A raiz de composição concentra o conhecimento das implementações; deve permanecer pequena e sem regra de negócio.
 - A configuração (URL do banco, segredos) entra por variáveis de ambiente lidas na composição; **nunca** no código.
 - Se a quantidade de dependências crescer a ponto de a composição manual atrapalhar, reavaliar um contêiner por nova ADR.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Implementado: serviços recebem portas pelo construtor (`application/servicos/*.py`); `composicao/container.py: montar` conhece só abstrações; `composicao/fabrica.py: criar_container_em_memoria` é o único módulo que importa implementações concretas (`test_so_a_fabrica_da_composicao_importa_a_infraestrutura`); sem localizador de serviços nem estado global (`test_nao_ha_localizador_de_servicos_nem_cache_de_instancia`). Os testes substituem implementações sem tocar o serviço (`aplicacao/test_injecao_de_dependencias.py`).

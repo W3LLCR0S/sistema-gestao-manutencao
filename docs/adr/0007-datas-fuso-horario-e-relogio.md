@@ -1,6 +1,6 @@
 # ADR-0007 — Datas, fuso horário e relógio
 
-- **Status:** Aprovada (D-11). **Não implementada.** A conversão de dados legados continua futura.
+- **Status:** Aprovada (D-11); **implementada na Fase 02** no domínio e na aplicação (UTC, instantes com fuso, porta `Relogio`). Conversão de dados legados e apresentação em `America/Sao_Paulo` seguem futuras.
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0002, ADR-0003, ADR-0005; AUD-07; [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (D-11)
 
@@ -39,7 +39,7 @@ os testes dependem da hora real.
    decisão adicional (fuso presumido das datas existentes, tratamento de horário ambíguo) **antes** de qualquer
    migração de dados (D-08). Dados reais só são tocados com autorização específica (OPC-07).
 
-Esboço da direção das dependências (**proposta**, não implementada):
+Esboço da direção das dependências (**implementada** nas portas e no relógio da Fase 02; a borda da Fase 04 não):
 
 ```
 api  ──►  application (caso de uso + porta Relogio)  ──►  domain (recebe 'quando' como argumento)
@@ -61,3 +61,7 @@ infrastructure (RelogioSistema implementa Relogio)
 - Serialização de datas na API deve usar formato com fuso (ISO 8601); o frontend converte para exibição.
 - Será necessário definir, antes da importação, o fuso das datas legadas; hoje **não há decisão**.
 - Ordenações e filtros por data no banco usam instantes UTC.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Implementado: `domain/tempo.py` rejeita instantes sem fuso e guarda em UTC; porta `application/portas/relogio.py: Relogio`; `infrastructure/relogio.py: RelogioDeSistema`; relógio fixo nos testes (`tests/apoio/relogio.py`); `tests/arquitetura/test_relogio_unico.py` garante que `domain` e `application` não leem a hora do sistema; `tests/contrato/test_contrato_relogio.py` roda o mesmo contrato nas duas implementações. **Não implementado:** conversão para `America/Sao_Paulo` e apresentação (Fase 04) e conversão dos dados legados.

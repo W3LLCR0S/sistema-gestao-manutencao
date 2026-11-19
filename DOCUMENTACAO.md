@@ -179,7 +179,7 @@ gestor a **balancear a carga**.
 
 ## 8. Limitações conhecidas
 
-- **Sem senha:** o login é por ID, para facilitar a demonstração.
+- **Sem senha (CLI legada):** o login é por ID, para facilitar a demonstração.
 - **Um usuário por vez:** o arquivo JSON não trata acesso simultâneo. Para isso seria
   necessário um banco de dados.
 - **Permissões por nome em texto** (`"aprovar_os"`): um erro de digitação no código não é

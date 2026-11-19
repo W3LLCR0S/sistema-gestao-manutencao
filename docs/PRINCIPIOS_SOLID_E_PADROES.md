@@ -1,5 +1,9 @@
 # SOLID e padrões de projeto: situação atual e plano
 
+> **Atualização da Fase 02 (2026-11-17):** as seções 1 a 3 abaixo descrevem o **baseline** (`e6f7354`) e o plano da
+> Fase 01 e foram mantidas como registro. A **situação real ao fim da Fase 02**, com arquivo, linha e teste, está na
+> [seção 4](#4-evidências-ao-encerrar-a-fase-02). Onde as duas divergem, vale a seção 4.
+
 Este documento diferencia, para cada princípio e padrão, **o que existe hoje** (baseline `e6f7354`, verificável no
 código) do que está **planejado** (não implementado). Nada na coluna "planejado" deve ser lido como já demonstrado.
 O relatório final (Fase 11) só poderá afirmar que um princípio foi aplicado com arquivo, linha e teste reais.
@@ -170,5 +174,37 @@ Para evitar abstração artificial, estes padrões foram avaliados e adiados ou 
 | Service Layer | API e testes chamando os mesmos serviços |
 
 Enquanto essas evidências não existirem, a documentação deve usar os termos "planejado" ou "proposto" e não
-"implementado" ou "demonstrado". **Hoje nenhum dos três princípios LSP, ISP e DIP está demonstrado**: as ferramentas de
-verificação estática (`pytest`, `ruff`, `mypy`) só serão introduzidas na Fase 02 (D-13) e nenhuma foi instalada.
+"implementado" ou "demonstrado". *(Redação da Fase 01. Na Fase 02 as ferramentas `pytest`, `ruff` e `mypy` foram
+instaladas e as evidências da tabela acima foram produzidas, com as ressalvas honestas da seção 4.)*
+
+## 4. Evidências ao encerrar a Fase 02
+
+Verificadas em 2026-11-17 sobre `backend/src/manutencao/` (≈2.580 linhas de código de produção) e `backend/tests/`.
+Os números de linha referem-se ao estado do HEAD da branch `refactor/arquitetura` no encerramento da fase. "Teste"
+indica o arquivo que falha se a propriedade deixar de valer.
+
+### 4.1 SOLID
+
+| Princípio | Situação | Evidência no código | Teste que comprova |
+|-----------|----------|---------------------|--------------------|
+| **SRP** | Aplicado | Entidades sem serialização nem persistência (`domain/usuario.py:10`, `domain/ordem_servico.py:61`, `domain/cargo.py:6`); um serviço por conjunto coeso de casos de uso (`application/servicos/ordens.py:42`, `usuarios.py:44`, `equipamentos.py:22`, `disponibilidade.py:23`); política de disponibilidade em módulo próprio (`politica_de_disponibilidade.py:25`), usada pelas duas vias; relógio (`infrastructure/relogio.py`), sequência de IDs (`memoria/sequencia.py:13`) e composição (`composicao/`) separados | `arquitetura/test_camadas.py`, `arquitetura/test_infraestrutura_em_memoria.py` (a memória não abre arquivo, banco nem relógio) |
+| **OCP** | Aplicado, com escopo limitado | Controle dirigido por dados: `Usuario.exigir` (`domain/usuario.py:66`) e `Permissoes` (`domain/permissoes.py:87`) não conhecem permissão alguma em particular; `transicao_permitida` (`domain/transicoes.py:78`) é pertinência na tabela `_TABELA` (`transicoes.py:39`) | `dominio/test_extensibilidade.py` (cada membro de `Permissao` é tratado pelo mesmo código; uma entrada a mais na tabela vale sem editar a lógica). **Limite:** acrescentar uma permissão ainda exige declarar o membro em `Permissao`, e um status novo exige também a regra do caso de uso |
+| **LSP** | Demonstrado para o relógio; **preparado, não demonstrado** para os repositórios | Duas implementações da porta `Relogio` (`infrastructure/relogio.py`, `tests/apoio/relogio.py:8`) e uma suíte de contrato que roda inteira contra cada entrada de um dicionário de implementações (`tests/contrato/implementacoes.py:43`) | `contrato/test_contrato_relogio.py` (2 implementações); `contrato/test_contrato_*.py` (82 testes, hoje contra a memória) e `mypy` estrito conferindo a conformidade ao `Protocol`. **A segunda implementação dos repositórios é da Fase 03** |
+| **ISP** | Aplicado | Uma porta por agregado, sem repositório genérico (`application/portas/repositorios.py:64,93,118,148`); cada serviço recebe só as portas de que usa (`ServicoDeDisponibilidade(usuarios, projecoes)`, `disponibilidade.py:26`; `ServicoDeUsuarios(usuarios, cargos, ordens)`, `usuarios.py:47`) | `aplicacao/test_injecao_de_dependencias.py:115,122` (o caso de uso só toca as portas de que precisa; a disponibilidade manual não consulta OS) |
+| **DIP** | Aplicado | `domain` importa só a biblioteca-padrão e a si mesmo; `application` depende de portas (`application/portas/`) e nunca de `infrastructure`; só `composicao/fabrica.py:58` importa implementações concretas | `arquitetura/test_camadas.py:134`, `arquitetura/test_injecao_de_dependencias.py:38,45,55,65`, `arquitetura/test_relogio_unico.py:43` (domínio e aplicação não leem a hora) |
+
+### 4.2 Padrões
+
+| Padrão | Situação | Problema resolvido (achado) | Evidência |
+|--------|----------|-----------------------------|-----------|
+| **Repository** | Porta e uma implementação (memória). Segunda implementação na Fase 03 | AUD-10, AUD-16: persistência acoplada ao JSON e regras no repositório; sem contrato nem substituição | Quatro `Protocol` em `application/portas/repositorios.py`; implementações em `infrastructure/memoria/` (`cargos.py:20`, `equipamentos.py:10`, `ordens.py:11`, `usuarios.py:26`); regras ficam fora do repositório (nos serviços e no domínio); suíte `tests/contrato/` |
+| **Dependency Injection** | Aplicado (por construtor, sem biblioteca) | AUD-16: dependências concretas criadas dentro das classes | Construtores recebendo portas (`ordens.py:45-51`); `composicao/container.py:40 montar` só conhece abstrações; `aplicacao/test_injecao_de_dependencias.py:36,49,93`; `integracao/test_composicao.py:114` |
+| **Service Layer** | Aplicado | AUD-02, AUD-09: autorização e orquestração repetidas ou ausentes em cada adaptador | `application/servicos/*.py` carregam o agregado, autorizam (`comum.py:19 carregar_ator`), chamam a entidade e persistem; os mesmos serviços são exercitados pelos testes de aplicação e de caracterização (`caracterizacao/adaptador_servicos.py`). A API (Fase 04) é o segundo consumidor planejado |
+
+Arquitetura adotada (E2-ARQ-02): **camadas** com dependências apontando para dentro (ADR-0002), verificada por teste.
+
+### 4.3 O que **não** está demonstrado
+
+- Repository com **duas** implementações e a suíte de contrato aprovada em ambas (Fase 03).
+- DIP e Service Layer **na borda web**: provedores `Depends` e API consumindo os serviços (Fase 04).
+- Nenhuma afirmação acima cobre a CLI legada, que **não** foi conectada à nova arquitetura (D-10).

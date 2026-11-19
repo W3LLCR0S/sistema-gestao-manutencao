@@ -1,0 +1,96 @@
+# Configuracao do novo backend (D-14: backend/src/manutencao/, ao lado do legado).
+# Ferramentas: pytest, ruff e mypy (D-13, ADR-0006). Execute os comandos a partir de backend/.
+
+[project]
+name = "manutencao"
+version = "0.0.0"
+description = "Novo backend do Sistema de Gestao de Manutencao de Equipamentos (Entrega 2)"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "SQLAlchemy>=2.0,<2.1",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "argon2-cffi>=23.1",
+]
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+# "src" para importar o pacote sem instala-lo; "." para importar o pacote "tests".
+pythonpath = ["src", "."]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+# Qualquer aviso nao tratado e erro: nao mascarar problemas.
+filterwarnings = ["error"]
+# Os marcadores sao aplicados automaticamente pelo diretorio (ver tests/conftest.py).
+markers = [
+    "caracterizacao: fixa o comportamento atual do legado (Entrega 1)",
+    "dominio: regras e invariantes do dominio, sem repositorio",
+    "aplicacao: casos de uso com repositorios em memoria e relogio fixo",
+    "integracao: repositorios reais, migracoes e persistencia",
+    "api: contrato HTTP (FastAPI), autenticacao e autorizacao; em memoria e no PostgreSQL",
+    "contrato: mesma suite executada contra todas as implementacoes de uma porta",
+    "arquitetura: regras de dependencia entre camadas e isolamento do legado",
+    "cenario(id): identifica o cenario de caracterizacao (registro em tests/caracterizacao/cenarios.py)",
+]
+
+# ------------------------------------------------------------------ ruff
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "."]
+extend-exclude = [".venv"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle (erros)
+    "W",   # pycodestyle (avisos)
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "SIM", # simplify
+    "PT",  # pytest-style
+    "PTH", # usar pathlib
+    "T20", # sem print esquecido
+    "TID", # imports (sem relativos)
+    "RUF", # regras proprias do ruff
+]
+
+[tool.ruff.lint.per-file-ignores]
+# O comando de administração do banco é uma CLI: imprimir é a sua saída.
+"src/manutencao/composicao/banco.py" = ["T201"]
+"src/manutencao/composicao/servidor.py" = ["T201"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["manutencao", "tests"]
+
+# ------------------------------------------------------------------ mypy
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+files = ["src", "tests"]
+explicit_package_bases = true
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+show_error_codes = true
+pretty = true
+
+# pgserver (PostgreSQL embutido, só para testes) não publica tipos.
+[[tool.mypy.overrides]]
+module = ["pgserver"]
+ignore_missing_imports = true
+follow_imports = "skip"

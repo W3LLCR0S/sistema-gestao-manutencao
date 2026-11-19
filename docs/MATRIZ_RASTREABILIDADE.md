@@ -141,25 +141,43 @@ OPC-01 e OPC-02 são **necessárias para a solução web proposta**, e não exig
 | OPC-07 | Opcional | Proposta da equipe, D-08 pendente | Importação dos dados JSON existentes para o banco | Não atendido | Decisão e autorização pendentes | 03 | Importação idempotente com dry-run, contagens e reversão, executada **somente com autorização específica** |
 | OPC-08 | Opcional | Proposta da equipe, D-09 pendente | Publicação em ambiente de produção | Não atendido | Hospedagem não decidida | 10 | URLs verificadas e persistência real, **somente com autorização específica** |
 | OPC-09 | Opcional (melhoria aprovada) | AUD-12 | Validação de entradas no servidor: campos obrigatórios, números válidos, duração > 0 | Não atendido | O baseline aceita entradas vazias e zero hora (executado) | 02, 04 | Entrada inválida recusada sem criar registro nem histórico, pela API e pelo domínio; delta de comportamento registrado |
-| OPC-10 | Opcional (melhoria aprovada) | AUD-08, AUD-10 | Desativação de usuários (`ativo`), sem excluir o histórico; inativos não autenticam nem operam | Não atendido | Campo inexistente; política para OS atribuídas a inativos **não decidida** | 02, 03, 06 | Usuário inativo recusado em login e operações; referências históricas preservadas; nenhuma reatribuição automática |
+| OPC-10 | Opcional (melhoria aprovada) | AUD-08, AUD-10 | Desativação de usuários (`ativo`), sem excluir o histórico; inativos não autenticam nem operam | Não atendido | Campo inexistente; política completa para OS atribuídas a inativos **não decidida** (a desativação é recusada com OS ativas: REG-E-04) | 02, 03, 06 | Usuário inativo recusado em login e operações; referências históricas preservadas; nenhuma reatribuição automática |
 
 ## 5. Decisões aprovadas e requisitos que elas afetam
 
-Referência: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Todas **aprovadas e não implementadas**.
+Referência: [`DECISOES_APROVADAS.md`](DECISOES_APROVADAS.md). Todas **aprovadas**. D-02 a D-06, a validação de entradas e a
+desativação de usuários foram **implementadas no novo backend** na Operação E (DLT-01 a DLT-06, DLT-08 e DLT-09, seção 8
+daquele documento); as demais seguem não implementadas. A coluna "Situação" das seções 1 a 4 continua descrevendo o
+**baseline** (a CLI legada não foi alterada).
 
 | Decisão | Requisitos afetados | Fase |
 |---------|---------------------|------|
-| D-02 Papéis | E1-USR-02, E1-GES-02 | 02 |
-| D-03 Técnico Ausente | E1-GES-03, E1-OS-02 | 02 |
-| D-04 Apontamentos e observações | E1-OS-05, E1-TEC-02 | 02 |
-| D-05 Disponibilidade | E1-CMP-04, E1-OS-02 | 02 |
-| D-06 Diagnóstico | E1-TEC-04, E1-TEC-03 | 02 |
+| D-02 Papéis | E1-USR-02, E1-GES-02 | 02 (**DLT-01** implementado) |
+| D-03 Técnico Ausente | E1-GES-03, E1-OS-02 | 02 (**DLT-02** implementado) |
+| D-04 Apontamentos e observações | E1-OS-05, E1-TEC-02 | 02 (**DLT-03** e **DLT-04** implementados) |
+| D-05 Disponibilidade | E1-CMP-04, E1-OS-02 | 02 (**DLT-05** implementado) |
+| D-06 Diagnóstico | E1-TEC-04, E1-TEC-03 | 02 (**DLT-06** implementado) |
 | D-11 Datas e fuso | E1-RNF-01, E1-OS-05 | 02 |
 | D-13 Ferramentas de qualidade | E2-SOL-03, E2-SOL-04, E2-SOL-05, OPC-03 | 02 |
 | D-14 Estrutura do backend | E2-ENT-01, E2-ARQ-02 | 02 |
 | D-10 CLI e legado preservados; interface principal web | E2-ENT-01, E2-FRT-01, E1-RNF-03 | 02 (convivência) |
-| Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02, 04 |
-| Desativação de usuários | E1-GES-02, OPC-10 | 02, 03, 06 |
+| Validação de entradas | E1-CMP-03, E1-TEC-02, OPC-09 | 02 (**DLT-08** implementado no domínio e nos serviços), 04 |
+| Desativação de usuários | E1-GES-02, OPC-10 | 02 (**DLT-09** implementado no modelo e nos serviços), 03, 06 |
+| Regularização da Operação E (REG-E-01 a REG-E-08) | E1-GES-02, E1-USR-02, E1-OS-05, E1-TEC-02, OPC-09, OPC-10 | 02 (**DLT-18** a **DLT-23** implementados; ver abaixo) |
+
+**Regularização da Operação E** (aprovada em 2026-11-17; [`DECISOES_APROVADAS.md`, seção 9](DECISOES_APROVADAS.md#9-regularização-da-operação-e-reg-e-01-a-reg-e-08)).
+Só no novo backend; o legado não mudou. REG-E-07 e REG-E-08 corrigem a rastreabilidade e não mudam comportamento.
+
+| Decisão | Registro | Requisitos afetados | Efeito |
+|---------|----------|---------------------|--------|
+| REG-E-01 | DLT-18 | E1-GES-02, OPC-10 | O último gestor administrativamente apto não é desativado, excluído nem rebaixado |
+| REG-E-02 | DLT-19 | E1-USR-02, E1-GES-02 | Alterar o papel exige Gestor ativo com `gerir_usuarios` (ratificada) |
+| REG-E-03 | DLT-20 | E1-GES-02, OPC-10 | Ninguém se rebaixa de Gestor nem desativa a própria conta (ratificada) |
+| REG-E-04 | DLT-21 | E1-GES-02, E1-OS-02, OPC-10 | OS ativa impede desativar e deixar o papel Técnico |
+| REG-E-05 | DLT-22 | E1-OS-05, E1-TEC-02, OPC-09 | Observação e descrição de peça obrigatórias |
+| REG-E-06 | DLT-23 | E1-CMP-04, E1-OS-02 | Disponibilidade manual só `Disponível` e `Ausente`; política única |
+| REG-E-07 | REG-E-07 | E1-TEC-04 | Variante do CAR-37 ligada ao DLT-06 |
+| REG-E-08 | REG-E-08 | OPC-09 | Docstring e campos do CAR-80 conferidos |
 
 Pendentes (sem efeito sobre a situação dos requisitos até serem decididas): D-01 (OPC-01), D-07 (OPC-06), D-08 (OPC-07),
 D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).
@@ -175,3 +193,35 @@ D-09 (OPC-08), D-12 (E1-RNF-01, OPC-02), D-15 (E2-FRT-03).
 Leitura: a Entrega 1 está funcionalmente presente na CLI, com 15 requisitos que exigem correção durante a migração
 (`ressalva`) e um sem verificação de execução da CLI; a Entrega 2 está essencialmente por fazer, como esperado no início
 da Fase 01. Esta tabela descreve o **estado do baseline**, não o resultado das fases futuras.
+
+## 7. Situação ao encerrar a Fase 02 (2026-11-17)
+
+As seções 1 a 6 descrevem o **baseline** e permanecem como registro. Esta seção mostra apenas os requisitos que a
+Fase 02 alterou, com a evidência real (detalhes em [`PRINCIPIOS_SOLID_E_PADROES.md`](PRINCIPIOS_SOLID_E_PADROES.md#4-evidências-ao-encerrar-a-fase-02)
+e [`RELATORIO_FASE_02.md`](RELATORIO_FASE_02.md)). A CLI legada **não** foi alterada: a coluna "Situação" das seções 2 e 3
+continua válida para ela.
+
+### 7.1 Entrega 2 (arquitetura)
+
+| ID | Situação no baseline | Situação ao fim da Fase 02 | Evidência | O que falta |
+|----|----------------------|----------------------------|-----------|-------------|
+| E2-SOL-01 SRP | Parcial | **Atendido** (backend) | Entidades sem persistência; um serviço por conjunto coeso; `domain/`, `application/`, `infrastructure/`, `composicao/` | — |
+| E2-SOL-02 OCP | Não atendido | **Atendido com ressalva** | `dominio/test_extensibilidade.py`; controle dirigido por dados (`domain/transicoes.py`, `domain/permissoes.py`) | Nova permissão ainda exige declarar o membro em `Permissao` |
+| E2-SOL-03 LSP | Não atendido | **Parcial** | Relógio com duas implementações e contrato (`contrato/test_contrato_relogio.py`); contrato dos repositórios pronto (82 testes) | Segunda implementação dos repositórios (Fase 03) |
+| E2-SOL-04 ISP | Não atendido | **Atendido** | Portas por agregado (`application/portas/repositorios.py`); `aplicacao/test_injecao_de_dependencias.py` | — |
+| E2-SOL-05 DIP | Parcial | **Atendido** (backend) | `arquitetura/test_camadas.py`, `arquitetura/test_injecao_de_dependencias.py`; só `composicao/fabrica.py` importa implementações | Provedores `Depends` na borda (Fase 04) |
+| E2-PAD-01 Padrão de projeto | Não atendido | **Atendido** (Repository, Dependency Injection e Service Layer) | Seção 4.2 de `PRINCIPIOS_SOLID_E_PADROES.md` | Critério de aceitação "duas implementações do Repository" (Fase 03) |
+| E2-ARQ-02 Tipo de arquitetura | Parcial | **Atendido** (camadas) | ADR-0002, ADR-0008; teste de dependências | — |
+| E2-PER-01 Persistência desacoplada | Parcial | **Parcial** | Portas e memória; regras fora do repositório | Persistência real atrás das portas (Fase 03) |
+| E2-ENT-01 Código por camada | Parcial | **Parcial** | `backend/src/manutencao/` | Camada de apresentação (Fases 04 e seguintes) |
+| E2-DOC-02 SOLID e padrões documentados | Não atendido | **Parcial** | Seção 4 de `PRINCIPIOS_SOLID_E_PADROES.md`, ADRs revisados, `RELATORIO_FASE_02.md` | Relatório técnico final consolidado |
+
+Sem alteração (continuam **Não atendidos** ou **Parciais** como no baseline): E2-FRT-01 a E2-FRT-03 (interface web),
+E2-EXE-01, E2-DOC-01, E2-DOC-03 a E2-DOC-05 e E2-OBJ-01/E2-ARQ-01 (dependem das fases seguintes).
+
+### 7.2 Entrega 1 (regras de negócio)
+
+Os requisitos da Entrega 1 afetados pelas decisões D-02 a D-06, validação de entradas e desativação de usuários estão
+**implementados no novo backend** (DLT-01 a DLT-23; seção 5 acima) e verificados pelos testes de caracterização,
+de domínio e de aplicação. Isso **não** altera a situação da CLI legada, nem constitui interface para o usuário final.
+

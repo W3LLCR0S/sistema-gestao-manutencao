@@ -27,6 +27,7 @@ ENV/
 # --- Segredos / configuracao local ---
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 

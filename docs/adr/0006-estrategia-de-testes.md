@@ -1,7 +1,6 @@
 # ADR-0006 — Estratégia de testes e ferramentas de qualidade
 
-- **Status:** Aceita para documentação (Fase 01); atualizada com a decisão D-13 e com a estratégia de caracterização.
-  Ferramentas além das aprovadas dependem de justificativa. **Nenhuma ferramenta foi instalada nesta fase.**
+- **Status:** Aceita; **aplicada na Fase 02** (ferramentas D-13 instaladas na Operação A; caracterização antes da refatoração).
 - **Data:** 2026-11-15
 - **Relacionados:** ADR-0001 a ADR-0005, ADR-0007 a ADR-0009; AUD-17; E2-OBJ-01 (testabilidade), E2-SOL-03, E2-SOL-04,
   E2-SOL-05, E2-DOC-02; [`DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md) (D-13)
@@ -101,6 +100,71 @@ caracterização), comportamento novo (com o teste substituto), decisão que a a
 | Datas | Texto sem fuso | Instante com fuso em UTC | D-11 |
 | Usuário inativo | Inexistente | Não autentica nem opera | Desativação |
 
+**Registro dos deltas.** Cada delta tem um identificador `DLT-nn` em `backend/tests/caracterizacao/deltas.py`, com o
+comportamento do legado, o aprovado, os cenários CAR-nn que caracterizam o antigo, o estado e as evidências
+(`arquivo::teste`); `test_rastreabilidade.py` confere o estado esperado de cada um e a existência das evidências.
+`DLT-01` a `DLT-09` correspondem, em outra ordem, às linhas da lista inicial acima; `DLT-10` (IDs monotônicos) e `DLT-11` (permissões tipadas) foram acrescentados nas Operações C e D. Todos os deltas estão **implementados**: `DLT-07`, `DLT-10` e `DLT-11` (Operações C e D), os de autorização abaixo
+(`DLT-12` a `DLT-17`) e os de regras de negócio da Operação E (`DLT-01` a `DLT-06`, `DLT-08` e `DLT-09`, tabela a seguir). A
+**regularização da Operação E** acrescenta `DLT-18` a `DLT-23` (decisões `REG-E-01` a `REG-E-06`) sem renumerar os
+anteriores; `REG-E-07` e `REG-E-08` são correções de rastreabilidade e seu registro definitivo é o próprio identificador.
+
+**Deltas de autorização (regularização da Operação D, aprovados em 2026-11-17).** Detalhados na
+[seção 7 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md); todos da camada de aplicação e **implementados**:
+
+| Delta | Anterior (legado) | Novo (serviços) | Cenários do legado |
+|-------|-------------------|-----------------|--------------------|
+| DLT-12 | Gestor retira de si o próprio acesso de gestão | Recusado (autoproteção), sem mutação | CAR-71 |
+| DLT-13 | Gestão de equipamentos, usuários e cargos sem permissão | Exige `gerir_equipamentos` / `gerir_usuarios` antes de mutar | CAR-73 |
+| DLT-14 | Consultas sem permissão | Exige `ver_equipamentos`, `ver_os`, `ver_disponibilidade` (e `gerir_usuarios` para usuários e cargos) | CAR-91 |
+| DLT-15 | Qualquer um altera a disponibilidade de qualquer um | Própria: livre; de outro: só com `gerir_usuarios` | CAR-72 |
+| DLT-16 | Autoexclusão e histórico conferidos sem olhar a permissão | Autorização é a primeira verificação | CAR-93, CAR-64, CAR-65 |
+| DLT-17 | Solicitante inexistente é indiferente | Recusado com `NaoEncontradoError`; sem administrador padrão | CAR-92 |
+
+**Deltas de regras de negócio (Operação E).** Detalhados na
+[seção 8 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md#8-deltas-de-regras-de-negócio-operação-e-dlt-01-a-dlt-09);
+todos **implementados** no domínio e/ou na aplicação, com evidências separadas por camada:
+
+| Delta | Anterior (legado) | Novo | Cenários do legado |
+|-------|-------------------|------|--------------------|
+| DLT-01 | Técnico é quem tem `apontar_reparo`; o cargo move o usuário | Papel explícito; permissão não muda o papel; `alterar_papel` restrito ao Gestor | CAR-18, 60, 63, 82 |
+| DLT-02 | Atribuição a ausente aceita (só a tela confirma) | Recusada; aceita com `confirmar_ausente` e registrada no histórico | CAR-17, 89 |
+| DLT-03 | Observação em OS encerrada aceita | Recusada para todos | CAR-79 |
+| DLT-04 | Qualquer um com permissão observa | Gestor, responsável e quem abriu, em OS ativa | CAR-39, 79 |
+| DLT-05 | Disponibilidade gravada por rotina da UI | Derivada das OS a cada consulta; ausência manual prevalece | CAR-43, 47 a 52, 81 |
+| DLT-06 | Finalizar sem diagnóstico aceito | Diagnóstico exigido antes de Reparo Finalizado | CAR-34, 83 |
+| DLT-08 | Textos vazios e zero hora aceitos | Obrigatórios e horas maiores que zero | CAR-80 |
+| DLT-09 | Sem `ativo`; só se exclui sem histórico | Usuário inativo não opera nem é atribuível; histórico preservado | CAR-64, 65 |
+
+**Regularização da Operação E (aprovada em 2026-11-17).** Detalhada na
+[seção 9 de `DECISOES_APROVADAS.md`](../DECISOES_APROVADAS.md#9-regularização-da-operação-e-reg-e-01-a-reg-e-08);
+todos **implementados** (`REG-E-02` e `REG-E-03` ratificam regras já implementadas):
+
+| Decisão | Delta | Anterior (legado) | Novo | Cenários do legado |
+|---------|-------|-------------------|------|--------------------|
+| REG-E-01 | DLT-18 | Nada impede ficar sem gestor | Recusa que elimina o último gestor administrativamente apto (`ultimo_gestor`) | CAR-71 |
+| REG-E-02 | DLT-19 | O papel era a permissão; sem operação de papel | `alterar_papel` exige Gestor ativo com `gerir_usuarios` (ratificada) | CAR-63 |
+| REG-E-03 | DLT-20 | Só a tela impedia a autoexclusão | Ninguém se rebaixa de Gestor nem desativa a própria conta (ratificada) | CAR-71, CAR-64 |
+| REG-E-04 | DLT-21 | Mudança de cargo sem relação com as OS | OS ativa impede desativar e deixar o papel Técnico (`usuario_com_os_ativas`) | CAR-63 |
+| REG-E-05 | DLT-22 | Observação e descrição de peça vazias aceitas | Ambas obrigatórias (ampliação do DLT-08) | CAR-80 |
+| REG-E-06 | DLT-23 | `Em atendimento` manual aceito; duas políticas | Só `Disponível` e `Ausente`; política única (DLT-15) | CAR-51, CAR-52 |
+| REG-E-07 | REG-E-07 | Variante do CAR-37 sem vínculo com o DLT-06 | Registrada em `VARIANTES_SOMENTE_NO_LEGADO` | CAR-37 |
+| REG-E-08 | REG-E-08 | Docstring do CAR-80 inexato | Campos validados listados exatamente | CAR-80 |
+
+Nas comparações lado a lado (`test_adaptador_dominio.py`, `test_adaptador_servicos.py`) cada par (estado, operação) que muda
+por estes deltas está **nomeado** em `tests/caracterizacao/divergencias.py`, com o delta e a recusa exata; a tabela não admite
+entrada sobrando e todo outro par continua exigindo igualdade total.
+
+**Regra de exclusão da comparação.** Um cenário só deixa de ser executado contra os serviços (`NAO_REPRODUZIDOS_PELOS_SERVICOS`)
+quando (1) há um delta aprovado e implementado; (2) o cenário está vinculado a ele; (3) o comportamento antigo continua
+testado no legado; (4) o novo comportamento tem teste específico; e (5) a divergência é exatamente a autorizada.
+Não existe exclusão genérica por "defeito do legado".
+
+**Variante só do legado (`REG-E-07`).** Quando é só **um teste** de um cenário que não pode rodar contra o novo código
+(o estado de partida deixou de existir por um delta), o cenário **não** é excluído nem classificado como divergente: a
+variante é registrada em `VARIANTES_SOMENTE_NO_LEGADO` (`aplicabilidade.py`) com o delta, a justificativa e as evidências
+da invariante, e `test_rastreabilidade.py` confere que o teste existe, usa a fixture `legado`, que o delta está
+implementado e que o cenário segue executado nos três adaptadores. Hoje: CAR-37 (`DLT-06`).
+
 ### 4. Evidências de LSP, ISP e DIP (futuras, nenhuma existe hoje)
 
 Estes princípios **não estão demonstrados** no baseline. As evidências concretas que serão exigidas, a partir da
@@ -135,3 +199,7 @@ Fase 02, são:
   nenhuma instalação é feita nesta fase).
 - Metas de cobertura, ferramenta E2E e ferramentas adicionais de frontend continuam pendentes.
 - O script de verificação da auditoria deve ser convertido em testes versionados, e não reutilizado como está.
+
+## Revisão ao encerrar a Fase 02 (2026-11-17)
+
+Resultado ao final da Fase 02: `pytest` **2477 passed, 46 skipped**, `ruff check`, `ruff format --check` e `mypy` estrito sem erros. Por camada: domínio 534, aplicação 405, contrato 82, integração 13, arquitetura 234, caracterização 1176 (+46 *skipped* com justificativa registrada por cenário), guardas do ambiente 33. Os 23 deltas (DLT-01 a DLT-23) têm teste e registro documental. A cobertura numérica continua **não definida** (Fase 09). Os testes de API, banco e *frontend* da pirâmide ainda não existem.

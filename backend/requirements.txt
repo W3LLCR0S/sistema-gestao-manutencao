@@ -1,0 +1,36 @@
+# Dependencias de execucao do novo backend (Fase 03: persistencia em PostgreSQL; Fase 04: API e
+# autenticacao).
+# Versoes exatas, inclusive transitivas, para reproduzir o ambiente. Instalacao (a partir de
+# backend/, dentro do ambiente virtual .venv):
+#   python -m pip install -r requirements.txt          # so execucao
+#   python -m pip install -r requirements-dev.txt      # execucao + testes e ferramentas
+
+# --- Diretas ---
+SQLAlchemy==2.0.58
+alembic==1.20.1
+psycopg[binary]==3.3.9
+fastapi==0.163.2          # API HTTP (Fase 04)
+uvicorn==0.54.0           # servidor ASGI
+argon2-cffi==25.1.0       # hash de senhas Argon2id (D-01)
+
+# --- Transitivas (fixadas) ---
+greenlet==3.5.6
+Mako==1.4.3
+MarkupSafe==3.0.4
+psycopg-binary==3.3.9
+typing-extensions==4.16.0
+tzdata==2026.6 ; sys_platform == "win32"
+colorama==0.4.6 ; sys_platform == "win32"
+annotated-doc==0.0.6
+annotated-types==0.8.0
+anyio==4.16.0
+argon2-cffi-bindings==26.2.0
+cffi==2.1.1
+click==8.5.1
+h11==0.16.0
+idna==3.20
+pycparser==3.12
+pydantic==2.14.3
+pydantic_core==2.50.4
+starlette==1.10.0
+typing-inspection==0.4.5
