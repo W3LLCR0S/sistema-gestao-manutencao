@@ -1,7 +1,56 @@
 # Matriz de rastreabilidade de requisitos
 
-Relaciona cada requisito dos enunciados da **Entrega 1** e da **Entrega 2** à implementação existente, à lacuna
-encontrada, à fase planejada e ao critério de aceitação. Baseline: commit `e6f7354` (tag `entrega-1`).
+> **Estado final da Entrega 2 (2026-11-20): seção 0.** As seções 1 a 7 são o **histórico** do projeto: descrevem o
+> baseline (Entrega 1) e o andamento até a Fase 02, quando a Entrega 2 ainda não estava implementada. Seus campos
+> "Situação" **não** refletem o estado atual e foram preservados como registro. Em caso de divergência vale a seção 0.
+
+## 0. Estado final da Entrega 2
+
+Estados: ATENDIDO, PARCIALMENTE ATENDIDO, NÃO ATENDIDO, NÃO VERIFICADO. Resultados de execução:
+[`VALIDACAO_FINAL_ENTREGA_2.md`](VALIDACAO_FINAL_ENTREGA_2.md) (backend: 3218 testes aprovados, 46 ignorados, 0
+falhas; frontend: 35 aprovados; ruff, mypy e build limpos; teste funcional HTTP 28/28).
+
+### 0.1 Requisitos obrigatórios do professor (relatório e entrega)
+
+| # | Requisito | Estado | Evidência documental | Código e testes |
+|---|---|---|---|---|
+| R1 | Código-fonte completo, organizado e em camadas (apresentação, negócio/serviços, domínio, persistência, composição) | ATENDIDO | Relatório §2; `DIAGRAMAS.md` A1-A2 | `backend/src/manutencao/{api,application,domain,infrastructure,composicao}`, `frontend/src`; `tests/arquitetura/test_camadas.py` |
+| R2 | Relatório: arquitetura, descrição e justificativa técnica | ATENDIDO | `RELATORIO_TECNICO_ENTREGA_2.md` §2; ADR-0002/0003/0005/0008 | idem R1 |
+| R3 | Relatório: SOLID (5 princípios) e Design Patterns com exemplos reais | ATENDIDO, com ressalvas declaradas: OCP exige declarar o membro em `Permissao`; Strategy não implementado como padrão formal | Relatório §3 e §4; `PRINCIPIOS_SOLID_E_PADROES.md` | `tests/dominio/test_extensibilidade.py` (OCP), `tests/contrato/` (LSP), `tests/aplicacao/test_injecao_de_dependencias.py` (ISP/DIP), `tests/arquitetura/` (DIP) |
+| R4 | Relatório: melhorias E1→E2, módulos ajustados e funcionalidades do frontend | ATENDIDO | Relatório §5 e §6; `FRONTEND.md` | `frontend/src/paginas/`, `frontend/src/testes/` |
+| R5 | Relatório: histórico e evidências de versionamento (branches, commits, merges) | ATENDIDO (as alterações de documentação desta auditoria ainda **não estão commitadas**) | `EVIDENCIAS_GIT_ENTREGA_2.md`; Relatório §7 | `git log`, tags `entrega-1`, `entrega-2` |
+| R6 | Relatório: guia de instalação, configuração, execução e uso | ATENDIDO | Relatório §8; `EXECUCAO_LOCAL.md`; `README.md` | comandos executados na validação (migração em banco vazio, criar-gestor, semear, servidor, frontend) |
+| R7 | Qualidade: documentação coerente, testes executados, pacote limpo, backend e frontend integrados | ATENDIDO | `VALIDACAO_FINAL_ENTREGA_2.md` | suítes e teste funcional; ZIP sem `.venv`, `node_modules`, `.env`, logs |
+
+### 0.2 Requisitos da Entrega 2 (IDs históricos, estado final)
+
+| ID | Estado final | Evidência |
+|---|---|---|
+| E2-OBJ-01 Evolução com arquitetura, SOLID, padrões e front-end web | ATENDIDO | Relatório; suítes |
+| E2-ARQ-01 Melhoria significativa de arquitetura | ATENDIDO | Camadas, portas, composição; `tests/arquitetura/` |
+| E2-ARQ-02 Tipo de arquitetura aplicado, com evidência | ATENDIDO | Camadas com portas e adaptadores; ADR-0002/0008 |
+| E2-SOL-01 SRP | ATENDIDO | Relatório §3.1 |
+| E2-SOL-02 OCP | PARCIALMENTE ATENDIDO | Tabela de transições e permissões dirigidas por dados; novo membro de `Permissao` é declarado no enum |
+| E2-SOL-03 LSP | ATENDIDO | Suíte de contrato roda em memória e PostgreSQL (`tests/contrato/implementacoes.py`) |
+| E2-SOL-04 ISP | ATENDIDO | Portas por agregado; `UsuarioRepository` é a mais ampla |
+| E2-SOL-05 DIP | ATENDIDO | `tests/arquitetura/test_camadas.py`, `test_injecao_de_dependencias.py` |
+| E2-PAD-01 Pelo menos um padrão, justificado | ATENDIDO | Repository, DI, Service Layer, Factory, Adapter (Relatório §4) |
+| E2-FRT-01 Interface web totalmente funcional | ATENDIDO no que foi verificado: fluxo completo pela API via proxy do frontend (28/28); a verificação **visual** no navegador não pôde ser feita (extensão do Chrome desconectada) | `frontend/`, `VALIDACAO_FINAL_ENTREGA_2.md` |
+| E2-FRT-02 Responsivo e acessível | PARCIALMENTE ATENDIDO | CSS mobile-first e práticas de acessibilidade descritas em `FRONTEND.md`; sem auditoria WCAG nem teste visual automatizado |
+| E2-FRT-03 Painel, listagens e formulários | ATENDIDO | `GET /painel`, `Painel.tsx`, `Ordens.tsx`; painel exercitado no teste funcional |
+| E2-PER-01 Persistência desacoplada | ATENDIDO | Portas + PostgreSQL + memória; migrações 0001-0003 |
+| E2-EXE-01 Executável com instruções | ATENDIDO | Guia executado: migração em banco vazio, criar-gestor, semear, servidor e frontend iniciados |
+| E2-ENT-01 Código organizado em camadas | ATENDIDO | R1 |
+| E2-DOC-01 a E2-DOC-05 Relatório | ATENDIDO (arquivo: `RELATORIO_TECNICO_ENTREGA_2.md`, substitui o nome previsto `RELATORIO_TECNICO.md`) | R2 a R6 |
+
+Requisitos **NÃO VERIFICADO**: acessibilidade WCAG 2.1 AA (meta da equipe) e verificação visual em larguras de
+320 a 1440 px.
+
+---
+
+# Histórico (baseline e andamento até a Fase 02)
+
+Relaciona cada requisito dos enunciados da **Entrega 1** e da **Entrega 2** à implementação existente (baseline: commit `e6f7354`, tag `entrega-1`).
 
 As descrições abaixo são resumos para rastreio; os enunciados oficiais prevalecem. Os achados `AUD-nn` estão em
 [`AUDITORIA_ARQUITETURAL.md`](AUDITORIA_ARQUITETURAL.md).
