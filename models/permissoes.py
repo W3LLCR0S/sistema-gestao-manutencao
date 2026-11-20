@@ -85,5 +85,8 @@ class Permissoes:
         return {a: self.tem(a) for a in self.DESCRICOES}
 
     @classmethod
-    def from_dict(cls, d: dict) -> Permissoes:
+    def from_dict(cls, d: dict | list) -> Permissoes:
+        # Formato antigo: lista com os nomes dos acessos ativos
+        if isinstance(d, (list, tuple, set)):
+            d = {a: True for a in d}
         return cls(**{a: bool(d.get(a, False)) for a in cls.DESCRICOES})
