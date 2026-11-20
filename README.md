@@ -27,7 +27,7 @@ Nunca versione o `.env`.
 cd backend
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-cd ..rontend
+cd ..\frontend
 npm install
 ```
 
