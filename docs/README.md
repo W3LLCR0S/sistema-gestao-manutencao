@@ -3,6 +3,16 @@
 Índice da documentação técnica. Os documentos de arquitetura descrevem o diagnóstico do baseline e a direção planejada;
 **o que está marcado como planejado, proposto ou alvo não está implementado.**
 
+## Entrega 2: documentos finais de avaliação
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [`RELATORIO_TECNICO_ENTREGA_2.md`](RELATORIO_TECNICO_ENTREGA_2.md) | **Relatório principal**: arquitetura, SOLID, padrões, melhorias, funcionalidades, versionamento e guia |
+| [`MATRIZ_RASTREABILIDADE.md`](MATRIZ_RASTREABILIDADE.md) | Requisitos × evidências (seção 0 = estado final; demais = histórico) |
+| [`DIAGRAMAS.md`](DIAGRAMAS.md) | Parte A: arquitetura implementada; Parte B: planejamento histórico |
+| [`EVIDENCIAS_GIT_ENTREGA_2.md`](EVIDENCIAS_GIT_ENTREGA_2.md) | Branches, commits, merges e tags reais |
+| [`VALIDACAO_FINAL_ENTREGA_2.md`](VALIDACAO_FINAL_ENTREGA_2.md) | Testes executados, ambiente e teste funcional |
+
 ## Desenvolvimento e organização
 
 | Documento | Conteúdo |
